@@ -21,17 +21,50 @@ import type {
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
 
 async function handleJson<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
+  // Read the response body stream strictly once to avoid
+  // "Failed to execute 'text' on 'Response': body stream already read".
+  const raw = await res.text();
+  let parsed: unknown = undefined;
+  if (raw) {
     try {
-      const err = await res.json();
-      msg = err.detail || JSON.stringify(err);
+      parsed = JSON.parse(raw);
     } catch {
-      msg = await res.text();
+      parsed = undefined;
     }
-    throw new Error(msg);
   }
-  return res.json() as Promise<T>;
+
+  if (!res.ok) {
+    let detail = "";
+    if (parsed && typeof parsed === "object" && "detail" in parsed) {
+      const d = (parsed as { detail: unknown }).detail;
+      detail = typeof d === "string" ? d : JSON.stringify(d);
+    } else if (parsed !== undefined) {
+      detail = typeof parsed === "string" ? parsed : JSON.stringify(parsed);
+    } else {
+      const trimmed = raw.trim();
+      // Avoid dumping raw HTML error pages from Cloudflare/Render into toast notifications
+      detail = /^<!DOCTYPE|^<html/i.test(trimmed) ? "" : trimmed.slice(0, 300);
+    }
+
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      const wakeMsg = `Server is waking up (HTTP ${res.status}). Please retry in a few seconds.`;
+      throw new Error(detail ? `${wakeMsg} (${detail})` : wakeMsg);
+    }
+
+    if (res.status === 508) {
+      throw new Error(
+        detail ||
+          `HTTP 508 Loop Detected — check BACKEND_INTERNAL_URL proxy configuration.`
+      );
+    }
+
+    throw new Error(detail ? `${detail} (HTTP ${res.status})` : `HTTP ${res.status}`);
+  }
+
+  if (parsed !== undefined) {
+    return parsed as T;
+  }
+  throw new Error(`Invalid JSON response from server (HTTP ${res.status})`);
 }
 
 // --------------------------------------------------------------------------------------------
