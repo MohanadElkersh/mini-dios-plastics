@@ -1,0 +1,58 @@
+# Production Docker Compose for Mini-DIOS Plastics (Shareable Hosted Executive Demo)
+# Usage:
+#   AUTH_SECRET_KEY="$(openssl rand -hex 32)" \
+#   DEMO_ACCESS_CODES="Executive Demo:DIOS-2026,Alexandria Plant:ALEX-2026,Riyadh Plant:KSA-2026" \
+#   docker compose -f docker-compose.prod.yml up --build -d
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mini-dios-backend-prod
+    environment:
+      - DIOS_AUDIT_DB=/data/audit.db
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:-replace-with-strong-32-byte-secret}
+      - DEMO_ACCESS_CODES=${DEMO_ACCESS_CODES:-Executive Demo:DIOS-2026,Alexandria Plant:ALEX-2026,Riyadh Plant:KSA-2026}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ALLOW_INSTANT_DEMO=${ALLOW_INSTANT_DEMO:-false}
+      - COPILOT_MAX_LIVE_CALLS_PER_HOUR=${COPILOT_MAX_LIVE_CALLS_PER_HOUR:-15}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-4-hydrogen}
+      - OFFLINE_MODE=${OFFLINE_MODE:-false}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      - dios-prod-audit-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: ""
+        NEXT_PUBLIC_ALLOW_INSTANT_DEMO: ${NEXT_PUBLIC_ALLOW_INSTANT_DEMO:-false}
+        BACKEND_INTERNAL_URL: http://backend:8000
+    container_name: mini-dios-frontend-prod
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - BACKEND_INTERNAL_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  dios-prod-audit-data:

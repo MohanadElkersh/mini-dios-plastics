@@ -1,0 +1,29 @@
+# Environment files & secrets (NEVER commit)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python & Node runtime / build artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.tools/
+backend/data/
+frontend/node_modules/
+frontend/.next/
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+.DS_Store
+Thumbs.db
+
+# Google OAuth credentials & tokens (NEVER commit)
+credentials.json
+token.json
+*.oauth.json
+client_secret*.json
