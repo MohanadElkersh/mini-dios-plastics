@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -151,6 +151,10 @@ export function WorkforceView() {
   const [dirSearch, setDirSearch] = useState("");
   const [dirRoleFilter, setDirRoleFilter] = useState<"ALL" | WorkerRole>("ALL");
   const [hasPendingEdits, setHasPendingEdits] = useState(false);
+
+  useEffect(() => {
+    setHasPendingEdits(false);
+  }, [result?.workforce]);
 
   // Inline Add / Edit worker form state
   const [editorOpen, setEditorOpen] = useState(false);

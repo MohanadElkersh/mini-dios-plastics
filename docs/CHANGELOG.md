@@ -4,6 +4,27 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.4 — 2026-11-23 — Lockstep Dashboard State Synchronization, Unified Copilot Scenario Bundle & Actionable Risk Radar Mitigations
+
+### Application Changes
+- **Unified Copilot Scenario Bundle & Actionable Multi-Lever Mitigations (`backend/core/copilot.py`, `backend/core/risk_radar.py`, `backend/core/solver.py`, `backend/api/routes.py`):**
+  - Expanded `CopilotResult` and `_build_copilot_result` so every Operations Copilot simulation returns a self-consistent bundle (`plant_state`, `dataset`, `config`, `weights`, `toggles`, `production_result`, `result`, `workforce_result`, and freshly recomputed `risk_radar`).
+  - Added dataset-level operational mitigation levers to `simulate_plant_scenario`: `auto_staff_workforce_gaps` (automatically adds the minimum required relief workers per bottleneck role to eliminate understaffed shift slots), `add_relief_workers`, `workforce_overtime_cap_hrs`, `resin_replenishments`, `complete_mold_pm_ids`, and `clear_press_breakdowns`.
+  - Added routing guard (`has_simulation_intent`) in `run_offline_composable_copilot` so Risk Radar mitigation prompts always route to `simulate_plant_scenario` instead of being intercepted by `inspect_bottleneck`.
+  - Added export port cut-off safety buffer protection (`6.5h` / `390m`) in `_solve_cpsat_model` (`solver.py`) when `w_otif >= 50` so prioritizing export OTIF pulls export completions ahead of the `< 6.0h` risk zone (`export_at_risk_count: 7 → 0`).
+  - Upgraded all 9 `suggested_prompt_en` and `suggested_prompt_ar` templates in `risk_radar.py` to invoke physical + weight mitigations, and updated `pm_done_molds` to union `plan.mold_pm_windows`, `config.scenarios.mold_pm_locks`, and `plan.gantt_blocks` (`block_type == "mold_pm"`).
+- **Atomic Lockstep Frontend Store & Applied Delta Feedback Banner (`frontend/src/lib/types.ts`, `store.tsx`, `CopilotDrawer.tsx`, `DecisionLoopStrip.tsx`, `WorkforceView.tsx`, `app/page.tsx`):**
+  - Upgraded `applyCopilotScenario(nextCfg, nextRes, nextDataset, prompt)` in `store.tsx` to atomically commit `dataset`, `config`, `result`, and `validation`, compute `AppliedScenarioDelta` (with physical ceiling explanations when a hard physical constraint is hit), and persist to the active workspace.
+  - Added signature-based debounced auto-sync (`computeProductionSignature` / `computeFullSignature`) in `store.tsx` so any edit outside Copilot (Studio CRUD, Physics, Trade-Off sliders/disruptions, TopBar toggles, or Workforce roster/weights/rules) automatically re-solves in lockstep.
+  - Added the **Before → After Applied Delta Feedback Banner** inside `CopilotDrawer.tsx` and at the top of `page.tsx`, plus worker headcount telemetry (`W`) on the `1. Model` badge in `DecisionLoopStrip.tsx`.
+
+### Master Documents Updated
+- Updated `docs/MASTER_USER_GUIDE_AND_MANUAL.md`: Section 3 (Proactive Risk Radar actionable mitigations and automatic lockstep dashboard sync) and Section 4 (Operations Copilot unified apply & Before → After Applied Summary Banner).
+- Updated `docs/MASTER_PLAYBOOK.md`: Section 3 (Minute 6–8 live Risk Radar mitigation & Before → After Applied Summary Banner demo flow).
+- Updated `docs/technical/TECHNICAL_REFERENCE.md`: Sections 3, 5, and 6 (`v1.4` export safety buffer formulation, unified `CopilotResult` bundle, and signature-based lockstep store architecture).
+
+---
+
 ## v1.3 — 2026-11-23 — Mobile-First Responsive UX Overhaul (375px–430px iOS/Android/WhatsApp in EN LTR & AR RTL)
 
 ### Application Changes

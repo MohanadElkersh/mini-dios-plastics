@@ -35,7 +35,9 @@ export function CopilotDrawer() {
     dataset,
     config,
     result,
+    activeView,
     applyCopilotScenario,
+    appliedDelta,
     setActiveView,
     copilotOpen,
     setCopilotOpen,
@@ -107,19 +109,24 @@ export function CopilotDrawer() {
     }
   };
 
-  const handleApply = (msgId: string, res: CopilotResult) => {
-    applyCopilotScenario(res.config, res.result);
+  const handleApply = (msgId: string, res: CopilotResult, promptText?: string) => {
+    const prodRes = res.production_result ?? res.result;
+    const nextDs = res.plant_state ?? res.dataset ?? dataset;
+    applyCopilotScenario(res.config, prodRes, nextDs, promptText);
     setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, applied: true } : m)));
-    if (res.result?.workforce?.callouts_applied && res.result.workforce.callouts_applied.length > 0) {
-      setActiveView("workforce");
-    } else {
-      setActiveView("gantt");
+    if (activeView !== "scope") {
+      if (prodRes?.workforce?.callouts_applied && prodRes.workforce.callouts_applied.length > 0) {
+        setActiveView("workforce");
+      } else {
+        setActiveView("gantt");
+      }
     }
   };
 
   const fmtCur = (amount: number, res: CopilotResult) => {
-    const fromCur = res.result?.currency ?? currency;
-    const fx = res.result?.fx_egp_per_sar ?? 13.0;
+    const prodRes = res.production_result ?? res.result;
+    const fromCur = prodRes?.currency ?? currency;
+    const fx = prodRes?.fx_egp_per_sar ?? 13.0;
     return formatMoney(convertCurrency(amount, fromCur, currency, fx), currency);
   };
 
@@ -261,62 +268,143 @@ export function CopilotDrawer() {
                     )}
 
                     {/* Simulation KPI Preview */}
-                    {m.response.result?.scorecard && (
-                      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-2.5 text-[11px]">
-                        <div>
-                          <span className="text-slate-400">Cash Saved vs FIFO:</span>{" "}
-                          <span className="font-mono font-bold text-emerald-300">
-                            {fmtCur(m.response.result.scorecard.cash_savings, m.response)}
-                          </span>
+                    {(() => {
+                      const simRes = m.response.production_result ?? m.response.result;
+                      const simRisk = m.response.risk_radar ?? simRes?.risk_radar;
+                      const simWf =
+                        m.response.workforce_result?.optimized?.kpis ??
+                        simRes?.workforce?.optimized?.kpis;
+                      if (!simRes?.scorecard) return null;
+                      return (
+                        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-2.5 text-[11px]">
+                          {simRisk && (
+                            <div>
+                              <span className="text-slate-400">
+                                {lang === "ar" ? "مؤشر المخاطر:" : "Plant Risk Score:"}
+                              </span>{" "}
+                              <span className="font-mono font-bold text-rose-300">
+                                {simRisk.overall_risk_score}/100 ({simRisk.export_at_risk_count} exp)
+                              </span>
+                            </div>
+                          )}
+                          {simWf && (
+                            <div>
+                              <span className="text-slate-400">
+                                {lang === "ar" ? "تغطية الورديات:" : "Shift Coverage:"}
+                              </span>{" "}
+                              <span className="font-mono font-bold text-teal-300">
+                                {simWf.coverage_pct.toFixed(1)}% ({simWf.understaffed_slots} gaps)
+                              </span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-slate-400">Cash Saved vs FIFO:</span>{" "}
+                            <span className="font-mono font-bold text-emerald-300">
+                              {fmtCur(simRes.scorecard.cash_savings, m.response)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Purge Scrap:</span>{" "}
+                            <span className="font-mono font-bold text-cyan-300">
+                              {simRes.optimized.kpis.purge_scrap_kg.toFixed(1)} kg
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">OTIF / OEE:</span>{" "}
+                            <span className="font-mono font-bold text-indigo-300">
+                              {simRes.optimized.kpis.otif_pct.toFixed(1)}% /{" "}
+                              {simRes.optimized.kpis.oee_pct.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Changeover:</span>{" "}
+                            <span className="font-mono font-bold text-amber-300">
+                              {simRes.optimized.kpis.changeover_hours.toFixed(2)}h
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="text-slate-400">Purge Scrap:</span>{" "}
-                          <span className="font-mono font-bold text-cyan-300">
-                            {m.response.result.optimized.kpis.purge_scrap_kg.toFixed(1)} kg
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">OTIF / OEE:</span>{" "}
-                          <span className="font-mono font-bold text-indigo-300">
-                            {m.response.result.optimized.kpis.otif_pct.toFixed(1)}% /{" "}
-                            {m.response.result.optimized.kpis.oee_pct.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400">Changeover:</span>{" "}
-                          <span className="font-mono font-bold text-amber-300">
-                            {m.response.result.optimized.kpis.changeover_hours.toFixed(2)}h
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Apply Scenario to Dashboard + Pin for Comparison CTAs */}
-                    {m.response.action !== "ready" && m.response.result && (
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          data-testid="btn-apply-copilot-scenario"
-                          onClick={() => handleApply(m.id, m.response!)}
-                          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                            m.applied
-                              ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                              : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
-                          }`}
-                        >
-                          <CheckCircle2 className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{m.applied ? t.copilotAppliedBadge : t.copilotApplyBtn}</span>
-                        </button>
-                        <PinScenarioButton
-                          variant="copilot"
-                          testId="btn-pin-copilot-scenario"
-                          customConfig={m.response.config}
-                          customResult={m.response.result}
-                          customDataset={dataset}
-                          className="w-full [&>button]:w-full"
-                        />
-                      </div>
-                    )}
+                    {m.response.action !== "ready" &&
+                      (m.response.production_result ?? m.response.result) && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <button
+                              type="button"
+                              data-testid="btn-apply-copilot-scenario"
+                              onClick={() => handleApply(m.id, m.response!, m.prompt)}
+                              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                                m.applied
+                                  ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                                  : "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+                              }`}
+                            >
+                              <CheckCircle2 className="h-4 w-4 shrink-0" />
+                              <span className="truncate">
+                                {m.applied ? t.copilotAppliedBadge : t.copilotApplyBtn}
+                              </span>
+                            </button>
+                            <PinScenarioButton
+                              variant="copilot"
+                              testId="btn-pin-copilot-scenario"
+                              customConfig={m.response.config}
+                              customResult={m.response.production_result ?? m.response.result}
+                              customDataset={m.response.plant_state ?? m.response.dataset ?? dataset}
+                              className="w-full [&>button]:w-full"
+                            />
+                          </div>
+
+                          {m.applied && appliedDelta && (
+                            <div
+                              data-testid="copilot-applied-delta-banner"
+                              className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-2.5 text-[11px] text-emerald-100 space-y-1.5"
+                            >
+                              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] font-bold">
+                                <span className="rounded bg-emerald-500/25 px-1.5 py-0.5 text-emerald-200">
+                                  {lang === "ar" ? "تم التطبيق على اللوحة" : "Applied to Dashboard"}
+                                </span>
+                                <span dir="ltr">
+                                  Risk Score: {appliedDelta.beforeRiskScore} → {appliedDelta.afterRiskScore}
+                                </span>
+                                <span>•</span>
+                                <span dir="ltr">
+                                  Exports at Risk: {appliedDelta.beforeExportsAtRisk} →{" "}
+                                  {appliedDelta.afterExportsAtRisk}
+                                </span>
+                                <span>•</span>
+                                <span dir="ltr">
+                                  Coverage: {appliedDelta.beforeCoveragePct.toFixed(1)}% →{" "}
+                                  {appliedDelta.afterCoveragePct.toFixed(1)}%
+                                </span>
+                                <span>•</span>
+                                <span dir="ltr">
+                                  Gaps: {appliedDelta.beforeUnderstaffedSlots} →{" "}
+                                  {appliedDelta.afterUnderstaffedSlots}
+                                </span>
+                                {appliedDelta.workersAdded > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="rounded bg-cyan-500/20 px-1.5 py-0.5 text-cyan-200">
+                                      +{appliedDelta.workersAdded} Relief Staff
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {(lang === "ar"
+                                ? appliedDelta.ceilingNoteAr
+                                : appliedDelta.ceilingNoteEn) && (
+                                <div className="rounded-lg border border-amber-500/35 bg-amber-500/15 px-2.5 py-1.5 text-[10px] text-amber-200">
+                                  {lang === "ar"
+                                    ? appliedDelta.ceilingNoteAr
+                                    : appliedDelta.ceilingNoteEn}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                     {/* Timing Bar */}
                     <div className="flex flex-wrap items-center gap-2 border-t border-slate-800/60 pt-1.5 font-mono text-[10px] text-slate-400">

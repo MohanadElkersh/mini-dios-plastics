@@ -9,7 +9,7 @@
   "tech_subfolder_name": "Technical Specs (For Engineers & IT)",
   "tech_subfolder_id": "1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
   "tech_subfolder_url": "https://drive.google.com/drive/folders/1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
-  "last_sync_at": "2026-11-23T00:45:03.799648+00:00",
+  "last_sync_at": "2026-11-23T01:56:02.170978+00:00",
   "documents": {
     "master_complete_reference": {
       "title": "Mini-DIOS Plastics — Master Complete Reference",
@@ -17,39 +17,39 @@
       "file_id": "1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc",
       "webViewLink": "https://docs.google.com/document/d/1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc/edit",
       "last_synced_sha256": "8fa2c56b82354c1183798d6e5c064338d6df32bc4c134cc086bfe3f409626675",
-      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+      "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
     },
     "master_user_guide": {
       "title": "Mini-DIOS Plastics — Master User Guide & Operations Manual",
       "local_path": "docs/MASTER_USER_GUIDE_AND_MANUAL.md",
       "file_id": "1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M",
       "webViewLink": "https://docs.google.com/document/d/1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M/edit",
-      "last_synced_sha256": "1be7e17c7c986e298d4bd70112d298bf04a362a23452933dd6705d470360eb11",
-      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+      "last_synced_sha256": "5cf7fd3e7aee96ac7153e231ba54da2229ba1e7c293d775b511bdf475051ac12",
+      "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
     },
     "master_playbook": {
       "title": "Mini-DIOS Plastics — Master Commercial & Sales Playbook",
       "local_path": "docs/MASTER_PLAYBOOK.md",
       "file_id": "1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800",
       "webViewLink": "https://docs.google.com/document/d/1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800/edit",
-      "last_synced_sha256": "be726ebd81dd469a5380ddc799564d4fb6c74515102bf576050480b6b7f3d0b4",
-      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+      "last_synced_sha256": "9c19f59d1f0684be298b597cbb8f09df772e8363a05ced5b19239f1c6b4d1f52",
+      "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
     },
     "technical_reference": {
       "title": "Mini-DIOS Plastics — Technical Reference",
       "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
       "file_id": "18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw",
       "webViewLink": "https://docs.google.com/document/d/18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw/edit",
-      "last_synced_sha256": "a30058ac9ab441f99c21d0c60e2599bfd5b8d863f086e32ab88fa7b76f7d67b3",
-      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+      "last_synced_sha256": "d7030549a3db6fde5ca04e4b1ff21606cce8c6ba125f3a56e79e7b5a26e16a79",
+      "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
     },
     "living_changelog": {
       "title": "Mini-DIOS Plastics — Living Changelog",
       "local_path": "docs/CHANGELOG.md",
       "file_id": "1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0",
       "webViewLink": "https://docs.google.com/document/d/1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0/edit",
-      "last_synced_sha256": "07a51bade65c627ed36729be744b52d430ebda0664f4fdcf5c37936dafd31061",
-      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+      "last_synced_sha256": "ef3057f04a9ae937a2e88223dff9227d551286998fc6a7f3649143698af9f56f",
+      "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
     }
   },
   "client_documents": {

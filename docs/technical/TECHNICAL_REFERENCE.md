@@ -1,7 +1,7 @@
 # Mini-DIOS Plastics — Technical Reference & Engineering Architecture
 
 > **Track B — Dedicated Technical Documentation (For Engineers, DevOps, IT & AI Agents)**
-> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-23 (`v1.2`)
+> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-23 (`v1.4`)
 > **Security Note:** This document lists environment variable *names* and architectural specs only. It NEVER stores real API keys, passwords, OAuth tokens, or `.env` values.
 
 ---
@@ -102,12 +102,13 @@ Implemented in `backend/core/solver.py` and independently verified post-solve in
 ```text
 Minimize:
   (3 * w_changeover_scrap + 1) * (Purge_Resin_Cost + Changeover_Downtime_Cost_at_250_SAR_hr)
-+ (3 * w_otif             + 1) * (Tardiness_Penalty * (1.5 if is_export else 1.0) + Unscheduled_Penalty)
++ (3 * w_otif             + 1) * (Tardiness_Penalty * (1.5 if is_export else 1.0) + Unscheduled_Penalty + Export_Safety_Buffer_Shortfall)
 + (2 * w_energy_cost      + 1) * (Press_Energy_Cost + Peak_Tariff_Surcharge + Press_Operating_Cost)
 + (2 * w_working_capital  + 1) * (Virgin_&_Regrind_Material_Spend + Early_WIP_Holding_Cost)
 + pm_tiebreak_expr
 ```
-Warm-started from `run_fifo_baseline()`. Audit hashes: SHA-256 over canonical JSON of inputs (`inputs_sha256`) and scheduled job tuples (`schedule_sha256`).
+- **Export Cut-Off Safety Buffer Protection (`w_otif >= 50`):** When `config.w_otif >= 50`, `_solve_cpsat_model` protects a `6.5h` (`390 min`) port cut-off safety buffer for export orders (`is_export=True`) by defining `safe_due_min = max(start_lbs[i] + dur_mins[i], due_min_i - 390)`, adding a soft shortfall penalty `buf_short >= end_vars[i] - safe_due_min`, and measuring `earliness_vars[i]` relative to `due_min - 420` (`7h` buffer target) so WIP holding penalties never push export jobs into the `< 6.0h` Risk Radar warning zone.
+- Warm-started from `run_fifo_baseline()`. Audit hashes: SHA-256 over canonical JSON of inputs (`inputs_sha256`) and scheduled job tuples (`schedule_sha256`).
 
 ---
 
@@ -146,21 +147,26 @@ Implemented in `backend/core/workforce_solver.py` (exact role-by-role decomposit
 - `Unlocked Capacity Revenue Potential = max(0, Baseline_Changeover_Hrs - Opt_Changeover_Hrs) * (Recognized_Revenue / Opt_Run_Hours)`.
 
 ### Proactive Risk Radar (`backend/core/risk_radar.py`)
-Evaluates 5 deterministic risk categories and computes `overall_risk_score = min(100, critical * 25 + elevated * 10 + watch * 3)`:
+Evaluates 5 deterministic risk categories from the **active** `PlantDataset` + `SolveResult` + `WorkforceSolveResult` and computes `overall_risk_score = min(100, critical * 25 + elevated * 10 + watch * 3)`:
 1. Unscheduled / late / tight-slack (`< 6h` export, `< 4h` domestic) orders with exact currency exposure.
 2. Minute-by-minute resin silo depletion clock (`projected_stockout_hr` at `>= 98%` draw, remaining coverage hours).
 3. High-utilization press choke points (`>= 82%` elevated, `>= 92%` critical).
-4. Post-week mold shot-limit trajectory (`>= 90%` watch, `>= 95%` elevated, `>= 100%` critical).
+4. Post-week mold shot-limit trajectory (`>= 90%` watch, `>= 95%` elevated, `>= 100%` critical), recognizing completed PM across `plan.mold_pm_windows`, `config.scenarios.mold_pm_locks`, and `plan.gantt_blocks` (`block_type == "mold_pm"`).
 5. Workforce understaffed slots and zero-buffer high-load shift fragility.
+- Every alert includes actionable multi-lever `suggested_prompt_en` and `suggested_prompt_ar` strings that invoke `simulate_plant_scenario` (e.g., maximizing coverage weight AND auto-adding relief staff for bottleneck roles; raising `w_otif=80` with `w_working_capital=15` to expand export safety buffers; replenishing virgin resin silos + enabling non-food regrind; completing mold PM shot resets + enabling `autonomous_pm_window`).
 
 ---
 
-## 6. Operations Copilot 3-Tool Architecture (Live Gemini & Air-Gapped Offline)
+## 6. Operations Copilot 3-Tool Architecture & Lockstep State Sync
 
-Implemented in `backend/core/copilot.py`, executed inside `asyncio.to_thread()` in `routes.py`:
-1. **`simulate_plant_scenario`**: Merges breakdowns, resin shocks, regrind overrides, mold PM locks, rush orders, operational toggles, weights, and `worker_callouts`; runs CP-SAT (`<= 2.5s` interactive cap; labor-only fast path when only workforce args change).
-2. **`inspect_bottleneck`**: Deterministic audit of any press, mold, order, resin, or plant-wide choke point.
+Implemented in `backend/core/copilot.py` (executed inside `asyncio.to_thread()` in `routes.py`) and synchronized atomically in `frontend/src/lib/store.tsx`:
+1. **`simulate_plant_scenario`**: Merges breakdowns (`clear_press_breakdowns`), resin shocks, virgin resin replenishments (`resin_replenishments`), non-food regrind overrides, mold PM locks, completed mold PM shot resets (`complete_mold_pm_ids`), rush orders, operational toggles, production/workforce weights, `worker_callouts`, relief worker additions (`auto_staff_workforce_gaps`, `add_relief_workers`), and overtime cap overrides (`workforce_overtime_cap_hrs`). Runs coupled Press + Workforce CP-SAT (`<= 2.5s` interactive cap; labor-only fast path when only workforce args change) and recomputes `financials`, `risk_radar`, and `validation`.
+2. **`inspect_bottleneck`**: Deterministic audit of any press, mold, order, resin, or plant-wide choke point (routing guard ensures prompts containing mitigation/simulation verbs always execute `simulate_plant_scenario`).
 3. **`compare_two_strategies`**: Runs CP-SAT twice under two competing executive weight profiles and returns a structured comparison table.
+- **Unified Scenario Bundle (`CopilotResult`):** Every Copilot response returns a complete, self-consistent bundle containing `plant_state` (`dataset`), `config`, `weights`, `toggles`, `production_result` (`result`), `workforce_result`, and freshly recomputed `risk_radar`.
+- **Atomic Frontend Lockstep Sync (`frontend/src/lib/store.tsx`):**
+  - `applyCopilotScenario(nextCfg, nextRes, nextDataset, prompt)` atomically commits `dataset`, `config`, `result` (including `workforce`, `financials`, `risk_radar`), and `validation`, records a Before → After `AppliedScenarioDelta` banner (rendered in `CopilotDrawer.tsx` and at the top of `page.tsx`, including physical ceiling explanations when a hard physical constraint is hit), and auto-saves the active workspace.
+  - Signature-based debounced auto-sync (`computeProductionSignature` / `computeFullSignature`) automatically triggers `reOptimizeShifts` (250ms debounce for workforce-only edits) or full `validatePlantJson` + `runSolve` (350ms debounce for plant data, physics, slider, or scenario edits) whenever `dataset` or `config` is mutated outside Copilot.
 - **Failover:** If `GEMINI_API_KEY` is blank, `OFFLINE_MODE=true`, or Gemini times out (>15s), routes transparently to `run_offline_composable_copilot()` (bilingual EN/AR parser executing the exact same 3 CP-SAT tools).
 
 ---

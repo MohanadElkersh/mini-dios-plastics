@@ -340,9 +340,10 @@ def _solve_cpsat_model(
 
         due_min = int(round(o.due_hr * 60))
         tard = model.NewIntVar(0, horizon_mins, f"tard_{i}")
+        early_ref_min = max(0, due_min - 420) if (o.is_export and config.w_otif >= 50) else due_min
         early = model.NewIntVar(0, max(due_min, 1), f"early_{i}")
         model.Add(tard >= e_var - due_min).OnlyEnforceIf(sch)
-        model.Add(early >= due_min - e_var).OnlyEnforceIf(sch)
+        model.Add(early >= early_ref_min - e_var).OnlyEnforceIf(sch)
 
         # Virgin / regrind material split (0.1 kg precision)
         vg = model.NewIntVar(0, gross_10[i], f"vg_{i}")
@@ -557,12 +558,21 @@ def _solve_cpsat_model(
     )
 
     # 2. OTIF / Late Export Penalty term (+ massive penalty for any unscheduled order)
+    #    When w_otif >= 50, also protect a >=6.5h (390 min) port cut-off safety buffer on export orders.
     otif_terms = []
     unscheduled_terms = []
     for i, o in enumerate(orders):
         export_mult = 1.5 if o.is_export else 1.0
         pen_per_min_cents = max(1, int(round((o.late_penalty_per_hr * export_mult / 60.0) * 100)))
         otif_terms.append(pen_per_min_cents * tardiness_vars[i])
+        if o.is_export and config.w_otif >= 50:
+            due_min_i = int(round(o.due_hr * 60))
+            safe_due_min = max(start_lbs[i] + dur_mins[i], due_min_i - 390)
+            if safe_due_min < due_min_i:
+                buf_short = model.NewIntVar(0, 390, f"exp_buf_{i}")
+                model.Add(buf_short >= end_vars[i] - safe_due_min).OnlyEnforceIf(scheduled[i])
+                buf_pen_cents = max(1, int(round((o.late_penalty_per_hr * 0.35 / 60.0) * 100)))
+                otif_terms.append(buf_pen_cents * buf_short)
         if o.resin_code in scarce_resins:
             # High priority to keep export & high-penalty orders scheduled
             drop_pen = int(round(48.0 * o.late_penalty_per_hr * export_mult * 100 * 4))
@@ -812,7 +822,7 @@ def solve_plant_schedule(dataset: PlantDataset, config: SolverConfig) -> SolveRe
 
     scorecard = build_scorecard(baseline_plan, opt_plan, config)
     # Coupled floor-workforce CP-SAT: demand is derived from the solved Press Gantt above.
-    workforce = solve_workforce(dataset, config, opt_plan)
+    workforce = solve_workforce(eff_ds, config, opt_plan)
     financials = compute_financial_report(eff_ds, config, baseline_plan, opt_plan, workforce)
     risk_radar = compute_risk_radar(eff_ds, config, opt_plan, workforce)
     opt_checks = verify_hard_constraints(eff_ds, config, opt_plan, pm_map)

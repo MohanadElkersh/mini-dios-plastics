@@ -393,8 +393,9 @@ async def copilot_ask_endpoint(
         quota_limited,
     )
     if copilot_res.result is not None:
+        saved_ds = copilot_res.dataset or copilot_res.plant_state or eff_dataset
         await asyncio.to_thread(
-            get_audit_store().save_run, copilot_res.result, eff_dataset, session.session_id
+            get_audit_store().save_run, copilot_res.result, saved_ds, session.session_id
         )
     print(
         f"[Copilot] Completed action='{copilot_res.action}' source='{copilot_res.source}' "

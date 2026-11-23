@@ -22,6 +22,7 @@ import {
   validatePlantJson,
 } from "./api";
 import type {
+  AppliedScenarioDelta,
   AuditLogItem,
   AuthStatus,
   Currency,
@@ -225,6 +226,103 @@ function countDatasetAndPhysicsDiffs(
   return diffs;
 }
 
+function computeProductionSignature(ds: PlantDataset | null, cfg: SolverConfig): string {
+  if (!ds) return "";
+  return JSON.stringify({
+    presses: ds.presses,
+    molds: ds.molds,
+    resins: ds.resins,
+    orders: ds.orders,
+    w_changeover_scrap: cfg.w_changeover_scrap,
+    w_otif: cfg.w_otif,
+    w_energy_cost: cfg.w_energy_cost,
+    w_working_capital: cfg.w_working_capital,
+    avoid_peak_tariff_hrs: Boolean(cfg.avoid_peak_tariff_hrs),
+    ramadan_shift_mode: Boolean(cfg.ramadan_shift_mode),
+    autonomous_pm_window: Boolean(cfg.autonomous_pm_window),
+    physics: cfg.physics,
+    scenarios: cfg.scenarios,
+  });
+}
+
+function computeFullSignature(ds: PlantDataset | null, cfg: SolverConfig): string {
+  if (!ds) return "";
+  return JSON.stringify({
+    prod: computeProductionSignature(ds, cfg),
+    workers: ds.workers ?? [],
+    workforce: cfg.workforce,
+  });
+}
+
+function buildAppliedScenarioDelta(
+  beforeRes: SolveResult | null,
+  afterRes: SolveResult,
+  beforeDs: PlantDataset | null,
+  afterDs: PlantDataset | null,
+  afterCfg: SolverConfig,
+  prompt?: string
+): AppliedScenarioDelta {
+  const beforeRiskScore = beforeRes?.risk_radar?.overall_risk_score ?? 0;
+  const afterRiskScore = afterRes.risk_radar?.overall_risk_score ?? 0;
+  const beforeExportsAtRisk = beforeRes?.risk_radar?.export_at_risk_count ?? 0;
+  const afterExportsAtRisk = afterRes.risk_radar?.export_at_risk_count ?? 0;
+  const beforeCoveragePct = beforeRes?.workforce?.optimized.kpis.coverage_pct ?? 100;
+  const afterCoveragePct = afterRes.workforce?.optimized.kpis.coverage_pct ?? 100;
+  const beforeUnderstaffedSlots = beforeRes?.workforce?.optimized.kpis.understaffed_slots ?? 0;
+  const afterUnderstaffedSlots = afterRes.workforce?.optimized.kpis.understaffed_slots ?? 0;
+  const beforeWorkersCount = beforeDs?.workers?.length ?? 0;
+  const afterWorkersCount = afterDs?.workers?.length ?? beforeWorkersCount;
+  const beforeScrapKg = beforeRes?.optimized.kpis.purge_scrap_kg ?? 0;
+  const afterScrapKg = afterRes.optimized.kpis.purge_scrap_kg ?? 0;
+  const beforeExposure = beforeRes?.risk_radar?.total_financial_exposure ?? 0;
+  const afterExposure = afterRes.risk_radar?.total_financial_exposure ?? 0;
+
+  let ceilingNoteEn: string | null = null;
+  let ceilingNoteAr: string | null = null;
+
+  if (afterUnderstaffedSlots > 0 && afterCfg.workforce.w_coverage >= 80) {
+    ceilingNoteEn =
+      "Max coverage weight reached — physical headcount ceiling under 48h weekly cap & 11h rest rules. Add relief staff or increase overtime limit to close the remaining gap.";
+    ceilingNoteAr =
+      "تم الوصول لأقصى وزن تغطية — سقف عدد العمال الحالي وصل للحد الفيزيائي ضمن سقف 48 ساعة وقواعد الراحة. أضف عمالة احتياطية أو ارفع حد الساعات الإضافية لإغلاق الفجوة المتبقية.";
+  } else if (afterRes.optimized.kpis.unscheduled_orders > 0) {
+    ceilingNoteEn =
+      "Physical virgin resin silo ceiling reached — replenish virgin resin stock or increase non-food regrind override to schedule remaining orders.";
+    ceilingNoteAr =
+      "تم الوصول للسقف الفيزيائي لمخزون الخام البكر — عزّز مخزون الصوامع أو ارفع نسبة الريجريند الصناعي لجدولة الأوامر المتبقية.";
+  } else if (afterExportsAtRisk > 0 && afterCfg.w_otif >= 75 && afterExportsAtRisk >= beforeExportsAtRisk) {
+    ceilingNoteEn =
+      "Max OTIF weight reached — remaining tight-buffer exports are physically constrained by single-mold exclusivity or pre-drying lead times.";
+    ceilingNoteAr =
+      "تم الوصول لأقصى وزن تسليم OTIF — أوامر التصدير المتبقية مقيدة فيزيائياً بحصرية القالب أو ساعات تجفيف الخام.";
+  }
+
+  return {
+    id: `delta_${Date.now()}`,
+    appliedAt: new Date().toISOString(),
+    prompt,
+    beforeRiskScore,
+    afterRiskScore,
+    beforeExportsAtRisk,
+    afterExportsAtRisk,
+    beforeCoveragePct,
+    afterCoveragePct,
+    beforeUnderstaffedSlots,
+    afterUnderstaffedSlots,
+    beforeWorkersCount,
+    afterWorkersCount,
+    workersAdded: Math.max(0, afterWorkersCount - beforeWorkersCount),
+    beforeScrapKg,
+    afterScrapKg,
+    beforeExposure,
+    afterExposure,
+    currency: afterRes.currency,
+    fxEgpPerSar: afterRes.fx_egp_per_sar ?? 13.0,
+    ceilingNoteEn,
+    ceilingNoteAr,
+  };
+}
+
 interface AppState {
   lang: Lang;
   setLang: (l: Lang) => void;
@@ -268,7 +366,14 @@ interface AppState {
   removeRushOrder: (idx: number) => void;
   setRegrindOverride: (pct: number | null) => void;
   clearAllScenarios: () => Promise<void>;
-  applyCopilotScenario: (nextCfg: SolverConfig, nextRes?: SolveResult | null) => void;
+  applyCopilotScenario: (
+    nextCfg: SolverConfig,
+    nextRes?: SolveResult | null,
+    nextDataset?: PlantDataset | null,
+    prompt?: string
+  ) => void;
+  appliedDelta: AppliedScenarioDelta | null;
+  clearAppliedDelta: () => void;
   exportExecutiveBrief: () => Promise<void>;
   exportStudioDataset: () => Promise<void>;
   loadAuditRunById: (runId: string) => Promise<void>;
@@ -353,6 +458,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotDraftPrompt, setCopilotDraftPrompt] = useState<string | null>(null);
+  const [appliedDelta, setAppliedDelta] = useState<AppliedScenarioDelta | null>(null);
+  const clearAppliedDelta = useCallback(() => setAppliedDelta(null), []);
   const openCopilotWithPrompt = useCallback((prompt: string) => {
     setCopilotDraftPrompt(prompt);
     setCopilotOpen(true);
@@ -389,6 +496,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const readyForPersistRef = useRef(false);
   const workspaceSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const datasetRef = useRef<PlantDataset | null>(null);
+  const configRef = useRef<SolverConfig>(DEFAULT_CONFIG);
+  const resultRef = useRef<SolveResult | null>(null);
+  const lastFullSigRef = useRef<string>("");
+  const lastProdSigRef = useRef<string>("");
+  const solveSeqRef = useRef<number>(0);
+
+  useEffect(() => {
+    datasetRef.current = dataset;
+  }, [dataset]);
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+  useEffect(() => {
+    resultRef.current = result;
+  }, [result]);
+
+  const markSolvedSignature = useCallback((ds: PlantDataset | null, cfg: SolverConfig) => {
+    lastFullSigRef.current = computeFullSignature(ds, cfg);
+    lastProdSigRef.current = computeProductionSignature(ds, cfg);
+  }, []);
 
   const setCurrency = useCallback((nextCur: Currency) => {
     setCurrencyState(nextCur);
@@ -409,26 +537,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const scheduleWorkspaceAutoSave = useCallback(
+    (nextDs: PlantDataset, nextCfg: SolverConfig) => {
+      if (!readyForPersistRef.current) return;
+      if (workspaceSaveTimerRef.current) {
+        clearTimeout(workspaceSaveTimerRef.current);
+      }
+      const wsId = activeWorkspaceId || "default";
+      workspaceSaveTimerRef.current = setTimeout(() => {
+        void saveWorkspaceApi({
+          workspace_id: wsId,
+          name: nextDs.name,
+          dataset: nextDs,
+          config: nextCfg,
+        }).catch(() => {
+          // Non-fatal; localStorage already holds the latest state
+        });
+      }, 800);
+    },
+    [activeWorkspaceId]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (workspaceSaveTimerRef.current) clearTimeout(workspaceSaveTimerRef.current);
+    };
+  }, []);
+
   const runSolve = useCallback(
     async (overrideConfig?: SolverConfig, overrideDataset?: PlantDataset | null): Promise<SolveResult | null> => {
-      const cfg = normalizeConfig(overrideConfig ?? config);
-      const ds = overrideDataset !== undefined ? overrideDataset : dataset;
+      const cfg = normalizeConfig({ ...(overrideConfig ?? configRef.current), currency });
+      const ds = overrideDataset !== undefined ? overrideDataset : datasetRef.current;
+      if (!ds) return null;
+      const seq = ++solveSeqRef.current;
+      markSolvedSignature(ds, cfg);
       setLoading(true);
       setError(null);
       try {
-        const res = await solvePlantScheduleApi(ds, { ...cfg, currency });
-        setResult(res);
-        setValidation(res.validation);
+        const res = await solvePlantScheduleApi(ds, cfg);
+        if (seq === solveSeqRef.current) {
+          setResult(res);
+          setValidation(res.validation);
+        }
         await refreshAudit();
         return res;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "CP-SAT optimization failed");
+        if (seq === solveSeqRef.current) {
+          setError(err instanceof Error ? err.message : "CP-SAT optimization failed");
+        }
         return null;
       } finally {
-        setLoading(false);
+        if (seq === solveSeqRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [config, currency, dataset, refreshAudit]
+    [currency, markSolvedSignature, refreshAudit]
   );
 
   const loadDemo = useCallback(
@@ -444,7 +608,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDataset(demoDs);
         setConfig(nextCfg);
         setBaselineSnapshot({ dataset: demoDs, config: nextCfg });
+        setAppliedDelta(null);
         if (autoSolve) {
+          markSolvedSignature(demoDs, nextCfg);
           const solved = await solvePlantScheduleApi(demoDs, nextCfg);
           setResult(solved);
           setValidation(solved.validation);
@@ -461,7 +627,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [currency, refreshAudit]
+    [currency, markSolvedSignature, refreshAudit]
   );
 
   const bootstrapSessionData = useCallback(
@@ -528,6 +694,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { report } = await validatePlantJson(restoredDs, saved.config);
         setValidation(report);
         if (report.ready) {
+          markSolvedSignature(restoredDs, saved.config);
           const solved = await solvePlantScheduleApi(restoredDs, saved.config);
           setResult(solved);
           setValidation(solved.validation);
@@ -541,7 +708,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [loadDemo, refreshAudit]
+    [loadDemo, markSolvedSignature, refreshAudit]
   );
 
   // Initial mount: check auth status first, then bootstrap workspace if authorized
@@ -629,6 +796,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           return;
         }
+        markSolvedSignature(dataset, cfg);
         const res = await solvePlantScheduleApi(dataset, cfg);
         setResult(res);
         setValidation(res.validation);
@@ -640,7 +808,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [config, currency, dataset, lang, refreshAudit]
+    [config, currency, dataset, lang, markSolvedSignature, refreshAudit]
   );
 
   const uploadWorkbook = useCallback(
@@ -792,18 +960,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [config, dataset, runSolve]);
 
   const applyCopilotScenario = useCallback(
-    (nextCfg: SolverConfig, nextRes?: SolveResult | null) => {
+    (
+      nextCfg: SolverConfig,
+      nextRes?: SolveResult | null,
+      nextDataset?: PlantDataset | null,
+      prompt?: string
+    ) => {
+      const beforeRes = resultRef.current;
+      const beforeDs = datasetRef.current;
+      const effectiveDataset = nextDataset ?? beforeDs;
       const normalized = normalizeConfig({ ...nextCfg, currency });
+
+      if (effectiveDataset) {
+        markSolvedSignature(effectiveDataset, normalized);
+      }
+      if (nextDataset) {
+        setDataset(nextDataset);
+      }
       setConfig(normalized);
+
       if (nextRes) {
         setResult(nextRes);
         setValidation(nextRes.validation);
+        const delta = buildAppliedScenarioDelta(
+          beforeRes,
+          nextRes,
+          beforeDs,
+          effectiveDataset,
+          normalized,
+          prompt
+        );
+        setAppliedDelta(delta);
+        if (effectiveDataset) {
+          scheduleWorkspaceAutoSave(effectiveDataset, normalized);
+        }
         void refreshAudit();
       } else {
-        void runSolve(normalized);
+        void runSolve(normalized, effectiveDataset).then((solved) => {
+          if (solved) {
+            const delta = buildAppliedScenarioDelta(
+              beforeRes,
+              solved,
+              beforeDs,
+              effectiveDataset,
+              normalized,
+              prompt
+            );
+            setAppliedDelta(delta);
+          }
+        });
       }
     },
-    [currency, refreshAudit, runSolve]
+    [currency, markSolvedSignature, refreshAudit, runSolve, scheduleWorkspaceAutoSave]
   );
 
   const exportExecutiveBrief = useCallback(async () => {
@@ -853,15 +1061,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       const res = await fetchAuditRun(runId);
+      const nextCfg = normalizeConfig(res.audit.config);
+      markSolvedSignature(datasetRef.current, nextCfg);
       setResult(res);
-      setConfig(normalizeConfig(res.audit.config));
+      setConfig(nextCfg);
       setValidation(res.validation);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load audit run");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [markSolvedSignature]);
 
   // ---- Studio CRUD Operations -----------------------------------------------------------
   const upsertPress = useCallback((press: PressMachine, originalId?: string) => {
@@ -986,33 +1196,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ---- Tab 6: Floor Workforce CRUD + Auto-Save to Active Workspace + Quick Re-Solve ------
-  const scheduleWorkspaceAutoSave = useCallback(
-    (nextDs: PlantDataset, nextCfg: SolverConfig) => {
-      if (!readyForPersistRef.current) return;
-      if (workspaceSaveTimerRef.current) {
-        clearTimeout(workspaceSaveTimerRef.current);
-      }
-      const wsId = activeWorkspaceId || "default";
-      workspaceSaveTimerRef.current = setTimeout(() => {
-        void saveWorkspaceApi({
-          workspace_id: wsId,
-          name: nextDs.name,
-          dataset: nextDs,
-          config: nextCfg,
-        }).catch(() => {
-          // Non-fatal; localStorage already holds the latest state
-        });
-      }, 800);
-    },
-    [activeWorkspaceId]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (workspaceSaveTimerRef.current) clearTimeout(workspaceSaveTimerRef.current);
-    };
-  }, []);
-
   const upsertWorker = useCallback(
     (worker: FactoryWorker, originalId?: string) => {
       setDataset((prev) => {
@@ -1130,19 +1313,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const reOptimizeShifts = useCallback(
     async (overrideConfig?: SolverConfig, overrideDataset?: PlantDataset | null) => {
-      const ds = overrideDataset !== undefined ? overrideDataset : dataset;
+      const ds = overrideDataset !== undefined ? overrideDataset : datasetRef.current;
       if (!ds) return;
-      const cfg = normalizeConfig({ ...(overrideConfig ?? config), currency });
+      const cfg = normalizeConfig({ ...(overrideConfig ?? configRef.current), currency });
+      const activeResult = resultRef.current;
+      lastFullSigRef.current = computeFullSignature(ds, cfg);
       setWorkforceLoading(true);
       setError(null);
       try {
-        if (!result) {
+        if (!activeResult) {
+          markSolvedSignature(ds, cfg);
           const solved = await solvePlantScheduleApi(ds, cfg);
           setResult(solved);
           setValidation(solved.validation);
           return;
         }
-        const { workforce, financials, risk_radar } = await solveWorkforceApi(ds, cfg, result);
+        const { workforce, financials, risk_radar } = await solveWorkforceApi(ds, cfg, activeResult);
         setResult((prev) =>
           prev
             ? {
@@ -1163,8 +1349,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setWorkforceLoading(false);
       }
     },
-    [config, currency, dataset, result]
+    [currency, markSolvedSignature]
   );
+
+  // Automatic lockstep re-solve whenever dataset or config changes outside explicit runSolve/applyCopilotScenario
+  useEffect(() => {
+    if (!readyForPersistRef.current || !dataset) return;
+    if (dataset.presses.length === 0 || dataset.orders.length === 0) return;
+
+    const fullSig = computeFullSignature(dataset, config);
+    if (fullSig === lastFullSigRef.current) return;
+
+    const prodSig = computeProductionSignature(dataset, config);
+    const isWorkforceOnlyChange = prodSig === lastProdSigRef.current && resultRef.current !== null;
+
+    const timer = setTimeout(() => {
+      if (isWorkforceOnlyChange) {
+        void reOptimizeShifts(config, dataset);
+      } else {
+        void validatePlantJson(dataset, config)
+          .then(({ report }) => {
+            setValidation(report);
+            if (report.ready) {
+              void runSolve(config, dataset);
+            }
+          })
+          .catch(() => {});
+      }
+    }, isWorkforceOnlyChange ? 250 : 350);
+
+    return () => clearTimeout(timer);
+  }, [dataset, config, reOptimizeShifts, runSolve]);
 
   const importStudioProfile = useCallback(
     async (profile: { dataset: PlantDataset; config?: Partial<SolverConfig> }) => {
@@ -1234,10 +1449,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const ws = await getWorkspaceApi(wsId);
         const nextCfg = normalizeConfig(ws.config);
+        markSolvedSignature(ws.dataset, nextCfg);
         setDataset(ws.dataset);
         setConfig(nextCfg);
         setCurrencyState(nextCfg.currency);
         setActiveWorkspaceId(ws.workspace_id);
+        setAppliedDelta(null);
         const { report } = await validatePlantJson(ws.dataset, nextCfg);
         setValidation(report);
         if (report.ready) {
@@ -1255,7 +1472,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [refreshAudit]
+    [markSolvedSignature, refreshAudit]
   );
 
   const saveCurrentWorkspaceAs = useCallback(
@@ -1427,13 +1644,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currency,
       });
       const restoredResult = JSON.parse(JSON.stringify(target.result)) as SolveResult;
+      markSolvedSignature(restoredDataset, restoredConfig);
       setDataset(restoredDataset);
       setConfig(restoredConfig);
       setResult(restoredResult);
       setValidation(restoredResult.validation);
+      setAppliedDelta(null);
       setError(null);
     },
-    [currency, pinnedScenarios]
+    [currency, markSolvedSignature, pinnedScenarios]
   );
 
   // ---- Part 2: Hosted Demo Auth Gate & Session Sandbox ----------------------------------
@@ -1490,10 +1709,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       setPinnedScenarios([]);
       const nextCfg = normalizeConfig({ ...res.default_config, currency });
+      markSolvedSignature(res.dataset, nextCfg);
       setDataset(res.dataset);
       setConfig(nextCfg);
       setBaselineSnapshot({ dataset: res.dataset, config: nextCfg });
       setActiveWorkspaceId("default");
+      setAppliedDelta(null);
       const solved = await solvePlantScheduleApi(res.dataset, nextCfg);
       setResult(solved);
       setValidation(solved.validation);
@@ -1505,7 +1726,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currency, loadWorkspaces, refreshAudit]);
+  }, [currency, loadWorkspaces, markSolvedSignature, refreshAudit]);
 
   const modifiedCount = useMemo(
     () => countDatasetAndPhysicsDiffs(dataset, config, baselineSnapshot.dataset, baselineSnapshot.config),
@@ -1558,6 +1779,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setRegrindOverride,
         clearAllScenarios,
         applyCopilotScenario,
+        appliedDelta,
+        clearAppliedDelta,
         exportExecutiveBrief,
         exportStudioDataset,
         loadAuditRunById,

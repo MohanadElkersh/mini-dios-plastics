@@ -134,3 +134,72 @@ def test_copilot_offline_handles_all_5_starter_scenarios_fast_en_and_ar(client: 
         if expected_action == "inspect_bottleneck":
             assert data["bottleneck"] is not None
             assert data["bottleneck"]["target_id"] == "M-04"
+
+
+def test_copilot_risk_radar_mitigations_return_unified_bundle_and_drop_risks(client: TestClient, monkeypatch):
+    monkeypatch.setenv("OFFLINE_MODE", "true")
+
+    # 1. Baseline solve to capture starting Risk Radar & Workforce KPIs
+    solve_resp = client.post("/api/solve", json={"config": SolverConfig().model_dump(mode="json")})
+    assert solve_resp.status_code == 200
+    base_res = solve_resp.json()
+    base_risk = base_res["risk_radar"]
+    base_wf = base_res["workforce"]["optimized"]["kpis"]
+
+    assert base_risk["overall_risk_score"] >= 90
+    assert base_risk["export_at_risk_count"] >= 7
+    assert base_wf["understaffed_slots"] >= 24
+    assert base_wf["coverage_pct"] < 80.0
+
+    # Find the Understaffed Shift Slots alert and Tight Export Cut-Off Buffer alert prompts
+    wf_alert = next(a for a in base_risk["alerts"] if a["alert_id"] == "risk-wf-understaffed")
+    exp_alert = next(a for a in base_risk["alerts"] if a["alert_id"].startswith("risk-slack-"))
+
+    # 2. Simulate Workforce Understaffed Shift Slots mitigation via Copilot
+    wf_resp = client.post(
+        "/api/copilot/ask",
+        json={
+            "prompt": wf_alert["suggested_prompt_en"],
+            "config": SolverConfig().model_dump(mode="json"),
+            "current_result": base_res,
+            "language": "en",
+        },
+    )
+    assert wf_resp.status_code == 200
+    wf_bundle = wf_resp.json()
+    assert wf_bundle["action"] == "simulate_plant_scenario"
+    assert wf_bundle["plant_state"] is not None
+    assert wf_bundle["production_result"] is not None
+    assert wf_bundle["workforce_result"] is not None
+    assert wf_bundle["risk_radar"] is not None
+    assert wf_bundle["weights"] is not None
+    assert wf_bundle["toggles"] is not None
+
+    # Relief workers added and understaffed slots eliminated (24 -> 0, 79.5% -> 100.0%)
+    assert len(wf_bundle["plant_state"]["workers"]) > 28
+    assert wf_bundle["workforce_result"]["optimized"]["kpis"]["understaffed_slots"] == 0
+    assert wf_bundle["workforce_result"]["optimized"]["kpis"]["coverage_pct"] == 100.0
+    assert wf_bundle["risk_radar"]["overall_risk_score"] < base_risk["overall_risk_score"]
+
+    # 3. Simulate Export Cut-Off Buffer mitigation on top of the applied workforce state
+    exp_resp = client.post(
+        "/api/copilot/ask",
+        json={
+            "prompt": exp_alert["suggested_prompt_en"],
+            "dataset": wf_bundle["plant_state"],
+            "config": wf_bundle["config"],
+            "current_result": wf_bundle["production_result"],
+            "language": "en",
+        },
+    )
+    assert exp_resp.status_code == 200
+    exp_bundle = exp_resp.json()
+    assert exp_bundle["action"] == "simulate_plant_scenario"
+    assert exp_bundle["risk_radar"]["export_at_risk_count"] == 0
+    assert exp_bundle["workforce_result"]["optimized"]["kpis"]["understaffed_slots"] == 0
+    assert exp_bundle["risk_radar"]["critical_count"] == 0
+    assert exp_bundle["risk_radar"]["elevated_count"] == 0
+    assert exp_bundle["risk_radar"]["overall_risk_score"] < 20
+    assert exp_bundle["risk_radar"]["risk_level"] in ("watch", "healthy")
+    assert exp_bundle["risk_radar"]["overall_risk_score"] < wf_bundle["risk_radar"]["overall_risk_score"]
+

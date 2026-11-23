@@ -81,8 +81,14 @@ def compute_risk_radar(
                     metric_label="Penalty Exposure",
                     metric_value=f"{job.late_penalty_cost:,.0f} {cur}",
                     financial_exposure=round(job.late_penalty_cost, 2),
-                    suggested_prompt_en=f"Allow 25% non-food regrind override and maximize OTIF to recover {job.order_id}",
-                    suggested_prompt_ar=f"اسمح برفع نسبة الريجريند الصناعي إلى 25% وعظّم الالتزام بالمواعيد لإنقاذ {job.order_id}",
+                    suggested_prompt_en=(
+                        f"Allow 35% non-food regrind override, replenish virgin {job.resin_code} silo stock by 25%, "
+                        f"and set OTIF weight to 85 to recover unscheduled order {job.order_id}"
+                    ),
+                    suggested_prompt_ar=(
+                        f"اسمح برفع نسبة الريجريند الصناعي إلى 35% وعزّز مخزون خام {job.resin_code} البكر بنسبة 25% "
+                        f"وارفع وزن التسليم في الموعد إلى 85 لجدولة الأمر {job.order_id}"
+                    ),
                 )
             )
             continue
@@ -116,8 +122,14 @@ def compute_risk_radar(
                     metric_label="Tardiness",
                     metric_value=f"+{job.tardiness_hrs:.1f}h",
                     financial_exposure=round(job.late_penalty_cost, 2),
-                    suggested_prompt_en=f"Inspect bottleneck for {job.order_id} and prioritize zero late exports",
-                    suggested_prompt_ar=f"افحص عنق الزجاجة للأمر {job.order_id} وأعطِ أولوية قصوى لصفر تأخير في التصدير",
+                    suggested_prompt_en=(
+                        f"Prioritize zero late exports (set OTIF weight to 85 and working capital weight to 5) "
+                        f"and enable autonomous PM co-optimization to recover late order {job.order_id} on {job.machine_id}"
+                    ),
+                    suggested_prompt_ar=(
+                        f"أعطِ أولوية قصوى لصفر تأخير في التصدير (ارفع وزن OTIF إلى 85 وخفض رأس المال العامل إلى 5) "
+                        f"وفعّل جدولة الصيانة الذاتية لإنقاذ الأمر المتأخر {job.order_id} على {job.machine_id}"
+                    ),
                 )
             )
         elif job.is_export and slack_hrs < 6.0:
@@ -145,8 +157,14 @@ def compute_risk_radar(
                     metric_label="Slack Buffer",
                     metric_value=f"{slack_hrs:.1f}h",
                     financial_exposure=round(pot_exposure, 2),
-                    suggested_prompt_en=f"Inspect bottleneck on {job.machine_id} protecting export {job.order_id}",
-                    suggested_prompt_ar=f"افحص عنق الزجاجة على المكبس {job.machine_id} لحماية طلب التصدير {job.order_id}",
+                    suggested_prompt_en=(
+                        f"Prioritize export cut-off buffers (set OTIF weight to 80 and working capital weight to 5) "
+                        f"and re-sequence {job.machine_id} to expand safety slack for export {job.order_id}"
+                    ),
+                    suggested_prompt_ar=(
+                        f"عظّم هامش أمان التصدير (ارفع وزن OTIF إلى 80 وخفض رأس المال العامل إلى 5) "
+                        f"وأعد ترتيب المكبس {job.machine_id} لزيادة هامش الأمان لطلب التصدير {job.order_id}"
+                    ),
                 )
             )
         elif not job.is_export and slack_hrs < 4.0:
@@ -164,8 +182,14 @@ def compute_risk_radar(
                     metric_label="Slack Buffer",
                     metric_value=f"{slack_hrs:.1f}h",
                     financial_exposure=0.0,
-                    suggested_prompt_en=f"Inspect bottleneck for {job.order_id}",
-                    suggested_prompt_ar=f"افحص عنق الزجاجة للأمر {job.order_id}",
+                    suggested_prompt_en=(
+                        f"Increase OTIF delivery weight to 75 and reduce working capital weight to 5 "
+                        f"to expand delivery buffer for order {job.order_id} on {job.machine_id}"
+                    ),
+                    suggested_prompt_ar=(
+                        f"ارفع وزن الالتزام بمواعيد التسليم OTIF إلى 75 وخفض وزن رأس المال العامل إلى 5 "
+                        f"لتوسيع هامش التسليم للأمر {job.order_id} على {job.machine_id}"
+                    ),
                 )
             )
 
@@ -264,8 +288,14 @@ def compute_risk_radar(
                     metric_label="Silo Draw",
                     metric_value=f"{util_pct:.0f}%",
                     financial_exposure=round(exp_val, 2),
-                    suggested_prompt_en=f"Inspect bottleneck for {r.resin_code} and test 25% non-food regrind override",
-                    suggested_prompt_ar=f"افحص عنق الزجاجة لخام {r.resin_code} واختبر رفع الريجريند الصناعي إلى 25%",
+                    suggested_prompt_en=(
+                        f"Allow 35% non-food regrind override, replenish virgin {r.resin_code} silo stock by 25%, "
+                        f"and maximize purge scrap reduction to relieve {r.resin_code} depletion"
+                    ),
+                    suggested_prompt_ar=(
+                        f"فعّل رفع الريجريند الصناعي إلى 35% وعزّز صومعة خام {r.resin_code} البكر بنسبة 25% "
+                        f"وعظّم خفض هالك التنظيف لتخفيف استنزاف {r.resin_code}"
+                    ),
                 )
             )
 
@@ -300,15 +330,25 @@ def compute_risk_radar(
                     metric_label="Capacity Load",
                     metric_value=f"{busy_pct:.0f}%",
                     financial_exposure=0.0,
-                    suggested_prompt_en=f"Simulate a 12h breakdown on {ps.machine_id} at H48 to stress-test recovery",
-                    suggested_prompt_ar=f"حاكي عطل 12 ساعة على المكبس {ps.machine_id} عند الساعة 48 لاختبار المرونة",
+                    suggested_prompt_en=(
+                        f"Rebalance load off choke press {ps.machine_id} by setting changeover scrap weight to 70, "
+                        f"enabling autonomous PM co-optimization, and clearing unplanned downtime"
+                    ),
+                    suggested_prompt_ar=(
+                        f"أعد موازنة الحمل عن المكبس المختنق {ps.machine_id} برفع وزن خفض الهالك والتبديل إلى 70 "
+                        f"وتفعيل الصيانة الذاتية وإزالة التوقفات الطارئة"
+                    ),
                 )
             )
 
     # ------------------------------------------------------------------
     # 4. Post-Week Mold Shot-Limit Trajectory
     # ------------------------------------------------------------------
-    pm_done_molds = {pm.mold_id for pm in plan.mold_pm_windows}
+    pm_done_molds = (
+        {pm.mold_id for pm in (plan.mold_pm_windows or [])}
+        | {lk.mold_id for lk in config.scenarios.mold_pm_locks}
+        | {b.mold_id for b in plan.gantt_blocks if b.block_type == "mold_pm" and b.mold_id}
+    )
     weekly_shots_by_mold: dict[str, int] = defaultdict(int)
     for job in plan.jobs:
         if not job.scheduled:
@@ -348,8 +388,14 @@ def compute_risk_radar(
                     metric_label="Projected Life",
                     metric_value=f"{post_pct:.1f}%",
                     financial_exposure=0.0,
-                    suggested_prompt_en=f"Lock {mold.pm_duration_hrs:.0f}h preventive maintenance on mold {mold.mold_id}",
-                    suggested_prompt_ar=f"احجز صيانة وقائية {mold.pm_duration_hrs:.0f} ساعات للقالب {mold.mold_id}",
+                    suggested_prompt_en=(
+                        f"Complete preventive maintenance and reset shot counter on mold {mold.mold_id} "
+                        f"with autonomous PM co-optimization enabled"
+                    ),
+                    suggested_prompt_ar=(
+                        f"أكمل الصيانة الوقائية وصفّر عداد الضربات للقالب {mold.mold_id} "
+                        f"مع تفعيل جدولة الصيانة الذاتية"
+                    ),
                 )
             )
 
@@ -359,6 +405,18 @@ def compute_risk_radar(
     if workforce is not None:
         wk = workforce.optimized.kpis
         if wk.understaffed_slots > 0:
+            role_ar_map = {
+                "Press_Operator": "مشغل مكبس",
+                "Mold_Technician": "فني قوالب",
+                "QC_Inspector": "مراقب جودة",
+                "Material_Handler": "مناول مواد",
+                "Shift_Supervisor": "مشرف وردية",
+            }
+            short_roles = [
+                r for r, pct in (wk.role_coverage_pct or {}).items() if pct < 99.9
+            ] or ["QC_Inspector", "Material_Handler", "Shift_Supervisor"]
+            roles_en = ", ".join(r.replace("_", " ") for r in short_roles)
+            roles_ar = "، ".join(role_ar_map.get(r, r) for r in short_roles)
             alerts.append(
                 RiskAlert(
                     alert_id="risk-wf-understaffed",
@@ -377,8 +435,14 @@ def compute_risk_radar(
                     metric_label="Coverage",
                     metric_value=f"{wk.coverage_pct:.1f}%",
                     financial_exposure=0.0,
-                    suggested_prompt_en="Maximize workforce coverage weight to eliminate shift gaps",
-                    suggested_prompt_ar="عظّم وزن تغطية الورديات لإغلاق فجوات العمالة",
+                    suggested_prompt_en=(
+                        f"Maximize workforce coverage weight to 95 and add minimum required relief staff "
+                        f"for bottleneck roles ({roles_en}) to eliminate understaffed shift slots"
+                    ),
+                    suggested_prompt_ar=(
+                        f"ارفع وزن تغطية الورديات إلى 95 وأضف الحد الأدنى من العمالة الاحتياطية للأدوار المختنقة "
+                        f"({roles_ar}) لإغلاق عجز الورديات بالكامل"
+                    ),
                 )
             )
         else:
@@ -414,8 +478,13 @@ def compute_risk_radar(
                         metric_label="Fragile Slots",
                         metric_value=f"{len(fragile_cells)} slots",
                         financial_exposure=0.0,
-                        suggested_prompt_en=f"What if 1 {top_c.role.replace('_', ' ')} calls in sick on {day_en}?",
-                        suggested_prompt_ar=f"ماذا لو تغيب فني قوالب واحد يوم {day_ar}؟",
+                        suggested_prompt_en=(
+                            f"Add 1 relief {top_c.role.replace('_', ' ')} and set shift coverage weight to 95 "
+                            f"to build a call-out safety buffer on {day_en} {top_c.shift}"
+                        ),
+                        suggested_prompt_ar=(
+                            f"أضف 1 عامل احتياطي وعظّم وزن تغطية الورديات إلى 95 لبناء احتياطي أمان في وردية {day_ar}"
+                        ),
                     )
                 )
 
@@ -425,7 +494,11 @@ def compute_risk_radar(
     crit_n = sum(1 for a in alerts if a.severity == "critical")
     elev_n = sum(1 for a in alerts if a.severity == "elevated")
     watch_n = sum(1 for a in alerts if a.severity == "watch")
-    score = min(100, crit_n * 25 + elev_n * 10 + watch_n * 3)
+    cat_points: dict[str, int] = {}
+    for a in alerts:
+        pts = 25 if a.severity == "critical" else (10 if a.severity == "elevated" else 3)
+        cat_points[a.category] = min(68, cat_points.get(a.category, 0) + pts)
+    score = min(100, sum(cat_points.values()))
 
     if crit_n > 0 or score >= 50:
         level: RiskSeverity = "critical"

@@ -15,7 +15,7 @@ import { COPY } from "@/lib/i18n";
 import { useApp } from "@/lib/store";
 
 export function DecisionLoopStrip() {
-  const { lang, currency, validation, result, loading, setActiveView, setCopilotOpen } = useApp();
+  const { lang, currency, validation, result, loading, workforceLoading, setActiveView, setCopilotOpen } = useApp();
   const t = COPY[lang];
   const isAr = lang === "ar";
 
@@ -53,7 +53,9 @@ export function DecisionLoopStrip() {
       label: t.loopModel,
       icon: <Database className="h-3.5 w-3.5 text-cyan-400" />,
       metric: summary
-        ? `${summary.presses_active}/${summary.presses_total}P • ${summary.orders_total}O`
+        ? `${summary.presses_active}/${summary.presses_total}P • ${summary.orders_total}O${
+            summary.workers_total ? ` • ${summary.workers_active}/${summary.workers_total}W` : ""
+          }`
         : "—",
       tone: validation?.ready
         ? "text-cyan-200 border-cyan-500/25 bg-cyan-500/8"
@@ -76,13 +78,14 @@ export function DecisionLoopStrip() {
       id: "optimize",
       label: t.loopOptimize,
       icon: <Cpu className="h-3.5 w-3.5 text-cyan-300" />,
-      metric: loading
-        ? isAr
-          ? "جاري الحل..."
-          : "Solving..."
-        : result
-          ? `${result.status} • ${result.solve_time_ms}ms`
-          : "CP-SAT",
+      metric:
+        loading || workforceLoading
+          ? isAr
+            ? "جاري الحل..."
+            : "Solving..."
+          : result
+            ? `${result.status} • ${result.solve_time_ms}ms`
+            : "CP-SAT",
       tone: result
         ? "text-cyan-200 border-cyan-500/30 bg-cyan-500/10"
         : "text-slate-300 border-slate-700/70 bg-slate-900/70",

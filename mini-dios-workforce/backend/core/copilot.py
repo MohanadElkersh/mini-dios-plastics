@@ -11,6 +11,7 @@ Zero LLM Math Architecture:
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -24,6 +25,8 @@ from pydantic import BaseModel, Field
 from .ontology import (
     COLOR_RANKS,
     DAY_NAMES,
+     WORKER_ROLES,
+    FactoryWorker,
     MachineBreakdown,
     MoldPmLock,
     PlantDataset,
@@ -31,11 +34,14 @@ from .ontology import (
     ProductionOrder,
     ResinCode,
     ResinShortage,
+    RiskRadarReport,
     ScenarioDisruptions,
     SolveResult,
     SolverConfig,
     WorkforceCallout,
+    WorkforceResult,
     order_duration_mins,
+    validate_plant_data,
 )
 from .disruptions import apply_plant_scenarios
 from .financials import compute_financial_report
@@ -91,12 +97,75 @@ class CopilotResult(BaseModel):
     action: str
     tool_calls_executed: list[str] = Field(default_factory=list)
     config: SolverConfig
+    dataset: Optional[PlantDataset] = None
+    plant_state: Optional[PlantDataset] = None
+    weights: Optional[dict[str, Any]] = None
+    toggles: Optional[dict[str, bool]] = None
     result: Optional[SolveResult] = None
+    production_result: Optional[SolveResult] = None
+    workforce_result: Optional[WorkforceResult] = None
+    risk_radar: Optional[RiskRadarReport] = None
     comparison: Optional[StrategyComparison] = None
     bottleneck: Optional[BottleneckInsight] = None
     timing: CopilotTiming
     source: str = "gemini"  # "gemini" | "offline_fallback"
     quota_limited: bool = False
+
+
+def _extract_weights_and_toggles(cfg: SolverConfig) -> tuple[dict[str, Any], dict[str, bool]]:
+    weights = {
+        "w_changeover_scrap": cfg.w_changeover_scrap,
+        "w_otif": cfg.w_otif,
+        "w_energy_cost": cfg.w_energy_cost,
+        "w_working_capital": cfg.w_working_capital,
+        "workforce": {
+            "w_labor_cost": cfg.workforce.w_labor_cost,
+            "w_coverage": cfg.workforce.w_coverage,
+            "w_fairness": cfg.workforce.w_fairness,
+        },
+    }
+    toggles = {
+        "avoid_peak_tariff_hrs": bool(cfg.avoid_peak_tariff_hrs),
+        "ramadan_shift_mode": bool(cfg.ramadan_shift_mode),
+        "autonomous_pm_window": bool(cfg.autonomous_pm_window),
+    }
+    return weights, toggles
+
+
+def _build_copilot_result(
+    *,
+    reply: str,
+    action: str,
+    tool_calls_executed: list[str],
+    config: SolverConfig,
+    dataset: PlantDataset,
+    result: Optional[SolveResult],
+    timing: CopilotTiming,
+    source: str,
+    comparison: Optional[StrategyComparison] = None,
+    bottleneck: Optional[BottleneckInsight] = None,
+    quota_limited: bool = False,
+) -> CopilotResult:
+    weights, toggles = _extract_weights_and_toggles(config)
+    return CopilotResult(
+        reply=reply,
+        action=action,
+        tool_calls_executed=tool_calls_executed,
+        config=config,
+        dataset=dataset,
+        plant_state=dataset,
+        weights=weights,
+        toggles=toggles,
+        result=result,
+        production_result=result,
+        workforce_result=result.workforce if result is not None else None,
+        risk_radar=result.risk_radar if result is not None else None,
+        comparison=comparison,
+        bottleneck=bottleneck,
+        timing=timing,
+        source=source,
+        quota_limited=quota_limited,
+    )
 
 
 # --------------------------------------------------------------------------------------------
@@ -237,41 +306,173 @@ def _merge_scenario_args(
         if wf_cfg.w_labor_cost + wf_cfg.w_coverage + wf_cfg.w_fairness > 0:
             next_cfg.workforce = wf_cfg
 
+    # 8. Clear press breakdowns when rebalancing choke presses
+    clear_bds = args.get("clear_press_breakdowns") or []
+    if clear_bds:
+        clear_set = {str(x).strip().upper() for x in clear_bds}
+        if "ALL" in clear_set:
+            next_cfg.scenarios.machine_breakdowns = []
+        else:
+            next_cfg.scenarios.machine_breakdowns = [
+                b for b in next_cfg.scenarios.machine_breakdowns if b.machine_id.upper() not in clear_set
+            ]
+
     return next_cfg
 
 
-_WORKFORCE_ONLY_KEYS = {"worker_callouts", "workforce_weights"}
+_WORKFORCE_ONLY_KEYS = {
+    "worker_callouts",
+    "workforce_weights",
+    "auto_staff_workforce_gaps",
+    "add_relief_workers",
+    "workforce_overtime_cap_hrs",
+}
+
+_ROLE_DEFAULTS: dict[str, tuple[str, str, float]] = {
+    "Press_Operator": ("OP", "Relief Press Operator", 20.0),
+    "Mold_Technician": ("MT", "Relief Mold Technician", 34.0),
+    "QC_Inspector": ("QC", "Relief QC Inspector", 22.5),
+    "Material_Handler": ("MH", "Relief Material Handler", 13.5),
+    "Shift_Supervisor": ("SV", "Relief Shift Supervisor", 45.0),
+}
+
+_ROLE_ALIAS_MAP = {
+    "mold": "Mold_Technician",
+    "technician": "Mold_Technician",
+    "tech": "Mold_Technician",
+    "press": "Press_Operator",
+    "operator": "Press_Operator",
+    "qc": "QC_Inspector",
+    "inspector": "QC_Inspector",
+    "material": "Material_Handler",
+    "handler": "Material_Handler",
+    "supervisor": "Shift_Supervisor",
+}
+
+
+def _normalize_role_name(role_raw: str) -> Optional[str]:
+    cleaned = str(role_raw or "").strip()
+    if not cleaned:
+        return None
+    exact = cleaned.replace(" ", "_").title().replace("Qc_", "QC_")
+    if exact in _ROLE_DEFAULTS:
+        return exact
+    low = cleaned.lower()
+    return next((v for k, v in _ROLE_ALIAS_MAP.items() if k in low), None)
+
+
+def _append_relief_workers_for_role(dataset: PlantDataset, role: str, count: int) -> list[str]:
+    """Deterministically add `count` relief `FactoryWorker` records for `role` to `dataset.workers`."""
+    if role not in _ROLE_DEFAULTS or count <= 0:
+        return []
+    prefix, label, rate = _ROLE_DEFAULTS[role]
+    existing_ids = {w.worker_id.upper() for w in dataset.workers}
+    added_ids: list[str] = []
+    n = sum(1 for w in dataset.workers if w.role == role) + 1
+    for _ in range(min(count, 12)):
+        cand = f"{prefix}-{n:02d}"
+        while cand.upper() in existing_ids:
+            n += 1
+            cand = f"{prefix}-{n:02d}"
+        existing_ids.add(cand.upper())
+        dataset.workers.append(
+            FactoryWorker(
+                worker_id=cand,
+                name=f"{label} #{len(added_ids) + 1}",
+                role=role,  # type: ignore[arg-type]
+                certified_machine_ids="ALL",
+                hourly_rate=rate,
+                overtime_multiplier=1.5,
+                max_weekly_hours=48.0,
+                preferred_shift="Any",
+                approved_leave_days=[],
+                status="active",
+            )
+        )
+        added_ids.append(cand)
+        n += 1
+    return added_ids
+
+
+def _apply_dataset_mutations(
+    args: dict[str, Any], dataset: PlantDataset, next_cfg: SolverConfig
+) -> tuple[PlantDataset, list[str]]:
+    """Apply physical plant mutations (resin replenishment, mold PM completion, explicit relief workers, overtime caps)."""
+    next_ds = dataset.model_copy(deep=True)
+    mutation_notes: list[str] = []
+
+    # 1. Virgin Resin Silo Replenishments
+    for rep in args.get("resin_replenishments") or []:
+        if not isinstance(rep, dict):
+            continue
+        code = str(rep.get("resin_code", "")).strip().upper()
+        pct = float(rep.get("add_virgin_pct", 25.0) or 25.0)
+        add_kg = float(rep.get("add_virgin_kg", 0.0) or 0.0)
+        for r in next_ds.resins:
+            if r.resin_code == code:
+                orig = r.virgin_available_kg
+                delta = add_kg if add_kg > 0 else round(orig * (max(5.0, min(100.0, pct)) / 100.0), 1)
+                r.virgin_available_kg = round(orig + delta, 1)
+                mutation_notes.append(
+                    f"Replenished {code} virgin silo +{delta:,.0f} kg ({orig:,.0f} -> {r.virgin_available_kg:,.0f} kg)"
+                )
+        if rep.get("clear_shortage", True):
+            next_cfg.scenarios.resin_shortages = [
+                s for s in next_cfg.scenarios.resin_shortages if s.resin_code != code
+            ]
+
+    # 2. Complete Mold PM & Reset Shot Counters
+    for mid_raw in args.get("complete_mold_pm_ids") or []:
+        mid = str(mid_raw).strip().upper()
+        for m in next_ds.molds:
+            if m.mold_id.upper() == mid:
+                prev_shots = m.current_shots
+                m.current_shots = 0
+                mutation_notes.append(f"Completed PM on Mold {m.mold_id} (shots reset {prev_shots:,} -> 0)")
+        next_cfg.scenarios.mold_pm_locks = [
+            lk for lk in next_cfg.scenarios.mold_pm_locks if lk.mold_id.upper() != mid
+        ]
+
+    # 3. Clear press scheduled maintenance windows on choke press if requested
+    for pid_raw in args.get("clear_press_breakdowns") or []:
+        pid = str(pid_raw).strip().upper()
+        for p in next_ds.presses:
+            if p.machine_id.upper() == pid and p.downtime_windows:
+                p.downtime_windows = []
+                mutation_notes.append(f"Cleared maintenance downtime windows on {p.machine_id}")
+
+    # 4. Workforce overtime weekly hour cap override
+    ot_cap = args.get("workforce_overtime_cap_hrs")
+    if ot_cap is not None:
+        cap_val = max(48.0, min(72.0, float(ot_cap)))
+        for w in next_ds.workers:
+            if w.status == "active" and w.max_weekly_hours < cap_val:
+                w.max_weekly_hours = cap_val
+        mutation_notes.append(f"Authorized weekly overtime cap up to {cap_val:.0f}h/wk")
+
+    # 5. Explicit relief workers by role
+    for rw in args.get("add_relief_workers") or []:
+        if not isinstance(rw, dict):
+            continue
+        role = _normalize_role_name(str(rw.get("role", "")))
+        cnt = max(1, min(10, int(rw.get("count", 1) or 1)))
+        if role:
+            added = _append_relief_workers_for_role(next_ds, role, cnt)
+            if added:
+                mutation_notes.append(f"Added {len(added)} relief {role.replace('_', ' ')} ({', '.join(added)})")
+
+    return next_ds, mutation_notes
 
 
 def _parse_worker_callouts(raw: Any, dataset: PlantDataset) -> list[WorkforceCallout]:
     """Normalize LLM / parser callout dicts into validated `WorkforceCallout` objects."""
     out: list[WorkforceCallout] = []
     valid_ids = {w.worker_id for w in dataset.workers}
-    role_alias = {
-        "mold": "Mold_Technician",
-        "technician": "Mold_Technician",
-        "tech": "Mold_Technician",
-        "press": "Press_Operator",
-        "operator": "Press_Operator",
-        "qc": "QC_Inspector",
-        "inspector": "QC_Inspector",
-        "material": "Material_Handler",
-        "handler": "Material_Handler",
-        "supervisor": "Shift_Supervisor",
-    }
     for item in raw or []:
         if not isinstance(item, dict):
             continue
         ids = [str(i).strip().upper() for i in (item.get("worker_ids") or []) if str(i).strip().upper() in valid_ids]
-        role = None
-        role_raw = str(item.get("role") or "").strip()
-        if role_raw:
-            exact = role_raw.replace(" ", "_").title().replace("Qc_", "QC_")
-            if exact in {"Press_Operator", "Mold_Technician", "QC_Inspector", "Material_Handler", "Shift_Supervisor"}:
-                role = exact
-            else:
-                low = role_raw.lower()
-                role = next((v for k, v in role_alias.items() if k in low), None)
+        role = _normalize_role_name(str(item.get("role") or ""))
         if not ids and role is None:
             continue
         out.append(
@@ -290,10 +491,11 @@ def execute_simulate_plant_scenario(
     dataset: PlantDataset,
     current_config: SolverConfig,
     current_result: Optional[SolveResult] = None,
-) -> tuple[dict[str, Any], SolverConfig, SolveResult, int]:
-    """Tool 1: Run CP-SAT for ANY combination of plant disruptions, toggles, and weights."""
+) -> tuple[dict[str, Any], PlantDataset, SolverConfig, SolveResult, int]:
+    """Tool 1: Run CP-SAT for ANY combination of plant disruptions, dataset mitigations, toggles, and weights."""
     next_cfg = _merge_scenario_args(args, current_config, dataset)
-    callouts = _parse_worker_callouts(args.get("worker_callouts"), dataset)
+    next_ds, mutation_notes = _apply_dataset_mutations(args, dataset, next_cfg)
+    callouts = _parse_worker_callouts(args.get("worker_callouts"), next_ds)
     set_args = {k for k, v in args.items() if v not in (None, [], {}, False)}
     workforce_only = bool(set_args) and set_args <= _WORKFORCE_ONLY_KEYS
 
@@ -302,16 +504,79 @@ def execute_simulate_plant_scenario(
         new_res = current_result
         solve_ms = 0
     else:
-        new_res, solve_ms = _solve_interactive(dataset, next_cfg)
+        new_res, solve_ms = _solve_interactive(next_ds, next_cfg)
 
     wf_t0 = time.perf_counter()
-    if dataset.workers and (callouts or workforce_only):
-        wf = solve_workforce_with_callouts(dataset, next_cfg, new_res.optimized, callouts)
-        eff_ds = apply_plant_scenarios(dataset, next_cfg).dataset
+    auto_staff = bool(args.get("auto_staff_workforce_gaps"))
+    need_wf_resolve = bool(next_ds.workers) and (
+        callouts
+        or workforce_only
+        or auto_staff
+        or bool(args.get("add_relief_workers"))
+        or args.get("workforce_overtime_cap_hrs") is not None
+    )
+
+    if need_wf_resolve:
+        wf = solve_workforce_with_callouts(next_ds, next_cfg, new_res.optimized, callouts)
+        if auto_staff and wf is not None and wf.optimized.kpis.understaffed_slots > 0:
+            for pass_idx in range(2):
+                if wf is None or wf.optimized.kpis.understaffed_slots == 0:
+                    break
+                added_any = False
+                for role in WORKER_ROLES:
+                    role_cells = [c for c in wf.optimized.demand if c.role == role and c.required > c.scheduled]
+                    if not role_cells:
+                        continue
+                    role_gap = sum(c.required - c.scheduled for c in role_cells)
+                    peak_day_gap = max(
+                        sum(c.required - c.scheduled for c in role_cells if c.day == d)
+                        for d in range(7)
+                    )
+                    add_n = (
+                        max(peak_day_gap, int(math.ceil(role_gap / 4.5)))
+                        if pass_idx == 0
+                        else max(1, peak_day_gap)
+                    )
+                    added_ids = _append_relief_workers_for_role(next_ds, role, add_n)
+                    if added_ids:
+                        added_any = True
+                        mutation_notes.append(
+                            f"Added {len(added_ids)} relief {role.replace('_', ' ')} ({', '.join(added_ids)})"
+                        )
+                if not added_any:
+                    break
+                wf = solve_workforce_with_callouts(next_ds, next_cfg, new_res.optimized, callouts)
+
+        eff_state = apply_plant_scenarios(next_ds, next_cfg)
+        eff_ds = eff_state.dataset
         fin = compute_financial_report(eff_ds, next_cfg, new_res.baseline, new_res.optimized, wf)
         radar = compute_risk_radar(eff_ds, next_cfg, new_res.optimized, wf)
-        new_res = new_res.model_copy(update={"workforce": wf, "financials": fin, "risk_radar": radar})
+        val = validate_plant_data(next_ds, next_cfg)
+        updated_audit = new_res.audit.model_copy(
+            update={
+                "config": next_cfg,
+                "weights": {
+                    "w_changeover_scrap": next_cfg.w_changeover_scrap,
+                    "w_otif": next_cfg.w_otif,
+                    "w_energy_cost": next_cfg.w_energy_cost,
+                    "w_working_capital": next_cfg.w_working_capital,
+                },
+            }
+        )
+        new_res = new_res.model_copy(
+            update={
+                "workforce": wf,
+                "financials": fin,
+                "risk_radar": radar,
+                "validation": val,
+                "audit": updated_audit,
+                "applied_scenarios": eff_state.applied_scenarios,
+            }
+        )
         solve_ms += max(1, int((time.perf_counter() - wf_t0) * 1000))
+    elif mutation_notes:
+        val = validate_plant_data(next_ds, next_cfg)
+        new_res = new_res.model_copy(update={"validation": val})
 
     cur_res = current_result
     if cur_res is None:
@@ -381,12 +646,17 @@ def execute_simulate_plant_scenario(
             ),
         },
     }
+    if mutation_notes:
+        payload["plant_mutations"] = mutation_notes
+
     wf_res = new_res.workforce
     if wf_res is not None:
         wk = wf_res.optimized.kpis
-        ref = wf_res.reference_kpis or wk
+        ref = wf_res.reference_kpis or (cur_res.workforce.optimized.kpis if cur_res.workforce else wk)
         payload["workforce"] = {
             "callouts_applied": wf_res.callouts_applied,
+            "relief_mutations": mutation_notes,
+            "workers_total": len(next_ds.workers),
             "status": wf_res.status,
             "hard_constraints_passed": wf_res.all_hard_constraints_passed,
             "shift_coverage_pct": wk.coverage_pct,
@@ -411,7 +681,7 @@ def execute_simulate_plant_scenario(
             },
             "role_coverage_pct": wk.role_coverage_pct,
         }
-    return payload, next_cfg, new_res, solve_ms
+    return payload, next_ds, next_cfg, new_res, solve_ms
 
 
 def execute_inspect_bottleneck(
@@ -425,6 +695,15 @@ def execute_inspect_bottleneck(
     res = current_result
     if res is None:
         res, solve_ms = _solve_interactive(dataset, current_config)
+    else:
+        # Ensure Risk Radar, Workforce, and Financials on `res` are never stale
+        eff_ds = apply_plant_scenarios(dataset, current_config).dataset
+        wf = res.workforce
+        if wf is None and dataset.workers:
+            wf = solve_workforce(eff_ds, current_config, res.optimized)
+        fin = compute_financial_report(eff_ds, current_config, res.baseline, res.optimized, wf)
+        radar = compute_risk_radar(eff_ds, current_config, res.optimized, wf)
+        res = res.model_copy(update={"workforce": wf, "financials": fin, "risk_radar": radar})
 
     tid = (target_id or "auto").strip()
     tid_up = tid.upper()
@@ -778,7 +1057,7 @@ def run_offline_composable_copilot(
     callout_items = _extract_callouts(text) if _is_callout_prompt(text) else []
     if callout_items:
         wf_args: dict[str, Any] = {"worker_callouts": callout_items}
-        payload, next_cfg, new_res, solver_ms = execute_simulate_plant_scenario(
+        payload, next_ds, next_cfg, new_res, solver_ms = execute_simulate_plant_scenario(
             wf_args, dataset, current_config, current_result
         )
         total_ms = max(1, int((time.perf_counter() - t_start) * 1000))
@@ -814,11 +1093,12 @@ def run_offline_composable_copilot(
                     f"weekly net profit: {fin.optimized.net_operating_profit:,.0f} {cur}. "
                     f"Rest/leave hard constraints: {'all passed' if wfp['hard_constraints_passed'] else 'VIOLATED'}."
                 )
-        return CopilotResult(
+        return _build_copilot_result(
             reply=reply,
             action="simulate_plant_scenario",
             tool_calls_executed=["simulate_plant_scenario"],
             config=next_cfg,
+            dataset=next_ds,
             result=new_res,
             timing=CopilotTiming(gemini_ms=0, solver_ms=solver_ms, total_ms=total_ms),
             source="offline_fallback",
@@ -842,20 +1122,99 @@ def run_offline_composable_copilot(
             f"Recommended strategy: **{comp.recommended_strategy}** (Total Cost: {rec_res.optimized.kpis.total_cost:,.0f} {rec_res.currency}, "
             f"Purge Scrap: {rec_res.optimized.kpis.purge_scrap_kg:.1f} kg, OTIF: {rec_res.optimized.kpis.otif_pct:.1f}%). Click Apply to push it to the dashboard."
         )
-        return CopilotResult(
+        return _build_copilot_result(
             reply=reply,
             action="compare_two_strategies",
             tool_calls_executed=["compare_two_strategies"],
             config=rec_cfg,
+            dataset=dataset,
             result=rec_res,
             comparison=comp,
             timing=CopilotTiming(gemini_ms=0, solver_ms=solver_ms, total_ms=total_ms),
             source="offline_fallback",
         )
 
-    # 2. Bottleneck inspection?
-    if any(k in low for k in ("bottleneck", "why is", "why was", "explain", "late", "inspect")) or any(
-        k in text for k in ("لماذا", "اختناق", "اشرح", "تأخر")
+    # Check whether the prompt requests an active simulation/mitigation vs. a pure diagnostic inspection
+    has_simulation_intent = any(
+        k in low
+        for k in (
+            "prioritize",
+            "maximize",
+            "minimize",
+            "set ",
+            "weight",
+            "override",
+            "regrind",
+            "replenish",
+            "relief",
+            "add ",
+            "complete",
+            "reset",
+            "lock",
+            "rebalance",
+            "offload",
+            "clear",
+            "recover",
+            "eliminate",
+            "expand",
+            "protect",
+            "relieve",
+            "re-sequence",
+            "resequence",
+            "break",
+            "offline",
+            "failure",
+            "fault",
+            "shortage",
+            "cut ",
+            "spike",
+            "rush",
+            "urgent",
+            "ramadan",
+            "peak",
+            "tariff",
+            "autonomous",
+            "overtime",
+        )
+    ) or any(
+        k in text
+        for k in (
+            "أولوية",
+            "عظّم",
+            "ارفع",
+            "خفض",
+            "وزن",
+            "ريجريند",
+            "معاد",
+            "عزّز",
+            "احتياطي",
+            "احتياطية",
+            "أضف",
+            "أكمل",
+            "صفّر",
+            "احجز",
+            "موازنة",
+            "إزالة",
+            "إنقاذ",
+            "إغلاق",
+            "توسيع",
+            "لجدولة",
+            "عطل",
+            "نقص",
+            "عاجل",
+            "رمضان",
+            "ذروة",
+            "الذاتية",
+            "فعّل",
+            "اسمح",
+            "أعد",
+        )
+    )
+
+    # 2. Pure Bottleneck inspection (when no simulation/mitigation action is requested)?
+    if not has_simulation_intent and (
+        any(k in low for k in ("bottleneck", "why is", "why was", "explain", "late", "inspect"))
+        or any(k in text for k in ("لماذا", "اختناق", "اشرح", "تأخر"))
     ):
         target = "auto"
         m_match = re.search(r"\b(M-\d{2})\b", text, re.IGNORECASE)
@@ -878,26 +1237,36 @@ def run_offline_composable_copilot(
             if ar
             else f"**{insight.headline}**: {' '.join(insight.facts[:2])} Recommendation: {insight.recommendation}"
         )
-        return CopilotResult(
+        return _build_copilot_result(
             reply=reply,
             action="inspect_bottleneck",
             tool_calls_executed=["inspect_bottleneck"],
             config=current_config,
+            dataset=dataset,
             result=res,
             bottleneck=insight,
             timing=CopilotTiming(gemini_ms=0, solver_ms=solver_ms, total_ms=total_ms),
             source="offline_fallback",
         )
 
-    # 3. Composable Scenario Simulation (supports ANY combination simultaneously!)
+    # 3. Composable Scenario & Mitigation Simulation (supports ANY combination simultaneously!)
     sim_args: dict[str, Any] = {}
+    norm_text = text.translate(_AR_DIGITS)
+    norm_low = norm_text.lower()
 
-    if any(k in low for k in ("reset", "clear all", "clear scenario")) or "إعادة ضبط" in text:
+    if any(k in low for k in ("reset scenarios", "clear all", "clear scenario")) or "إعادة ضبط" in text:
         sim_args["reset_scenarios"] = True
 
-    # 3a. Machine Breakdowns
-    if any(k in low for k in ("break", "down", "offline", "failure", "fault")) or any(
-        k in text for k in ("عطل", "توقف", "تعطل")
+    # 3a. Machine Breakdowns (or clearing breakdowns on choke press)
+    is_clearing_downtime = any(k in low for k in ("rebalance", "clear", "relieve")) or any(
+        k in text for k in ("موازنة", "إزالة")
+    )
+    if is_clearing_downtime and re.search(r"\b(P-(?:\d{3}T|BM\d{2}))\b", text, re.IGNORECASE):
+        pid = re.search(r"\b(P-(?:\d{3}T|BM\d{2}))\b", text, re.IGNORECASE).group(1).upper()  # type: ignore[union-attr]
+        sim_args["clear_press_breakdowns"] = [pid]
+    elif not is_clearing_downtime and (
+        bool(re.search(r"\b(?:breaks?|broken|breakdown|down|offline|failure|fault)\b", low))
+        or any(k in text for k in ("عطل", "توقف", "تعطل"))
     ):
         press_id = "P-500T"
         pm = re.search(r"\b(P-(?:\d{3}T|BM\d{2}))\b", text, re.IGNORECASE)
@@ -910,7 +1279,7 @@ def run_offline_composable_copilot(
             press_id = "P-BM01"
 
         dur = 18.0
-        dm = re.search(r"(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours|ساعة|ساعات)", low)
+        dm = re.search(r"(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours|ساعة|ساعات)", norm_low)
         if dm:
             dur = float(dm.group(1))
         start_hr = _extract_day_hour(text, default_hr=48.0)
@@ -918,15 +1287,26 @@ def run_offline_composable_copilot(
             {"machine_id": press_id, "start_hr": start_hr, "duration_hrs": dur}
         ]
 
-    # 3b. Resin Shortages / Price Spikes
+    # 3b. Resin Replenishments vs. Resin Shortages / Price Spikes
     resin_hits = re.findall(r"\b(HDPE|LDPE|PET|ABS|PVC|PP)\b", text, re.IGNORECASE)
-    if resin_hits and (
-        any(k in low for k in ("cut", "shortage", "drop", "spike", "price", "supply", "regrind"))
-        or any(k in text for k in ("نقص", "انخفاض", "ارتفاع", "سعر", "معاد"))
+    is_replenish = any(k in low for k in ("replenish", "top up", "relieve")) or any(
+        k in text for k in ("عزّز", "تعزيز", "تخفيف استنزاف")
+    )
+    if resin_hits and is_replenish:
+        rep_pct_m = re.search(r"(?:replenish|silo|stock|بكر|بنسبة)[^\d]{0,30}(\d+(?:\.\d+)?)\s*%", norm_low)
+        rep_pct = float(rep_pct_m.group(1)) if rep_pct_m else 25.0
+        sim_args["resin_replenishments"] = [
+            {"resin_code": resin_hits[0].upper(), "add_virgin_pct": rep_pct, "clear_shortage": True}
+        ]
+    elif resin_hits and (
+        any(k in low for k in ("cut", "shortage", "drop", "spike", "price", "supply"))
+        or any(k in text for k in ("نقص", "انخفاض", "ارتفاع", "سعر"))
     ):
-        pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+        pct_match = re.search(r"(\d+(?:\.\d+)?)\s*%", norm_text)
         pct_val = float(pct_match.group(1)) if pct_match else 35.0
-        is_price = ("price" in low or "spike" in low or "سعر" in text) and not ("cut" in low or "shortage" in low or "نقص" in text)
+        is_price = ("price" in low or "spike" in low or "سعر" in text) and not (
+            "cut" in low or "shortage" in low or "نقص" in text
+        )
         sim_args["resin_shortages"] = [
             {
                 "resin_code": resin_hits[0].upper(),
@@ -936,27 +1316,53 @@ def run_offline_composable_copilot(
         ]
 
     # 3c. Regrind Override
-    if "regrind" in low or "معاد" in text or "سكراب" in text:
-        rg_match = re.search(r"regrind[^\d]{0,12}(\d{1,2})\s*%", low)
-        sim_args["allow_regrind_override_pct"] = float(rg_match.group(1)) if rg_match else 30.0
+    if "regrind" in low or "معاد" in text or "سكراب" in text or "ريجريند" in text:
+        rg_match = re.search(r"(\d{1,2})\s*%\s*(?:non-food\s+)?regrind|regrind[^\d]{0,16}(\d{1,2})\s*%|ريجريند[^\d]{0,20}(\d{1,2})\s*%", norm_low)
+        if rg_match:
+            val_str = next(g for g in rg_match.groups() if g is not None)
+            sim_args["allow_regrind_override_pct"] = float(val_str)
+        else:
+            sim_args["allow_regrind_override_pct"] = 30.0
 
-    # 3d. Mold PM Lock
-    if ("pm" in low or "maintenance" in low or "lock" in low or "صيانة" in text) and re.search(
-        r"\b(M-\d{2})\b", text, re.IGNORECASE
+    # 3d. Mold PM Completion (Reset Shot Counter) vs. Manual Mold PM Lock
+    mold_hit = re.search(r"\b(M-\d{2})\b", text, re.IGNORECASE)
+    if mold_hit and (
+        any(k in low for k in ("reset shot", "complete preventive", "complete pm", "log pm"))
+        or any(k in text for k in ("صفّر عداد", "أكمل الصيانة"))
     ):
-        mid = re.search(r"\b(M-\d{2})\b", text, re.IGNORECASE).group(1).upper()  # type: ignore[union-attr]
-        dur_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|ساعة)", low)
+        sim_args["complete_mold_pm_ids"] = [mold_hit.group(1).upper()]
+    elif mold_hit and ("pm" in low or "maintenance" in low or "lock" in low or "صيانة" in text):
+        mid = mold_hit.group(1).upper()
+        dur_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|ساعة|ساعات)", norm_low)
         sim_args["mold_pm_locks"] = [
             {"mold_id": mid, "duration_hrs": float(dur_m.group(1)) if dur_m else 8.0}
         ]
 
-    # 3e. Rush Order injection
-    if any(k in low for k in ("rush", "urgent", "add ", "inject", "new order")) or any(
-        k in text for k in ("عاجل", "طلب جديد", "أضف")
+    # 3e. Rush Order injection (only when referring to an order/product, NOT relief workers)
+    is_workforce_add = any(
+        k in low
+        for k in (
+            "relief",
+            "worker",
+            "staff",
+            "headcount",
+            "inspector",
+            "handler",
+            "supervisor",
+            "technician",
+            "operator",
+            "understaffed",
+            "shift",
+        )
+    ) or any(k in text for k in ("عمالة", "احتياطي", "احتياطية", "مراقب", "مناول", "مشرف", "فني", "مشغل", "ورديات", "وردية"))
+
+    if not is_workforce_add and (
+        any(k in low for k in ("rush", "urgent", "add ", "inject", "new order"))
+        or any(k in text for k in ("عاجل", "طلب جديد", "أضف طلب", "أضف أمر"))
     ):
         qty = 40_000
-        qm_k = re.search(r"(\d+(?:\.\d+)?)\s*k\b", low)
-        qm_n = re.search(r"\b(\d{3,6})\b", text.replace(",", ""))
+        qm_k = re.search(r"(\d+(?:\.\d+)?)\s*k\b", norm_low)
+        qm_n = re.search(r"\b(\d{3,6})\b", norm_text.replace(",", ""))
         if qm_k:
             qty = int(float(qm_k.group(1)) * 1000)
         elif qm_n:
@@ -994,7 +1400,6 @@ def run_offline_composable_copilot(
         due_hr = _extract_day_hour(text, default_hr=96.0)
         if due_hr == 0.0 and "sun" not in low:
             due_hr = 96.0
-        # If day like "Thu" is given as deadline, set due to end-of-day (+18h)
         if any(d in low for d in ("mon", "tue", "wed", "thu", "fri", "sat")) or any(
             d in text for d in ("الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت")
         ):
@@ -1021,31 +1426,107 @@ def run_offline_composable_copilot(
         sim_args["ramadan_shift_mode"] = not current_config.ramadan_shift_mode if "off" not in low else False
     if "peak" in low or "tariff" in low or "ذروة" in text or "كهرباء" in text:
         sim_args["avoid_peak_tariff_hrs"] = False if "off" in low else True
+    if "autonomous pm" in low or "auto pm" in low or "الصيانة الذاتية" in text:
+        sim_args["autonomous_pm_window"] = False if "off" in low else True
 
-    # 3g. Weight shifts
-    if any(k in low for k in ("min scrap", "minimum scrap", "purge", "هالك")):
-        sim_args.update({"w_changeover_scrap": 65, "w_otif": 15, "w_energy_cost": 10, "w_working_capital": 10})
-    elif any(k in low for k in ("max otif", "zero late", "export priority", "تصدير أولوية")):
-        sim_args.update({"w_changeover_scrap": 15, "w_otif": 70, "w_energy_cost": 10, "w_working_capital": 5})
+    # 3g. Production Objective Weight Shifts (preset keywords + explicit numbers)
+    if any(k in low for k in ("min scrap", "minimum scrap", "maximize purge scrap reduction", "rebalance load", "هالك")):
+        sim_args.update({"w_changeover_scrap": 70, "w_otif": 15, "w_energy_cost": 10, "w_working_capital": 5})
+    elif any(
+        k in low
+        for k in (
+            "max otif",
+            "zero late",
+            "export priority",
+            "export cut-off",
+            "safety slack",
+            "delivery buffer",
+            "recover unscheduled",
+            "recover late",
+        )
+    ) or any(k in text for k in ("تصدير أولوية", "صفر تأخير", "هامش أمان التصدير", "هامش التسليم", "لجدولة الأمر")):
+        sim_args.update({"w_changeover_scrap": 15, "w_otif": 80, "w_energy_cost": 5, "w_working_capital": 5})
 
-    payload, next_cfg, new_res, solver_ms = execute_simulate_plant_scenario(
+    m_otif = re.search(r"(?:otif(?:\s+delivery)?\s+weight(?:\s+to)?|وزن\s*(?:الالتزام\s*بمواعيد\s*التسليم\s*)?(?:OTIF|التسليم\s*في\s*الموعد)\s*إلى)\s*(\d{1,3})", norm_low)
+    if m_otif:
+        sim_args["w_otif"] = max(0, min(100, int(m_otif.group(1))))
+    m_wc = re.search(r"(?:working\s+capital\s+weight(?:\s+to)?|رأس\s*المال\s*العامل\s*إلى)\s*(\d{1,3})", norm_low)
+    if m_wc:
+        sim_args["w_working_capital"] = max(0, min(100, int(m_wc.group(1))))
+    m_sc = re.search(r"(?:changeover\s+scrap\s+weight(?:\s+to)?|خفض\s*الهالك\s*والتبديل\s*إلى)\s*(\d{1,3})", norm_low)
+    if m_sc:
+        sim_args["w_changeover_scrap"] = max(0, min(100, int(m_sc.group(1))))
+
+    # 3h. Workforce Coverage Weights & Relief Headcount / Overtime Mitigation
+    wf_weights: dict[str, int] = {}
+    if any(
+        k in low
+        for k in ("workforce coverage", "shift coverage", "eliminate shift gaps", "understaffed shift", "call-out safety buffer")
+    ) or any(k in text for k in ("تغطية الورديات", "فجوات العمالة", "عجز الورديات", "احتياطي أمان")):
+        m_cov = re.search(r"(?:coverage\s+weight(?:\s+to)?|تغطية\s*الورديات\s*إلى)\s*(\d{1,3})", norm_low)
+        cov_val = max(0, min(100, int(m_cov.group(1)))) if m_cov else 95
+        wf_weights = {"w_coverage": cov_val, "w_labor_cost": 15, "w_fairness": 10}
+        sim_args["workforce_weights"] = wf_weights
+
+    if any(
+        k in low
+        for k in (
+            "minimum required relief",
+            "relief staff",
+            "relief headcount",
+            "temp headcount",
+            "bottleneck roles",
+            "eliminate understaffed",
+            "eliminate shift gaps",
+        )
+    ) or any(k in text for k in ("العمالة الاحتياطية", "عمالة احتياطية", "لإغلاق عجز الورديات", "فجوات العمالة")):
+        sim_args["auto_staff_workforce_gaps"] = True
+        if "workforce_weights" not in sim_args:
+            sim_args["workforce_weights"] = {"w_coverage": 95, "w_labor_cost": 15, "w_fairness": 10}
+    elif "relief" in low or "احتياطي" in text:
+        # Single-role relief addition e.g. "Add 1 relief Mold Technician"
+        explicit_relief: list[dict[str, Any]] = []
+        for pat, role in _EN_ROLE_PATTERNS:
+            m_rel = re.search(rf"(\d+)\s+relief\s+(?:{pat})", norm_low)
+            if m_rel:
+                explicit_relief.append({"role": role, "count": int(m_rel.group(1))})
+                break
+        if not explicit_relief:
+            explicit_relief.append({"role": "Mold_Technician", "count": 1})
+        sim_args["add_relief_workers"] = explicit_relief
+        if "workforce_weights" not in sim_args:
+            sim_args["workforce_weights"] = {"w_coverage": 95, "w_labor_cost": 15, "w_fairness": 10}
+
+    payload, next_ds, next_cfg, new_res, solver_ms = execute_simulate_plant_scenario(
         sim_args, dataset, current_config, current_result
     )
     total_ms = max(1, int((time.perf_counter() - t_start) * 1000))
     ok = new_res.optimized.kpis
-    sc = new_res.scorecard
     fin = new_res.financials
     d_cost = payload["delta_vs_current_plan"]["total_cost_delta"]
+    radar_out = new_res.risk_radar
+    wf_out = new_res.workforce
+    mut_notes = payload.get("plant_mutations") or []
 
     if ar:
         reply = (
-            f"تم تشغيل محاكاة CP-SAT ({new_res.status} في {new_res.solve_time_ms} مللي ثانية) مع استيفاء جميع القيود الصارمة 6/6. "
+            f"تم تشغيل محاكاة CP-SAT ({new_res.status} في {new_res.solve_time_ms} مللي ثانية) مع استيفاء جميع القيود الصارمة. "
             f"الإيرادات المحققة: {fin.optimized.recognized_revenue:,.0f} {new_res.currency}، "
             f"صافي الربح: {fin.optimized.net_operating_profit:,.0f} {new_res.currency} (هامش {fin.optimized.net_margin_pct:.1f}%)، "
-            f"الوفورات الأسبوعية: {fin.total_weekly_savings:,.0f} {new_res.currency} (سنوياً {fin.annual_projected_savings:,.0f} {new_res.currency})، "
+            f"الوفورات الأسبوعية: {fin.total_weekly_savings:,.0f} {new_res.currency}، "
             f"التكلفة الإجمالية: {ok.total_cost:,.0f} {new_res.currency} (تغير {d_cost:+,.0f})، "
             f"نسبة التسليم في الموعد OTIF: {ok.otif_pct:.1f}%، كفاءة المعدات OEE: {ok.oee_pct:.1f}%."
         )
+        if wf_out is not None:
+            reply += (
+                f" تغطية الورديات: {wf_out.optimized.kpis.coverage_pct:.1f}% "
+                f"(ورديات غير مغطاة: {wf_out.optimized.kpis.understaffed_slots}، إجمالي العمال: {len(next_ds.workers)})."
+            )
+        if radar_out is not None:
+            reply += (
+                f" مؤشر مخاطر المصنع: {radar_out.overall_risk_score}/100 "
+                f"(صادرات معرضة للخطر: {radar_out.export_at_risk_count})."
+            )
     else:
         reply = (
             f"Simulated scenario via OR-Tools CP-SAT ({new_res.status}, {new_res.solve_time_ms} ms, 6/6 hard constraints passed). "
@@ -1055,14 +1536,27 @@ def run_offline_composable_copilot(
             f"Total Cost: {ok.total_cost:,.0f} {new_res.currency} ({d_cost:+,.0f} vs current), "
             f"Purge Scrap: {ok.purge_scrap_kg:.1f} kg, Changeover: {ok.changeover_hours:.2f}h, OTIF: {ok.otif_pct:.1f}%, OEE: {ok.oee_pct:.1f}%."
         )
+        if wf_out is not None:
+            reply += (
+                f" Shift Coverage: {wf_out.optimized.kpis.coverage_pct:.1f}% "
+                f"({wf_out.optimized.kpis.understaffed_slots} understaffed slots, {len(next_ds.workers)} floor workers)."
+            )
+        if radar_out is not None:
+            reply += (
+                f" Risk Score: {radar_out.overall_risk_score}/100 "
+                f"(Exports at Risk: {radar_out.export_at_risk_count})."
+            )
+        if mut_notes:
+            reply += f" Actions applied: {'; '.join(mut_notes)}."
         if ok.unscheduled_orders > 0:
             reply += f" Note: {ok.unscheduled_orders} low-priority order(s) ({', '.join(new_res.optimized.unscheduled_order_ids)}) left unscheduled due to virgin resin inventory cap."
 
-    return CopilotResult(
+    return _build_copilot_result(
         reply=reply,
         action="simulate_plant_scenario",
         tool_calls_executed=["simulate_plant_scenario"],
         config=next_cfg,
+        dataset=next_ds,
         result=new_res,
         timing=CopilotTiming(gemini_ms=0, solver_ms=solver_ms, total_ms=total_ms),
         source="offline_fallback",
@@ -1144,10 +1638,57 @@ def _build_gemini_tools():
                 "allow_regrind_override_pct": {"type": "number", "description": "Boost non-food order regrind up to this % (0-40). Food orders remain 0%."},
                 "avoid_peak_tariff_hrs": {"type": "boolean"},
                 "ramadan_shift_mode": {"type": "boolean"},
+                "autonomous_pm_window": {"type": "boolean", "description": "Enable autonomous mid-week PM co-optimization."},
                 "w_changeover_scrap": {"type": "integer"},
                 "w_otif": {"type": "integer"},
                 "w_energy_cost": {"type": "integer"},
                 "w_working_capital": {"type": "integer"},
+                "auto_staff_workforce_gaps": {
+                    "type": "boolean",
+                    "description": "Automatically add the minimum required relief/temporary staff for bottleneck roles (e.g. QC_Inspector, Material_Handler, Shift_Supervisor) to close understaffed shift slots.",
+                },
+                "add_relief_workers": {
+                    "type": "array",
+                    "description": "Explicitly add relief/temporary workers by role.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string",
+                                "enum": ["Press_Operator", "Mold_Technician", "QC_Inspector", "Material_Handler", "Shift_Supervisor"],
+                            },
+                            "count": {"type": "integer"},
+                        },
+                        "required": ["role", "count"],
+                    },
+                },
+                "workforce_overtime_cap_hrs": {
+                    "type": "number",
+                    "description": "Increase weekly max hours cap per active worker (48-72) to authorize extra overtime.",
+                },
+                "resin_replenishments": {
+                    "type": "array",
+                    "description": "Replenish virgin resin silo stock and clear active shortages for scarce resins.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "resin_code": {"type": "string", "enum": ["PP", "HDPE", "LDPE", "PET", "ABS", "PVC"]},
+                            "add_virgin_pct": {"type": "number", "description": "Percent top-up to virgin silo stock (5-100)."},
+                            "clear_shortage": {"type": "boolean"},
+                        },
+                        "required": ["resin_code"],
+                    },
+                },
+                "complete_mold_pm_ids": {
+                    "type": "array",
+                    "description": "Complete preventive maintenance and reset shot counters to 0 for specified mold IDs.",
+                    "items": {"type": "string"},
+                },
+                "clear_press_breakdowns": {
+                    "type": "array",
+                    "description": "Clear active breakdowns or downtime windows on specified press IDs.",
+                    "items": {"type": "string"},
+                },
                 "worker_callouts": {
                     "type": "array",
                     "description": (
@@ -1301,6 +1842,7 @@ def _call_gemini_composable_copilot(
 
     tool_names: list[str] = []
     fn_response_parts = []
+    final_ds = dataset
     final_cfg = current_config
     final_res: Optional[SolveResult] = current_result
     final_comp: Optional[StrategyComparison] = None
@@ -1315,13 +1857,13 @@ def _call_gemini_composable_copilot(
         primary_action = name
 
         if name == "simulate_plant_scenario":
-            tool_out, final_cfg, final_res, s_ms = execute_simulate_plant_scenario(
-                args, dataset, final_cfg, current_result
+            tool_out, final_ds, final_cfg, final_res, s_ms = execute_simulate_plant_scenario(
+                args, final_ds, final_cfg, current_result
             )
             solver_ms_total += s_ms
         elif name == "inspect_bottleneck":
             tool_out, final_bn, final_res, s_ms = execute_inspect_bottleneck(
-                str(args.get("target_id", "auto")), dataset, final_cfg, final_res
+                str(args.get("target_id", "auto")), final_ds, final_cfg, final_res
             )
             solver_ms_total += s_ms
         elif name == "compare_two_strategies":
@@ -1330,7 +1872,7 @@ def _call_gemini_composable_copilot(
                 dict(args.get("strategy_a_weights") or {}),
                 str(args.get("strategy_b_name", "Strategy B")),
                 dict(args.get("strategy_b_weights") or {}),
-                dataset,
+                final_ds,
                 final_cfg,
             )
             solver_ms_total += s_ms
@@ -1377,11 +1919,12 @@ def _call_gemini_composable_copilot(
             narration = "Scenario evaluated deterministically via OR-Tools CP-SAT."
 
     total_ms = max(1, int((time.perf_counter() - t_start) * 1000))
-    return CopilotResult(
+    return _build_copilot_result(
         reply=narration,
         action=primary_action,
         tool_calls_executed=tool_names,
         config=final_cfg,
+        dataset=final_ds,
         result=final_res,
         comparison=final_comp,
         bottleneck=final_bn,

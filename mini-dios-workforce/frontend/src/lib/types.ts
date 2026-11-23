@@ -662,12 +662,58 @@ export interface CopilotResult {
   action: string;
   tool_calls_executed: string[];
   config: SolverConfig;
+  dataset?: PlantDataset | null;
+  plant_state?: PlantDataset | null;
+  weights?: {
+    w_changeover_scrap: number;
+    w_otif: number;
+    w_energy_cost: number;
+    w_working_capital: number;
+    workforce?: {
+      w_labor_cost: number;
+      w_coverage: number;
+      w_fairness: number;
+    };
+  } | null;
+  toggles?: {
+    avoid_peak_tariff_hrs: boolean;
+    ramadan_shift_mode: boolean;
+    autonomous_pm_window: boolean;
+  } | null;
   result?: SolveResult | null;
+  production_result?: SolveResult | null;
+  workforce_result?: WorkforceResult | null;
+  risk_radar?: RiskRadarReport | null;
   comparison?: StrategyComparison | null;
   bottleneck?: BottleneckInsight | null;
   timing: CopilotTiming;
   source: string;
   quota_limited?: boolean;
+}
+
+export interface AppliedScenarioDelta {
+  id: string;
+  appliedAt: string;
+  prompt?: string;
+  beforeRiskScore: number;
+  afterRiskScore: number;
+  beforeExportsAtRisk: number;
+  afterExportsAtRisk: number;
+  beforeCoveragePct: number;
+  afterCoveragePct: number;
+  beforeUnderstaffedSlots: number;
+  afterUnderstaffedSlots: number;
+  beforeWorkersCount: number;
+  afterWorkersCount: number;
+  workersAdded: number;
+  beforeScrapKg: number;
+  afterScrapKg: number;
+  beforeExposure: number;
+  afterExposure: number;
+  currency: Currency;
+  fxEgpPerSar: number;
+  ceilingNoteEn?: string | null;
+  ceilingNoteAr?: string | null;
 }
 
 export interface AuthStatus {
