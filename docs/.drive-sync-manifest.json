@@ -1,44 +1,55 @@
 {
-  "version": 1,
+  "version": 2,
   "root_folder_name": "Mini-DIOS Plastics — Master Documentation",
   "folder_id": "1GEoNDRAnaXOw9Zwqeom5ycIW-N-psNSQ",
   "folder_url": "https://drive.google.com/drive/folders/1GEoNDRAnaXOw9Zwqeom5ycIW-N-psNSQ",
   "client_subfolder_name": "Client Proposals & Emails",
   "client_subfolder_id": "1KsgNvg94Xews5mDwIl6GEZ3WNoqwjtO5",
   "client_subfolder_url": "https://drive.google.com/drive/folders/1KsgNvg94Xews5mDwIl6GEZ3WNoqwjtO5",
-  "last_sync_at": "2026-11-23T00:26:18.935231+00:00",
+  "tech_subfolder_name": "Technical Specs (For Engineers & IT)",
+  "tech_subfolder_id": "1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
+  "tech_subfolder_url": "https://drive.google.com/drive/folders/1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
+  "last_sync_at": "2026-11-23T00:45:03.799648+00:00",
   "documents": {
     "master_complete_reference": {
       "title": "Mini-DIOS Plastics — Master Complete Reference",
       "local_path": "docs/.combined_master_reference.md",
       "file_id": "1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc",
       "webViewLink": "https://docs.google.com/document/d/1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc/edit",
-      "last_synced_sha256": "aeec856ff3ada4b43bf57c367cb6189ec013a7695585401165a800f5f197f7ef",
-      "last_synced_at": "2026-11-23T00:26:18.935231+00:00"
+      "last_synced_sha256": "8fa2c56b82354c1183798d6e5c064338d6df32bc4c134cc086bfe3f409626675",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
     },
     "master_user_guide": {
       "title": "Mini-DIOS Plastics — Master User Guide & Operations Manual",
       "local_path": "docs/MASTER_USER_GUIDE_AND_MANUAL.md",
       "file_id": "1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M",
       "webViewLink": "https://docs.google.com/document/d/1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M/edit",
-      "last_synced_sha256": "a046beb23f3e6fd9fe7656eaa47aa530da3795b812441b928895223857b1d063",
-      "last_synced_at": "2026-11-23T00:26:18.935231+00:00"
+      "last_synced_sha256": "1be7e17c7c986e298d4bd70112d298bf04a362a23452933dd6705d470360eb11",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
     },
     "master_playbook": {
       "title": "Mini-DIOS Plastics — Master Commercial & Sales Playbook",
       "local_path": "docs/MASTER_PLAYBOOK.md",
       "file_id": "1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800",
       "webViewLink": "https://docs.google.com/document/d/1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800/edit",
-      "last_synced_sha256": "d1ab3fc9eb0748ff8f3605f8983456bd3263f72fd04162717945c86a655d5ed8",
-      "last_synced_at": "2026-11-23T00:26:18.935231+00:00"
+      "last_synced_sha256": "be726ebd81dd469a5380ddc799564d4fb6c74515102bf576050480b6b7f3d0b4",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
+    },
+    "technical_reference": {
+      "title": "Mini-DIOS Plastics — Technical Reference",
+      "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
+      "file_id": "18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw",
+      "webViewLink": "https://docs.google.com/document/d/18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw/edit",
+      "last_synced_sha256": "a30058ac9ab441f99c21d0c60e2599bfd5b8d863f086e32ab88fa7b76f7d67b3",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
     },
     "living_changelog": {
       "title": "Mini-DIOS Plastics — Living Changelog",
       "local_path": "docs/CHANGELOG.md",
       "file_id": "1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0",
       "webViewLink": "https://docs.google.com/document/d/1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0/edit",
-      "last_synced_sha256": "7efe37f08f0e91252caaf76a8f68cf9bb69955b1223444ad2983a991a17b5006",
-      "last_synced_at": "2026-11-23T00:26:18.935231+00:00"
+      "last_synced_sha256": "07a51bade65c627ed36729be744b52d430ebda0664f4fdcf5c37936dafd31061",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
     }
   },
   "client_documents": {
@@ -47,8 +58,8 @@
       "local_path": "docs/templates-and-drafts/hosted-demo-outreach-pilot-kit-en-ar.md",
       "file_id": "11z5lP6KGWHx6-3RAWDdjj47ObV2jQnvU5kyyMObmTdc",
       "webViewLink": "https://docs.google.com/document/d/11z5lP6KGWHx6-3RAWDdjj47ObV2jQnvU5kyyMObmTdc/edit",
-      "last_synced_sha256": "dd39c16f01ae6758bc7209c90a593a6ddb84ed303f76fbeda5388e873beab35c",
-      "last_synced_at": "2026-11-22T18:57:17.961984+00:00"
+      "last_synced_sha256": "4d967c28505edb20922e94746a762eeb547a08e37e299fcba19365727ffd5e65",
+      "last_synced_at": "2026-11-23T00:45:03.799648+00:00"
     }
   }
 }

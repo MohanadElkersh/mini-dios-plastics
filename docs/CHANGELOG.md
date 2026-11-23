@@ -58,6 +58,16 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.2 — 2026-11-23 — Two-Track Documentation Standard & Technical Reference Separation
+
+### Documentation Architecture Upgrade
+- Enforced permanent **Two-Track Documentation Standard** across `.agents/rules/living-docs-sync.md`, `.agents/agents/docs-commercial-architect.md`, `.agents/skills/sync-master-docs/SKILL.md`, and `.agents/skills/create-client-doc/SKILL.md`.
+- Created dedicated Track B Technical Reference at `docs/technical/TECHNICAL_REFERENCE.md` consolidating all system architecture, `render.yaml` / Docker deployment specs, environment variable names (zero secrets), REST/Excel API routes, CP-SAT (`HC1–HC6`, `WHC1–WHC5`) formulations, financial/Risk Radar math, and QA/test commands.
+- Audited and rewrote all Track A human-friendly documents (`docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`, and `docs/templates-and-drafts/hosted-demo-outreach-pilot-kit-en-ar.md`) to pass the Normal Human Test with zero raw technicalities, code blocks, or developer jargon.
+- Updated `scripts/sync_docs_to_drive.py` and Google Drive layout to route Technical Reference & Living Changelog into a dedicated `Technical Specs (For Engineers & IT)` Drive subfolder while keeping the root Drive folder 100% executive-friendly.
+
+---
+
 ## v1.0 — 2026-11-22 — Full Mini-DIOS Plastics Baseline
 
 ### Verified Live Application Modules Documented

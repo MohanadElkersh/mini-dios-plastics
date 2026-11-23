@@ -50,9 +50,12 @@ class TestDriveSyncEngine(unittest.TestCase):
         self.project_root = Path(self._tmp.name)
         docs = self.project_root / "docs"
         drafts = docs / "templates-and-drafts"
+        tech = docs / "technical"
         drafts.mkdir(parents=True)
+        tech.mkdir(parents=True)
         (docs / "MASTER_USER_GUIDE_AND_MANUAL.md").write_text("# User Guide v1\n", encoding="utf-8")
         (docs / "MASTER_PLAYBOOK.md").write_text("# Playbook v1\n", encoding="utf-8")
+        (tech / "TECHNICAL_REFERENCE.md").write_text("# Technical Reference v1\n", encoding="utf-8")
         (docs / "CHANGELOG.md").write_text("# Changelog v1\n", encoding="utf-8")
         (drafts / "README.md").write_text("# Readme ignored\n", encoding="utf-8")
         (drafts / "proposal-riyadh-sar.md").write_text("# Riyadh Proposal\n", encoding="utf-8")
@@ -64,8 +67,8 @@ class TestDriveSyncEngine(unittest.TestCase):
         backend = MockDriveBackend()
         res = sync_docs_to_drive(self.project_root, backend=backend)
 
-        self.assertEqual(len(backend.folders_created), 2)
-        self.assertEqual(len(backend.docs_created), 5)  # 4 master docs + 1 client draft (README skipped)
+        self.assertEqual(len(backend.folders_created), 3)  # root + client + technical
+        self.assertEqual(len(backend.docs_created), 6)  # 5 master/tech docs + 1 client draft (README skipped)
         self.assertEqual(len(backend.docs_updated), 0)
 
         manifest_path = self.project_root / "docs" / ".drive-sync-manifest.json"
@@ -73,14 +76,16 @@ class TestDriveSyncEngine(unittest.TestCase):
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.assertIsNotNone(manifest["folder_id"])
         self.assertIsNotNone(manifest["client_subfolder_id"])
+        self.assertIsNotNone(manifest["tech_subfolder_id"])
         self.assertEqual(set(manifest["documents"].keys()), {
             "master_complete_reference",
             "master_user_guide",
             "master_playbook",
+            "technical_reference",
             "living_changelog",
         })
         self.assertIn("proposal-riyadh-sar", manifest["client_documents"])
-        self.assertEqual(len(res["actions"]), 5)
+        self.assertEqual(len(res["actions"]), 6)
         self.assertTrue(all(a["action"] == "created" for a in res["actions"]))
 
     def test_edit_local_doc_updates_same_file_id_never_creates(self) -> None:
@@ -126,7 +131,7 @@ class TestDriveSyncEngine(unittest.TestCase):
 
         res_force = sync_docs_to_drive(self.project_root, backend=backend, force=True)
         self.assertEqual(len(backend.docs_created), 0)
-        self.assertEqual(len(backend.docs_updated), 5)
+        self.assertEqual(len(backend.docs_updated), 6)
         self.assertTrue(all(a["action"] == "updated" for a in res_force["actions"]))
 
 

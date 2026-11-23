@@ -34,6 +34,7 @@ from typing import Any, Optional, Protocol
 
 ROOT_FOLDER_NAME = "Mini-DIOS Plastics — Master Documentation"
 CLIENT_SUBFOLDER_NAME = "Client Proposals & Emails"
+TECH_SUBFOLDER_NAME = "Technical Specs (For Engineers & IT)"
 GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
@@ -44,24 +45,35 @@ MASTER_DOCS: list[dict[str, str]] = [
         "title": "Mini-DIOS Plastics — Master Complete Reference",
         "local_path": "docs/.combined_master_reference.md",
         "kind": "combined",
+        "folder": "root",
     },
     {
         "key": "master_user_guide",
         "title": "Mini-DIOS Plastics — Master User Guide & Operations Manual",
         "local_path": "docs/MASTER_USER_GUIDE_AND_MANUAL.md",
         "kind": "master",
+        "folder": "root",
     },
     {
         "key": "master_playbook",
         "title": "Mini-DIOS Plastics — Master Commercial & Sales Playbook",
         "local_path": "docs/MASTER_PLAYBOOK.md",
         "kind": "master",
+        "folder": "root",
+    },
+    {
+        "key": "technical_reference",
+        "title": "Mini-DIOS Plastics — Technical Reference",
+        "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
+        "kind": "technical",
+        "folder": "tech",
     },
     {
         "key": "living_changelog",
         "title": "Mini-DIOS Plastics — Living Changelog",
         "local_path": "docs/CHANGELOG.md",
-        "kind": "master",
+        "kind": "technical",
+        "folder": "tech",
     },
 ]
 
@@ -71,28 +83,22 @@ def sha256_text(text: str) -> str:
 
 
 def assemble_complete_reference(docs_dir: Path) -> str:
-    """Combine User Guide & Manual + Commercial Playbook + Changelog into one deterministic Markdown doc."""
+    """Combine ONLY the human-friendly User Guide & Commercial Playbook into one deterministic Markdown doc."""
     guide = (docs_dir / "MASTER_USER_GUIDE_AND_MANUAL.md").read_text(encoding="utf-8").strip()
     playbook = (docs_dir / "MASTER_PLAYBOOK.md").read_text(encoding="utf-8").strip()
-    changelog = (docs_dir / "CHANGELOG.md").read_text(encoding="utf-8").strip()
 
     header = (
         "# Mini-DIOS Plastics — Master Complete Reference\n\n"
-        "> **Unified Living Reference** (Auto-assembled from canonical `/docs/` sources)\n"
-        "> **Contents:** Part I — Master User Guide & Operations Manual • "
-        "Part II — Master Commercial & Sales Playbook (Egypt & KSA) • "
-        "Part III — Living Changelog\n\n"
+        "> **What this document is:** One complete, plain-language handbook combining our **User Guide & Operations Manual** and our **Commercial & Sales Playbook (Egypt & KSA)**.\n"
+        "> **Who it is for:** Factory owners, operations directors, production planners, and commercial partners who want everything in one readable document.\n\n"
         "---\n\n"
-        "## Part I — Master User Guide & Operations Manual\n\n"
+        "## Part I — User Guide & Operations Manual\n\n"
     )
     return (
         f"{header}{guide}\n\n"
         "---\n\n"
-        "## Part II — Master Commercial & Sales Playbook (Egypt & KSA)\n\n"
-        f"{playbook}\n\n"
-        "---\n\n"
-        "## Part III — Living Changelog\n\n"
-        f"{changelog}\n"
+        "## Part II — Commercial & Sales Playbook (Egypt & KSA)\n\n"
+        f"{playbook}\n"
     )
 
 
@@ -100,13 +106,16 @@ def load_manifest(manifest_path: Path) -> dict[str, Any]:
     if manifest_path.exists():
         return json.loads(manifest_path.read_text(encoding="utf-8"))
     return {
-        "version": 1,
+        "version": 2,
         "root_folder_name": ROOT_FOLDER_NAME,
         "folder_id": None,
         "folder_url": None,
         "client_subfolder_name": CLIENT_SUBFOLDER_NAME,
         "client_subfolder_id": None,
         "client_subfolder_url": None,
+        "tech_subfolder_name": TECH_SUBFOLDER_NAME,
+        "tech_subfolder_id": None,
+        "tech_subfolder_url": None,
         "documents": {},
         "client_documents": {},
     }
@@ -338,10 +347,11 @@ def sync_docs_to_drive(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
-        # 2. Ensure root & client subfolders exist
+        # 2. Ensure root, client, and technical subfolders exist
         if dry_run:
             root_folder_id = manifest.get("folder_id") or "DRY_RUN_ROOT_FOLDER_ID"
             client_folder_id = manifest.get("client_subfolder_id") or "DRY_RUN_CLIENT_FOLDER_ID"
+            tech_folder_id = manifest.get("tech_subfolder_id") or "DRY_RUN_TECH_FOLDER_ID"
         else:
             assert backend is not None
             if not manifest.get("folder_id"):
@@ -356,11 +366,19 @@ def sync_docs_to_drive(
                 manifest["client_subfolder_url"] = sub_res.web_view_link
             client_folder_id = manifest["client_subfolder_id"]
 
-        # 3. Sync 4 Master Docs (Combined + 3 Canonical Docs)
+            if not manifest.get("tech_subfolder_id"):
+                tech_res = backend.ensure_folder(TECH_SUBFOLDER_NAME, parent_id=root_folder_id)
+                manifest["tech_subfolder_name"] = TECH_SUBFOLDER_NAME
+                manifest["tech_subfolder_id"] = tech_res.file_id
+                manifest["tech_subfolder_url"] = tech_res.web_view_link
+            tech_folder_id = manifest["tech_subfolder_id"]
+
+        # 3. Sync Master Docs (Human-Friendly in root; Technical Reference & Changelog in tech subfolder)
         docs_map: dict[str, Any] = manifest.setdefault("documents", {})
         for spec in MASTER_DOCS:
             key = spec["key"]
             title = spec["title"]
+            target_parent_id = tech_folder_id if spec.get("folder") == "tech" else root_folder_id
             src_path = combined_path if spec["kind"] == "combined" else (project_root / spec["local_path"])
             if not src_path.exists():
                 raise FileNotFoundError(f"Expected master document not found: {src_path}")
@@ -401,7 +419,7 @@ def sync_docs_to_drive(
                 res = backend.update_google_doc(existing_id, src_path, title=title)
                 act = "updated"
             else:
-                res = backend.create_google_doc(title, src_path, parent_id=root_folder_id)
+                res = backend.create_google_doc(title, src_path, parent_id=target_parent_id)
                 act = "created"
 
             docs_map[key] = {
