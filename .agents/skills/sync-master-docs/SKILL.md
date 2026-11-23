@@ -1,58 +1,37 @@
 ---
 name: sync-master-docs
 description: >-
-  Synchronizes Mini-DIOS Plastics Master Living Documents
-  (docs/MASTER_USER_GUIDE_AND_MANUAL.md, docs/MASTER_PLAYBOOK.md, and
-  docs/CHANGELOG.md) in-place after any backend or frontend code change. Use
-  whenever features, solver math, parameters, endpoints, or UI labels change.
+  Synchronizes Mini-DIOS Plastics Two-Track Living Documents (human-friendly
+  User Guide & Commercial Playbook + separate Technical Reference & Changelog)
+  in-place locally and in Google Drive after any code or deployment change.
 ---
 
 # Sync Master Living Documents (`sync-master-docs`)
 
-Use this procedure to keep all Mini-DIOS Plastics Master Living Documents 100% grounded in the live codebase with zero drift and zero duplicate files.
+Use this procedure after any backend, frontend, solver, or deployment change to keep both documentation tracks 100% accurate, cleanly separated, and synced in-place to Google Drive.
 
-## Step 1: Identify Exact Code Changes
-1. If inside a git repository, run `git status` and `git diff` to list every modified file in `mini-dios-workforce/backend/` and `mini-dios-workforce/frontend/`.
-2. Otherwise, read the recently modified source files directly.
-3. Cross-check coupled ground-truth files:
-   - **Backend:** `ontology.py`, `solver.py`, `workforce_solver.py`, `financials.py`, `risk_radar.py`, `disruptions.py`, `kpi.py`, `verify.py`, `copilot.py`, `seed.py`, `api/routes.py`.
-   - **Frontend:** `src/lib/i18n.ts`, `TopBar.tsx`, `DecisionLoopStrip.tsx`, `ScopeView.tsx`, `DataStudioView.tsx`, `TradeoffConsole.tsx`, `ProductionGanttView.tsx`, `FinancialsView.tsx`, `WorkforceView.tsx`, `RiskRadarPanel.tsx`, `ExecutiveBriefModal.tsx`, `CopilotDrawer.tsx`, and `components/studio/*`.
+## Step 1: Inspect Exact Code Changes
+1. Review modified files via `git diff` or direct reads across `mini-dios-workforce/backend/`, `mini-dios-workforce/frontend/`, `render.yaml`, and `docker-compose.yml`.
+2. Cross-check live UI labels in `mini-dios-workforce/frontend/src/lib/i18n.ts`.
 
-## Step 2: Update `docs/MASTER_USER_GUIDE_AND_MANUAL.md` In-Place
-- Map each code change to its exact section:
-  - Launch/env/Docker change -> **Section 2 (Quick Start & Launching Locally)**
-  - UI tab, button, toggle, or Studio parameter change -> **Section 3 (Complete Tab-by-Tab User Guide)**
-  - Copilot tool, prompt chip, or Gemini/offline behavior change -> **Section 4 (Using the Operations Copilot)**
-  - Constraint (HC1–HC6 / WHC1–WHC5), objective weight, Risk Radar rule, Autonomous PM, or P&L formula change -> **Section 5 (Mathematical & Technical Architecture Appendix)**
-  - New error code or validation rule -> **Section 6 (Troubleshooting & Operator FAQ)**
-- Edit the canonical file in-place using `edit_file`. NEVER create `_v2` or `_NEW` copies.
+## Step 2: Route Updates Under the Two-Track Standard
+- **Track A — Human-Friendly Docs (`docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`):**
+  - Update user workflows, exact on-screen button names, business outcomes, demo scripts, or commercial scope **in plain, everyday language**.
+  - **Strict check:** ZERO code blocks, file paths, env vars, terminal commands, HTTP codes, Docker/Render configs, or developer jargon (`CP-SAT`, `OR-Tools`, `FastAPI`, `Next.js`, `SQLite`, `CORS`, `endpoint`, `HC1`, `SHA-256`).
+  - Keep a 2–3 sentence plain-language intro at the top and a single quiet pointer to the Technical Reference at the bottom.
+- **Track B — Technical Reference (`docs/technical/TECHNICAL_REFERENCE.md`) & Changelog (`docs/CHANGELOG.md`):**
+  - Update architecture, endpoints, env var names (NEVER real secrets), Docker/Render specs, solver constraints (`HC1–HC6`, `WHC1–WHC5`), math formulas, and test/audit commands.
+  - Append a dated entry to `docs/CHANGELOG.md`.
 
-## Step 3: Update `docs/MASTER_PLAYBOOK.md` In-Place (If Commercial Impact Changed)
-- If a change introduces a new commercial capability, demo talking point, KPI, or deployment option, update the corresponding section(s) in `docs/MASTER_PLAYBOOK.md`:
-  - **Section 1** (Positioning & Differentiation)
-  - **Section 3** (Live 10-Minute Executive Demo Script)
-  - **Section 5** (Customizable Enterprise Proposal Template)
-  - **Section 6** (Executive Objection Handling Playbook)
+## Step 3: Push In-Place Sync to Google Drive
+1. Read `docs/.drive-sync-manifest.json`.
+2. Re-assemble `docs/.combined_master_reference.md` via `assemble_complete_reference()` in `scripts/sync_docs_to_drive.py` (combines **ONLY** the human-friendly User Guide & Commercial Playbook so non-technical readers never see code or changelogs).
+3. For every doc whose SHA-256 changed:
+   - **Primary:** Run bare `gdrive mutate update <FILE_ID> <local_path> --mime-type "application/vnd.google-apps.document"` and update `last_synced_sha256` & `last_synced_at` in `docs/.drive-sync-manifest.json`.
+   - **Fallback:** Run `python scripts/sync_docs_to_drive.py`.
+4. Ensure `Mini-DIOS Plastics — Technical Reference` and `Mini-DIOS Plastics — Living Changelog` reside inside the **`Technical Specs (For Engineers & IT)`** Drive subfolder.
 
-## Step 4: Log the Update in `docs/CHANGELOG.md`
-- Prepend or append a dated entry (`YYYY-MM-DD`) documenting:
-  - What changed in the backend/frontend application.
-  - Which exact sections of `docs/MASTER_USER_GUIDE_AND_MANUAL.md` and `docs/MASTER_PLAYBOOK.md` were updated.
-
-## Step 5: Push In-Place Sync to Google Drive & Verify `file_id`s
-1. Read `docs/.drive-sync-manifest.json` to get the canonical `file_id`s for:
-   - `Mini-DIOS Plastics — Master Complete Reference`
-   - `Mini-DIOS Plastics — Master User Guide & Operations Manual`
-   - `Mini-DIOS Plastics — Master Commercial & Sales Playbook`
-   - `Mini-DIOS Plastics — Living Changelog`
-2. Re-assemble `docs/.combined_master_reference.md` using `assemble_complete_reference()` from `scripts/sync_docs_to_drive.py`.
-3. For every doc whose SHA-256 differs from `last_synced_sha256` in `docs/.drive-sync-manifest.json`:
-   - **Primary (Antigravity `gdrive` CLI):** Run bare `gdrive mutate update <FILE_ID> <local_path> --mime-type "application/vnd.google-apps.document"` (preserving exact `file_id`, shareable link, permissions, and version history). Update `last_synced_sha256` and `last_synced_at` in `docs/.drive-sync-manifest.json`.
-   - **Fallback (Python Drive API v3):** Run `python scripts/sync_docs_to_drive.py`.
-4. Verify zero duplicate files exist in the Drive folder (`gdrive readonly ls <folder_id>`) and include the updated Google Doc links in the final summary.
-
-## Step 6: Drift & Hygiene Verification
-1. Verify every tab name, button label, and toggle matches `mini-dios-workforce/frontend/src/lib/i18n.ts`.
-2. Verify every constraint (`HC1–HC6`, `WHC1–WHC5`), default parameter, and financial reconciliation formula matches `ontology.py`, `solver.py`, `workforce_solver.py`, and `financials.py`.
-3. Confirm zero stale references to removed features (no legacy file-upload dropzones in Tab 1 UI, no legacy call-center schemas).
-4. Confirm zero application source files were modified unless explicitly requested.
+## Step 4: Hygiene & Security Verification
+1. Verify zero secrets or `.env` values exist in any document.
+2. Verify zero duplicate files exist locally or in Google Drive.
+3. Report updated local paths and clickable Google Drive links in plain human language.
