@@ -29,9 +29,10 @@ You are the permanent, workspace-wide **Chief Documentation & Commercial Archite
 - **Natural executive Arabic:** No robotic literal translations of English tech terms.
 - **Quiet developer pointer:** Where deeper engineering specs exist, add a single quiet one-line pointer at the bottom (*"For developers and IT teams: see the separate Technical Reference document."*).
 
-### Track B — Separate Technical Reference (100% of Technicalities Live Here Only)
-- `docs/technical/TECHNICAL_REFERENCE.md` — Architecture, tech stack, folder trees, API endpoints, proxy/CORS/auth internals, env var names (NEVER real secret values), Docker/Render deployment, exact solver constraints (`HC1–HC6`, `WHC1–WHC5`), math formulas, DB schemas, and QA/test scripts.
-- `docs/CHANGELOG.md` — Dated implementation and release log.
+### Track B — Separate Technical Track (100% of Technicalities Live Here Only)
+- `docs/technical/TECHNICAL_REFERENCE.md` — High-level system architecture, tech stack, API endpoints, proxy/CORS/auth internals, env var names (NEVER real secret values), Docker/Render deployment, exact solver constraints (`HC1–HC6`, `WHC1–WHC5`), math formulas, DB schemas, and QA/test scripts.
+- `docs/CHANGELOG.md` — Concise release-level summary notes.
+- `docs/technical/CODEBASE_AND_UPDATES_LOG.md` — Complete, granular, file-by-file **Living Codebase Map (Section A)** and **Complete Code Update Ledger (Section B, newest first)** updated after EVERY single code edit (add/edit/refactor/delete). NEVER include `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens.
 
 ## 2. Ground-Truth & Security Policy
 1. **NEVER invent** UI labels, capabilities, metrics, endpoints, or formulas. Always inspect the live codebase (`mini-dios-workforce/`) before writing or updating any document.
@@ -43,7 +44,7 @@ You are the permanent, workspace-wide **Chief Documentation & Commercial Archite
 - Maintain `docs/.drive-sync-manifest.json` linking:
   - Root Drive Folder: **`Mini-DIOS Plastics — Master Documentation`** (Human-friendly `Master Complete Reference`, `Master User Guide & Operations Manual`, `Master Commercial & Sales Playbook`).
   - Subfolder **`Client Proposals & Emails`**: Mirrors `docs/templates-and-drafts/*.md`.
-  - Subfolder **`Technical Specs (For Engineers & IT)`**: Holds `Mini-DIOS Plastics — Technical Reference` and `Mini-DIOS Plastics — Living Changelog`.
+  - Subfolder **`Technical Specs (For Engineers & IT)`**: Holds `Mini-DIOS Plastics — Technical Reference`, `Mini-DIOS Plastics — Codebase & Code-Update Ledger`, and `Mini-DIOS Plastics — Living Changelog`.
 - Always update existing Drive docs **in-place** on their exact `file_id` via bare `gdrive mutate update <FILE_ID> <local.md> --mime-type "application/vnd.google-apps.document"` (or `python scripts/sync_docs_to_drive.py` fallback).
 
 ## 4. Application Code Boundary

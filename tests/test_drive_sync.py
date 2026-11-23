@@ -56,6 +56,7 @@ class TestDriveSyncEngine(unittest.TestCase):
         (docs / "MASTER_USER_GUIDE_AND_MANUAL.md").write_text("# User Guide v1\n", encoding="utf-8")
         (docs / "MASTER_PLAYBOOK.md").write_text("# Playbook v1\n", encoding="utf-8")
         (tech / "TECHNICAL_REFERENCE.md").write_text("# Technical Reference v1\n", encoding="utf-8")
+        (tech / "CODEBASE_AND_UPDATES_LOG.md").write_text("# Codebase & Updates Log v1\n", encoding="utf-8")
         (docs / "CHANGELOG.md").write_text("# Changelog v1\n", encoding="utf-8")
         (drafts / "README.md").write_text("# Readme ignored\n", encoding="utf-8")
         (drafts / "proposal-riyadh-sar.md").write_text("# Riyadh Proposal\n", encoding="utf-8")
@@ -68,7 +69,7 @@ class TestDriveSyncEngine(unittest.TestCase):
         res = sync_docs_to_drive(self.project_root, backend=backend)
 
         self.assertEqual(len(backend.folders_created), 3)  # root + client + technical
-        self.assertEqual(len(backend.docs_created), 6)  # 5 master/tech docs + 1 client draft (README skipped)
+        self.assertEqual(len(backend.docs_created), 7)  # 6 master/tech docs + 1 client draft (README skipped)
         self.assertEqual(len(backend.docs_updated), 0)
 
         manifest_path = self.project_root / "docs" / ".drive-sync-manifest.json"
@@ -82,10 +83,11 @@ class TestDriveSyncEngine(unittest.TestCase):
             "master_user_guide",
             "master_playbook",
             "technical_reference",
+            "codebase_and_updates_log",
             "living_changelog",
         })
         self.assertIn("proposal-riyadh-sar", manifest["client_documents"])
-        self.assertEqual(len(res["actions"]), 6)
+        self.assertEqual(len(res["actions"]), 7)
         self.assertTrue(all(a["action"] == "created" for a in res["actions"]))
 
     def test_edit_local_doc_updates_same_file_id_never_creates(self) -> None:
@@ -131,7 +133,7 @@ class TestDriveSyncEngine(unittest.TestCase):
 
         res_force = sync_docs_to_drive(self.project_root, backend=backend, force=True)
         self.assertEqual(len(backend.docs_created), 0)
-        self.assertEqual(len(backend.docs_updated), 6)
+        self.assertEqual(len(backend.docs_updated), 7)
         self.assertTrue(all(a["action"] == "updated" for a in res_force["actions"]))
 
 

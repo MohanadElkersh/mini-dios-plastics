@@ -9,7 +9,7 @@
   "tech_subfolder_name": "Technical Specs (For Engineers & IT)",
   "tech_subfolder_id": "1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
   "tech_subfolder_url": "https://drive.google.com/drive/folders/1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
-  "last_sync_at": "2026-11-23T01:56:02.170978+00:00",
+  "last_sync_at": "2026-11-23T02:34:20.610409+00:00",
   "documents": {
     "master_complete_reference": {
       "title": "Mini-DIOS Plastics — Master Complete Reference",
@@ -50,6 +50,14 @@
       "webViewLink": "https://docs.google.com/document/d/1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0/edit",
       "last_synced_sha256": "ef3057f04a9ae937a2e88223dff9227d551286998fc6a7f3649143698af9f56f",
       "last_synced_at": "2026-11-23T01:56:02.170978+00:00"
+    },
+    "codebase_and_updates_log": {
+      "title": "Mini-DIOS Plastics — Codebase & Code-Update Ledger",
+      "local_path": "docs/technical/CODEBASE_AND_UPDATES_LOG.md",
+      "file_id": "1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM",
+      "webViewLink": "https://docs.google.com/document/d/1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM/edit",
+      "last_synced_sha256": "aa077f290b22130fbb98505b76bcc2a44a420326e17445f6b5752f13e56b2c9e",
+      "last_synced_at": "2026-11-23T02:34:20.610409+00:00"
     }
   },
   "client_documents": {

@@ -69,6 +69,13 @@ MASTER_DOCS: list[dict[str, str]] = [
         "folder": "tech",
     },
     {
+        "key": "codebase_and_updates_log",
+        "title": "Mini-DIOS Plastics — Codebase & Code-Update Ledger",
+        "local_path": "docs/technical/CODEBASE_AND_UPDATES_LOG.md",
+        "kind": "technical",
+        "folder": "tech",
+    },
+    {
         "key": "living_changelog",
         "title": "Mini-DIOS Plastics — Living Changelog",
         "local_path": "docs/CHANGELOG.md",
