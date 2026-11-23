@@ -26,13 +26,13 @@ export function ConfirmDeleteModal({
   const t = COPY[lang];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0f1629] p-5 shadow-2xl"
+        className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-rose-500/40 bg-[#0f1629] shadow-2xl sm:rounded-2xl"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-800/80 px-5 py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-300">
               <AlertTriangle className="h-5 w-5" />
@@ -45,13 +45,13 @@ export function ConfirmDeleteModal({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white md:min-h-0 md:min-w-0"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-4 space-y-2 text-xs text-slate-300">
+        <div className="flex-1 space-y-2 overflow-y-auto p-5 text-xs text-slate-300">
           {references.length > 0 ? (
             <>
               <p className="font-medium text-amber-200">{t.studioConfirmDeleteMsg}</p>
@@ -72,11 +72,11 @@ export function ConfirmDeleteModal({
           )}
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-800/80 bg-slate-950/80 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white"
+            className="min-h-[44px] rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white md:min-h-0"
           >
             {t.studioCancel}
           </button>
@@ -84,7 +84,7 @@ export function ConfirmDeleteModal({
             type="button"
             data-testid="confirm-delete-btn"
             onClick={onConfirm}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-400"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-rose-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-rose-400 md:min-h-0"
           >
             <Trash2 className="h-3.5 w-3.5" />
             <span>{t.studioConfirmDeleteBtn}</span>

@@ -123,23 +123,23 @@ export function OrdersEditor() {
   return (
     <div className="space-y-4">
       {/* Search + Filters + Add Order */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute start-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+          <div className="relative w-full sm:w-60">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               data-testid="search-orders-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t.studioSearchOrders}
-              className="w-60 rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-xs text-white placeholder:text-slate-500"
+              className="min-h-[44px] w-full rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-base text-white placeholder:text-slate-500 md:min-h-0 md:text-xs"
             />
           </div>
           <select
             value={filterResin}
             onChange={(e) => setFilterResin(e.target.value)}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200"
+            className="min-h-[44px] flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-base text-slate-200 sm:flex-initial md:min-h-0 md:text-xs"
           >
             <option value="ALL">{t.studioAllResins}</option>
             {resins.map((r) => (
@@ -151,7 +151,7 @@ export function OrdersEditor() {
           <select
             value={filterColor}
             onChange={(e) => setFilterColor(e.target.value)}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200"
+            className="min-h-[44px] flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-base text-slate-200 sm:flex-initial md:min-h-0 md:text-xs"
           >
             <option value="ALL">{t.studioAllColors}</option>
             {PLASTIC_COLORS.map((c) => (
@@ -166,19 +166,104 @@ export function OrdersEditor() {
           type="button"
           data-testid="btn-add-order"
           onClick={openNew}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-400"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 sm:w-auto md:min-h-0"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>{t.studioAddOrder}</span>
         </button>
       </div>
 
-      {/* Orders Table */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#0f1629]">
+      {/* Stacked Mobile Cards (< md) */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {filteredOrders.map((o) => {
+          const est = estimateOrderPhysics(o, moldsById.get(o.mold_id));
+          const sw = COLOR_SWATCHES[o.color];
+          return (
+            <div
+              key={o.order_id}
+              data-testid={`order-card-${o.order_id}`}
+              className="rounded-2xl border border-slate-800 bg-[#0f1629] p-4 text-xs shadow-lg"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-bold text-cyan-300">{o.order_id}</span>
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${sw.badge}`}
+                    >
+                      {o.color_rank}. {COLOR_LABELS[lang][o.color]}
+                    </span>
+                    {o.is_export && (
+                      <span className="inline-flex items-center gap-1 rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] font-bold text-indigo-200">
+                        <Globe className="h-3 w-3" /> Export
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 truncate font-semibold text-white">{o.sku_name}</div>
+                  <div className="truncate text-[11px] text-slate-400">{o.customer}</div>
+                </div>
+                <div className="shrink-0 text-end font-mono">
+                  <div className="text-xs font-bold text-amber-300">H{o.due_hr}</div>
+                  <div className="text-[10px] text-slate-400">{o.mold_id} • {o.resin_code}</div>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-2.5 text-[11px]">
+                <div>
+                  <div className="text-slate-400">Qty</div>
+                  <div dir="ltr" className="font-mono font-bold text-white">
+                    {o.quantity_pcs.toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400">Est. Run</div>
+                  <div dir="ltr" className="font-mono font-bold text-cyan-300">
+                    {est.estRunHrs.toFixed(1)}h
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-400">Est. Resin</div>
+                  <div dir="ltr" className="font-mono font-bold text-emerald-300">
+                    {est.estResinKg.toLocaleString()} kg
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-800/80 pt-3">
+                <button
+                  type="button"
+                  onClick={() => openEdit(o)}
+                  className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-cyan-300"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  <span>{t.studioEdit}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => duplicateOrder(o)}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(o)}
+                  className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Orders Table (md:block) */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 bg-[#0f1629] md:block">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400">
-              <th className="px-3 py-2.5 text-start">Order</th>
+              <th className="sticky start-0 z-10 bg-slate-900/95 px-3 py-2.5 text-start">Order</th>
               <th className="px-3 py-2.5 text-start">Mold / Resin</th>
               <th className="px-3 py-2.5 text-start">Color</th>
               <th className="px-3 py-2.5 text-end">Qty (pcs)</th>
@@ -196,7 +281,7 @@ export function OrdersEditor() {
               const sw = COLOR_SWATCHES[o.color];
               return (
                 <tr key={o.order_id} data-testid={`order-row-${o.order_id}`} className="hover:bg-slate-900/40">
-                  <td className="px-3 py-2.5">
+                  <td className="sticky start-0 z-10 bg-[#0f1629]/95 px-3 py-2.5">
                     <div className="font-mono font-bold text-cyan-300">{o.order_id}</div>
                     <div className="text-[11px] font-medium text-white">{o.sku_name}</div>
                     <div className="text-[10px] text-slate-400">{o.customer}</div>
@@ -275,25 +360,26 @@ export function OrdersEditor() {
 
       {/* Add / Edit Order Modal */}
       {editing && modalEst && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <form
             onSubmit={saveModal}
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#0f1629] p-5 shadow-2xl"
+            className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-[#0f1629] shadow-2xl sm:rounded-2xl"
           >
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-5 py-3.5">
               <h3 className="text-sm font-bold text-white">
                 {editing.originalId ? `${t.studioEdit}: ${editing.originalId}` : t.studioAddOrder}
               </h3>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white md:min-h-0 md:min-w-0"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex-1 overflow-y-auto p-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-xs">
                 <span className="text-slate-400">Order ID</span>
                 <input
@@ -529,7 +615,7 @@ export function OrdersEditor() {
             </div>
 
             {/* Live Computed Order Physics & Revenue Banner */}
-            <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs">
+            <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3 text-xs sm:grid-cols-3">
               <div>
                 <div className="text-[11px] text-cyan-200/80">{t.studioEstRunHrs}</div>
                 <div dir="ltr" data-testid="modal-est-run-hrs" className="font-mono text-base font-bold text-cyan-300">
@@ -556,19 +642,20 @@ export function OrdersEditor() {
                 </div>
               </div>
             </div>
+            </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-800 bg-slate-950/90 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300"
+                className="min-h-[44px] rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 md:min-h-0"
               >
                 {t.studioCancel}
               </button>
               <button
                 type="submit"
                 data-testid="save-order-btn"
-                className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400"
+                className="min-h-[44px] rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400 md:min-h-0"
               >
                 {t.studioSave}
               </button>

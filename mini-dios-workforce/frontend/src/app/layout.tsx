@@ -1,5 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#060a12",
+};
 
 export const metadata: Metadata = {
   title: "Mini-DIOS Plastics | Deterministic CP-SAT Plastic Factory OS",
@@ -18,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
         />
       </head>
-      <body className="min-h-screen antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
+      <body className="min-h-dvh overflow-x-hidden antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
         {children}
       </body>
     </html>

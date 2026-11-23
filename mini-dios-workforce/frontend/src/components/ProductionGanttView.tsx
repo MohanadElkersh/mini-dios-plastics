@@ -42,6 +42,9 @@ export function ProductionGanttView() {
   const [planMode, setPlanMode] = useState<"optimized" | "baseline">("optimized");
   const [zoomDetailed, setZoomDetailed] = useState(false);
   const [hovered, setHovered] = useState<GanttBlock | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<GanttBlock | null>(null);
+
+  const activeBlock = hovered ?? selectedBlock;
 
   const plan = result ? (planMode === "optimized" ? result.optimized : result.baseline) : null;
   const baseHorizonMins = (config.physics?.horizon_hrs ?? 168) * 60;
@@ -95,32 +98,32 @@ export function ProductionGanttView() {
               type="button"
               data-testid="gantt-zoom-toggle"
               onClick={() => setZoomDetailed((z) => !z)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white md:min-h-0"
             >
               {zoomDetailed ? <Minimize2 className="h-3.5 w-3.5 text-cyan-400" /> : <Maximize2 className="h-3.5 w-3.5 text-cyan-400" />}
               <span>{zoomDetailed ? t.ganttZoomFit : t.ganttZoomDetailed}</span>
             </button>
-            <div className="inline-flex rounded-xl border border-slate-700 bg-slate-900 p-1 text-xs font-semibold">
-            <button
-              type="button"
-              data-testid="gantt-mode-optimized"
-              onClick={() => setPlanMode("optimized")}
-              className={`rounded-lg px-3 py-1 transition ${
-                planMode === "optimized" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {t.showOptimized} ({result.optimized.kpis.purge_scrap_kg.toFixed(0)} kg)
-            </button>
-            <button
-              type="button"
-              data-testid="gantt-mode-baseline"
-              onClick={() => setPlanMode("baseline")}
-              className={`rounded-lg px-3 py-1 transition ${
-                planMode === "baseline" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {t.showBaseline} ({result.baseline.kpis.purge_scrap_kg.toFixed(0)} kg)
-            </button>
+            <div className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-700 bg-slate-900 p-1 text-xs font-semibold md:min-h-0">
+              <button
+                type="button"
+                data-testid="gantt-mode-optimized"
+                onClick={() => setPlanMode("optimized")}
+                className={`min-h-[36px] rounded-lg px-2.5 py-1 transition sm:px-3 md:min-h-0 ${
+                  planMode === "optimized" ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {t.showOptimized} ({result.optimized.kpis.purge_scrap_kg.toFixed(0)} kg)
+              </button>
+              <button
+                type="button"
+                data-testid="gantt-mode-baseline"
+                onClick={() => setPlanMode("baseline")}
+                className={`min-h-[36px] rounded-lg px-2.5 py-1 transition sm:px-3 md:min-h-0 ${
+                  planMode === "baseline" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {t.showBaseline} ({result.baseline.kpis.purge_scrap_kg.toFixed(0)} kg)
+              </button>
             </div>
           </div>
         </div>
@@ -167,18 +170,29 @@ export function ProductionGanttView() {
           )}
         </div>
 
+        {/* Mobile-only Scroll & Tap Hint */}
+        <div
+          data-testid="gantt-mobile-swipe-hint"
+          className="mb-2 flex items-center justify-between text-[11px] font-medium text-cyan-300 lg:hidden"
+        >
+          <span>{lang === "ar" ? "اضغط على أي أمر لعرض التفاصيل" : "Tap any block to inspect"}</span>
+          <span>{t.ganttSwipeHint}</span>
+        </div>
+
         {/* Horizontal Timeline Container (always LTR time axis so Sun -> Sat reads cleanly) */}
-        <div dir="ltr" className="overflow-x-auto pb-2" data-testid="press-gantt-chart">
+        <div dir="ltr" className="overflow-x-auto touch-pan-x pb-2" data-testid="press-gantt-chart">
           <div className={zoomDetailed ? "min-w-[1680px]" : "min-w-[920px]"}>
             {/* Day Scale Header */}
             <div className="mb-2 flex items-center">
-              <div className="w-44 shrink-0 text-[11px] font-semibold text-slate-400">Press / OEE</div>
+              <div className="sticky start-0 z-20 w-32 shrink-0 bg-[#0d1526]/95 pe-2 text-[11px] font-semibold text-slate-400 backdrop-blur-sm sm:w-44">
+                Press / OEE
+              </div>
               <div className="relative flex flex-1 border-b border-slate-800 pb-1.5 text-[11px] font-mono text-slate-400">
                 {Array.from({ length: totalDays }).map((_, d) => (
                   <div
                     key={d}
                     style={{ width: `${100 / totalDays}%` }}
-                    className="border-l border-slate-800/80 pl-1.5"
+                    className="border-s border-slate-800/80 ps-1.5"
                   >
                     {days[d % 7]} <span className="text-slate-500">H{d * 24}</span>
                   </div>
@@ -198,8 +212,8 @@ export function ProductionGanttView() {
                     data-testid={`gantt-row-${ps.machine_id}`}
                     className="flex items-center gap-2"
                   >
-                    {/* Left Press Label */}
-                    <div className="w-44 shrink-0 rounded-xl border border-slate-800 bg-slate-900/80 px-2.5 py-2">
+                    {/* Sticky Inline-Start Press Label */}
+                    <div className="sticky start-0 z-20 w-32 shrink-0 rounded-xl border border-slate-800 bg-slate-900/95 px-2 py-2 shadow-md backdrop-blur-sm sm:w-44 sm:px-2.5">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-mono font-bold text-cyan-300">{ps.machine_id}</span>
                         <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-emerald-300">
@@ -218,7 +232,7 @@ export function ProductionGanttView() {
                         <div
                           key={d}
                           style={{ left: `${(d / totalDays) * 100}%` }}
-                          className="pointer-events-none absolute inset-y-0 border-l border-slate-800/60"
+                          className="pointer-events-none absolute inset-y-0 border-s border-slate-800/60"
                         />
                       ))}
 
@@ -260,21 +274,27 @@ export function ProductionGanttView() {
                       {blocks.map((b) => {
                         const leftPct = (b.start_min / horizonMins) * 100;
                         const widthPct = Math.max(0.6, ((b.end_min - b.start_min) / horizonMins) * 100);
+                        const isSelected = selectedBlock?.block_id === b.block_id;
 
                         if (b.block_type === "production" && b.color) {
                           const st = PLASTIC_BLOCK_STYLE[b.color];
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={b.block_id}
+                              data-testid={`gantt-block-${b.block_id}`}
+                              onClick={() => setSelectedBlock((prev) => (prev?.block_id === b.block_id ? null : b))}
                               onMouseEnter={() => setHovered(b)}
                               onMouseLeave={() => setHovered(null)}
                               style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                              className={`absolute top-1.5 bottom-1.5 flex cursor-pointer items-center overflow-hidden rounded-md border px-1.5 text-[10px] font-bold shadow-sm transition hover:z-20 hover:ring-2 hover:ring-cyan-400 ${st.bg} ${st.text} ${st.border}`}
+                              className={`absolute top-1.5 bottom-1.5 flex cursor-pointer items-center overflow-hidden rounded-md border px-1.5 text-[10px] font-bold shadow-sm transition hover:z-20 hover:ring-2 hover:ring-cyan-400 ${st.bg} ${st.text} ${st.border} ${
+                                isSelected ? "z-20 ring-2 ring-cyan-400" : ""
+                              }`}
                             >
                               <span className="truncate">
                                 {b.order_id} • {b.mold_id}
                               </span>
-                            </div>
+                            </button>
                           );
                         }
 
@@ -286,15 +306,20 @@ export function ProductionGanttView() {
                               : "hatch-breakdown border-rose-400/80 text-rose-100 z-10";
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={b.block_id}
+                            data-testid={`gantt-block-${b.block_id}`}
+                            onClick={() => setSelectedBlock((prev) => (prev?.block_id === b.block_id ? null : b))}
                             onMouseEnter={() => setHovered(b)}
                             onMouseLeave={() => setHovered(null)}
                             style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                            className={`absolute top-1.5 bottom-1.5 flex cursor-pointer items-center justify-center overflow-hidden rounded-sm border text-[9px] font-bold ${hatchCls}`}
+                            className={`absolute top-1.5 bottom-1.5 flex cursor-pointer items-center justify-center overflow-hidden rounded-sm border text-[9px] font-bold ${hatchCls} ${
+                              isSelected ? "z-20 ring-2 ring-cyan-400" : ""
+                            }`}
                           >
                             {widthPct > 3 && <span className="truncate px-1">{b.block_type.toUpperCase()}</span>}
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -305,7 +330,7 @@ export function ProductionGanttView() {
               {/* Dedicated Toolroom / Mold PM Row (non-overlapping with press production rows) */}
               {plan.gantt_blocks.some((b) => b.block_type === "mold_pm") && (
                 <div data-testid="gantt-row-TOOLROOM" className="flex items-center gap-2 pt-1">
-                  <div className="w-44 shrink-0 rounded-xl border border-purple-500/40 bg-purple-500/10 px-2.5 py-2">
+                  <div className="sticky start-0 z-20 w-32 shrink-0 rounded-xl border border-purple-500/40 bg-[#130d26]/95 px-2 py-2 shadow-md backdrop-blur-sm sm:w-44 sm:px-2.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-mono font-bold text-purple-300">TOOLROOM</span>
                       <span className="rounded bg-purple-500/20 px-1.5 py-0.5 font-mono text-[10px] text-purple-200">
@@ -323,7 +348,7 @@ export function ProductionGanttView() {
                       <div
                         key={d}
                         style={{ left: `${(d / totalDays) * 100}%` }}
-                        className="pointer-events-none absolute inset-y-0 border-l border-slate-800/60"
+                        className="pointer-events-none absolute inset-y-0 border-s border-slate-800/60"
                       />
                     ))}
                     {plan.gantt_blocks
@@ -331,16 +356,22 @@ export function ProductionGanttView() {
                       .map((b) => {
                         const leftPct = (b.start_min / horizonMins) * 100;
                         const widthPct = Math.max(2.5, ((b.end_min - b.start_min) / horizonMins) * 100);
+                        const isSelected = selectedBlock?.block_id === b.block_id;
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={b.block_id}
+                            data-testid={`gantt-block-${b.block_id}`}
+                            onClick={() => setSelectedBlock((prev) => (prev?.block_id === b.block_id ? null : b))}
                             onMouseEnter={() => setHovered(b)}
                             onMouseLeave={() => setHovered(null)}
                             style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                            className="hatch-pm absolute top-1.5 bottom-1.5 flex cursor-pointer items-center justify-center overflow-hidden rounded-md border border-purple-400 px-1.5 text-[10px] font-bold text-purple-100"
+                            className={`hatch-pm absolute top-1.5 bottom-1.5 flex cursor-pointer items-center justify-center overflow-hidden rounded-md border border-purple-400 px-1.5 text-[10px] font-bold text-purple-100 ${
+                              isSelected ? "z-20 ring-2 ring-cyan-400" : ""
+                            }`}
                           >
                             <span className="truncate">{b.mold_id} PM</span>
-                          </div>
+                          </button>
                         );
                       })}
                   </div>
@@ -350,32 +381,53 @@ export function ProductionGanttView() {
           </div>
         </div>
 
-        {/* Interactive Hover Inspector Strip */}
-        <div className="mt-3 min-h-[38px] rounded-xl border border-slate-800 bg-slate-950/70 px-3.5 py-2 text-xs text-slate-300">
-          {hovered ? (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+        {/* Interactive Tap / Hover Inspector Card */}
+        <div
+          data-testid="gantt-inspect-card"
+          className="mt-3 min-h-[44px] rounded-xl border border-slate-800 bg-slate-950/80 px-3.5 py-2.5 text-xs text-slate-300"
+        >
+          {activeBlock ? (
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded bg-cyan-500/20 px-2 py-0.5 font-mono font-bold text-cyan-300">
-                  {hovered.machine_id}
+                  {activeBlock.machine_id}
                 </span>
-                <span className="font-semibold text-white">{hovered.label}</span>
-                {hovered.resin_code && (
+                <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-slate-300">
+                  {activeBlock.block_type}
+                </span>
+                <span className="font-semibold text-white">{activeBlock.label}</span>
+                {activeBlock.mold_id && (
+                  <span className="rounded bg-indigo-500/15 px-1.5 py-0.5 font-mono text-[11px] text-indigo-200">
+                    {activeBlock.mold_id}
+                  </span>
+                )}
+                {activeBlock.resin_code && (
                   <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[11px] text-slate-200">
-                    {hovered.resin_code} • {hovered.color}
+                    {activeBlock.resin_code} • {activeBlock.color ? COLOR_LABELS[lang][activeBlock.color] : ""}
                   </span>
                 )}
               </div>
-              <div dir="ltr" className="font-mono text-[11px] text-slate-400">
-                H{(hovered.start_min / 60).toFixed(1)} → H{(hovered.end_min / 60).toFixed(1)} (
-                {((hovered.end_min - hovered.start_min) / 60).toFixed(1)}h)
-                {hovered.purge_scrap_kg > 0 && ` • Purge: ${hovered.purge_scrap_kg} kg`}
-                {hovered.tardiness_hrs > 0 && ` • Late: +${hovered.tardiness_hrs}h`}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div dir="ltr" className="font-mono text-[11px] text-slate-300">
+                  H{(activeBlock.start_min / 60).toFixed(1)} → H{(activeBlock.end_min / 60).toFixed(1)} (
+                  {((activeBlock.end_min - activeBlock.start_min) / 60).toFixed(1)}h)
+                  {activeBlock.purge_scrap_kg > 0 && ` • Purge: ${activeBlock.purge_scrap_kg} kg`}
+                  {activeBlock.tardiness_hrs > 0 && ` • Late: +${activeBlock.tardiness_hrs}h`}
+                </div>
+                {selectedBlock && (
+                  <button
+                    type="button"
+                    data-testid="gantt-clear-inspect"
+                    onClick={() => setSelectedBlock(null)}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-semibold text-slate-300 hover:text-white"
+                  >
+                    {lang === "ar" ? "إغلاق" : "Clear"}
+                  </button>
+                )}
               </div>
             </div>
           ) : (
-            <span className="text-slate-500">
-              Hover any colored production block or hatched changeover/PM block above to inspect exact timing, mold, resin, and purge scrap.
-            </span>
+            <span className="text-slate-500">{t.ganttTapHint}</span>
           )}
         </div>
       </div>
@@ -433,11 +485,11 @@ export function ProductionGanttView() {
           <BarChart3 className="h-4 w-4 text-indigo-400" />
           <h3 className="text-sm font-bold text-white">{t.sequenceTableTitle}</h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="overflow-x-auto touch-pan-x">
+          <table className="w-full min-w-[680px] text-xs">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400">
-                <th className="px-2.5 py-2 text-start">Press</th>
+                <th className="sticky start-0 z-10 bg-[#0f1629]/95 px-2.5 py-2 text-start">Press</th>
                 <th className="px-2 py-2 text-start">Order</th>
                 <th className="px-2 py-2 text-start">Mold</th>
                 <th className="px-2 py-2 text-start">Resin</th>
@@ -454,7 +506,9 @@ export function ProductionGanttView() {
                 const st = PLASTIC_BLOCK_STYLE[j.color];
                 return (
                   <tr key={j.order_id} className="hover:bg-slate-900/50">
-                    <td className="px-2.5 py-2 font-mono font-bold text-cyan-300">{j.machine_id}</td>
+                    <td className="sticky start-0 z-10 bg-[#0f1629]/95 px-2.5 py-2 font-mono font-bold text-cyan-300">
+                      {j.machine_id}
+                    </td>
                     <td className="px-2 py-2">
                       <div className="font-semibold text-white">{j.order_id}</div>
                       <div className="text-[11px] text-slate-400">{j.sku_name}</div>

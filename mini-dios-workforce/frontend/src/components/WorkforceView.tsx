@@ -528,7 +528,7 @@ export function WorkforceView() {
             data-testid="btn-reoptimize-shifts"
             disabled={workforceLoading || loading || workers.length === 0}
             onClick={() => void handleReOptimize()}
-            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto md:min-h-0"
           >
             {workforceLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -719,16 +719,18 @@ export function WorkforceView() {
                 </span>
                 <span className="font-mono font-bold text-cyan-300">{wfCfg.w_labor_cost}</span>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                data-testid="slider-wf-cost"
-                value={wfCfg.w_labor_cost}
-                onChange={(e) => handleWeightSlider("w_labor_cost", Number(e.target.value))}
-                className="w-full accent-cyan-400"
-              />
+              <div className="py-1.5 md:py-0">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  data-testid="slider-wf-cost"
+                  value={wfCfg.w_labor_cost}
+                  onChange={(e) => handleWeightSlider("w_labor_cost", Number(e.target.value))}
+                  className="dios-slider w-full"
+                />
+              </div>
             </div>
 
             <div>
@@ -738,16 +740,18 @@ export function WorkforceView() {
                 </span>
                 <span className="font-mono font-bold text-emerald-300">{wfCfg.w_coverage}</span>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                data-testid="slider-wf-coverage"
-                value={wfCfg.w_coverage}
-                onChange={(e) => handleWeightSlider("w_coverage", Number(e.target.value))}
-                className="w-full accent-emerald-400"
-              />
+              <div className="py-1.5 md:py-0">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  data-testid="slider-wf-coverage"
+                  value={wfCfg.w_coverage}
+                  onChange={(e) => handleWeightSlider("w_coverage", Number(e.target.value))}
+                  className="dios-slider w-full"
+                />
+              </div>
             </div>
 
             <div>
@@ -757,16 +761,18 @@ export function WorkforceView() {
                 </span>
                 <span className="font-mono font-bold text-amber-300">{wfCfg.w_fairness}</span>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                data-testid="slider-wf-fairness"
-                value={wfCfg.w_fairness}
-                onChange={(e) => handleWeightSlider("w_fairness", Number(e.target.value))}
-                className="w-full accent-amber-400"
-              />
+              <div className="py-1.5 md:py-0">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  data-testid="slider-wf-fairness"
+                  value={wfCfg.w_fairness}
+                  onChange={(e) => handleWeightSlider("w_fairness", Number(e.target.value))}
+                  className="dios-slider w-full"
+                />
+              </div>
             </div>
           </div>
 
@@ -1010,11 +1016,11 @@ export function WorkforceView() {
           </div>
 
           {/* Matrix Table */}
-          <div className="max-h-[430px] overflow-auto">
-            <table className="w-full text-start text-xs">
-              <thead className="sticky top-0 z-10 bg-slate-900 text-[11px] uppercase text-slate-400">
+          <div className="max-h-[430px] overflow-auto touch-pan-x">
+            <table className="w-full min-w-[680px] text-start text-xs">
+              <thead className="sticky top-0 z-20 bg-slate-900 text-[11px] uppercase text-slate-400">
                 <tr>
-                  <th className="px-4 py-2.5 text-start">{isAr ? "العامل" : "Worker"}</th>
+                  <th className="sticky start-0 z-20 bg-slate-900/95 px-4 py-2.5 text-start">{isAr ? "العامل" : "Worker"}</th>
                   <th className="px-3 py-2.5 text-start">{isAr ? "الدور" : "Role"}</th>
                   {dayNames.map((d) => (
                     <th key={d} className="px-2 py-2.5 text-center">
@@ -1035,7 +1041,7 @@ export function WorkforceView() {
                       data-testid={`roster-row-${row.worker_id}`}
                       className="hover:bg-slate-900/50"
                     >
-                      <td className="whitespace-nowrap px-4 py-2">
+                      <td className="sticky start-0 z-10 whitespace-nowrap bg-[#0f1629]/95 px-4 py-2">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-[11px] font-bold text-cyan-300">
                             {row.worker_id}
@@ -1277,8 +1283,8 @@ export function WorkforceView() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-56">
               <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -1286,14 +1292,14 @@ export function WorkforceView() {
                 value={dirSearch}
                 onChange={(e) => setDirSearch(e.target.value)}
                 placeholder={isAr ? "بحث بالاسم أو الرمز..." : "Search worker ID or name..."}
-                className="rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-xs text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                className="min-h-[44px] w-full rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-base text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none md:min-h-0 md:text-xs"
               />
             </div>
 
             <select
               value={dirRoleFilter}
               onChange={(e) => setDirRoleFilter(e.target.value as "ALL" | WorkerRole)}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+              className="min-h-[44px] flex-1 rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-base text-slate-200 focus:border-cyan-500 focus:outline-none sm:flex-initial md:min-h-0 md:text-xs"
             >
               <option value="ALL">{isAr ? "كل الأدوار" : "All Roles"}</option>
               {ALL_ROLES.map((r) => (
@@ -1307,7 +1313,7 @@ export function WorkforceView() {
               type="button"
               data-testid="btn-add-worker"
               onClick={openAddWorker}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 sm:flex-initial md:min-h-0"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>{isAr ? "إضافة عامل" : "Add Worker"}</span>
@@ -1591,11 +1597,11 @@ export function WorkforceView() {
         )}
 
         {/* Directory Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs">
+        <div className="overflow-x-auto touch-pan-x">
+          <table className="w-full min-w-[720px] text-start text-xs">
             <thead className="bg-slate-900/70 text-[11px] uppercase text-slate-400">
               <tr>
-                <th className="px-4 py-3 text-start">{isAr ? "الرمز والاسم" : "Worker"}</th>
+                <th className="sticky start-0 z-10 bg-slate-900/95 px-4 py-3 text-start">{isAr ? "الرمز والاسم" : "Worker"}</th>
                 <th className="px-3 py-3 text-start">{isAr ? "الدور" : "Role"}</th>
                 <th className="px-3 py-3 text-start">{isAr ? "المكابس المؤهل لها" : "Certified Presses"}</th>
                 <th className="px-3 py-3 text-end">{isAr ? "الأجر / الحد" : "Rate / Cap"}</th>
@@ -1616,7 +1622,7 @@ export function WorkforceView() {
                     data-testid={`worker-dir-row-${w.worker_id}`}
                     className={`hover:bg-slate-900/40 ${isSick ? "bg-rose-950/20" : ""}`}
                   >
-                    <td className="whitespace-nowrap px-4 py-2.5">
+                    <td className="sticky start-0 z-10 whitespace-nowrap bg-[#0f1629]/95 px-4 py-2.5">
                       <div className="font-mono text-[11px] font-bold text-cyan-300">{w.worker_id}</div>
                       <div className="font-semibold text-white">{w.name}</div>
                     </td>

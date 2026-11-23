@@ -52,7 +52,7 @@ export function ExecutiveBriefModal() {
   const totalChecks = verifiedChecks.length || 6;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm transition-opacity"
@@ -62,34 +62,35 @@ export function ExecutiveBriefModal() {
       {/* Modal Dialog */}
       <div
         data-testid="executive-brief-modal"
-        className="relative z-10 flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl shadow-cyan-950/30 overflow-hidden"
+        className="relative z-10 flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-slate-700/80 bg-slate-900 shadow-2xl shadow-cyan-950/30 sm:rounded-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/40 text-emerald-400">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-4 py-3.5 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 text-emerald-400">
               <Award className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-100 sm:text-lg">
+            <div className="min-w-0">
+              <h2 className="truncate text-sm font-bold text-slate-100 sm:text-lg">
                 {t.executiveBriefTitle}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="truncate text-[11px] text-slate-400 sm:text-xs">
                 {t.executiveBriefSubtitle}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={() => setBriefModalOpen(false)}
             data-testid="btn-close-brief-modal"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 md:min-h-0 md:min-w-0"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-6">
           {!result ? (
             <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-slate-400 text-sm">
               {t.noResultYet}
@@ -230,14 +231,14 @@ export function ExecutiveBriefModal() {
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300">
+                  <table className="w-full min-w-[520px] text-start text-xs text-slate-300">
                     <thead>
                       <tr className="border-b border-slate-800 text-[11px] text-slate-400">
-                        <th className="pb-2 font-medium">{t.briefColResinCode}</th>
-                        <th className="pb-2 font-medium">{t.briefColVirginUsed}</th>
-                        <th className="pb-2 font-medium">{t.briefColRegrindUsed}</th>
-                        <th className="pb-2 font-medium">{t.briefColFifoScrap}</th>
-                        <th className="pb-2 font-medium">{t.briefColOptScrap}</th>
+                        <th className="pb-2 pe-2 font-medium">{t.briefColResinCode}</th>
+                        <th className="pb-2 pe-2 font-medium">{t.briefColVirginUsed}</th>
+                        <th className="pb-2 pe-2 font-medium">{t.briefColRegrindUsed}</th>
+                        <th className="pb-2 pe-2 font-medium">{t.briefColFifoScrap}</th>
+                        <th className="pb-2 pe-2 font-medium">{t.briefColOptScrap}</th>
                         <th className="pb-2 font-medium text-emerald-400">{t.briefColScrapSaved}</th>
                       </tr>
                     </thead>
@@ -303,15 +304,16 @@ export function ExecutiveBriefModal() {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950/80 px-6 py-3">
-          <span className="text-[11px] text-slate-400">
+        {/* Sticky Footer */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-800 bg-slate-950/90 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-6 sm:pb-3">
+          <span className="hidden text-[11px] text-slate-400 sm:inline">
             {t.deterministicFooter}
           </span>
           <button
+            type="button"
             onClick={() => setBriefModalOpen(false)}
             data-testid="btn-close-brief-modal-footer"
-            className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition-colors"
+            className="min-h-[44px] w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-700 sm:w-auto md:min-h-0 md:rounded-lg md:py-1.5"
           >
             {t.closeModal}
           </button>

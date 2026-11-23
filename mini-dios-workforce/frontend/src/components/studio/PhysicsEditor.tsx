@@ -27,10 +27,10 @@ function SliderNumberField({
   onChange,
 }: SliderNumberFieldProps) {
   return (
-    <div className="space-y-1.5 rounded-xl border border-slate-800/80 bg-slate-950/60 p-3">
+    <div className="space-y-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-3">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="font-medium text-slate-300">{label}</span>
-        <div dir="ltr" className="flex items-center gap-1.5">
+        <div dir="ltr" className="flex shrink-0 items-center gap-1.5">
           <input
             type="number"
             data-testid={testId}
@@ -42,20 +42,22 @@ function SliderNumberField({
               const v = Number(e.target.value);
               if (!Number.isNaN(v)) onChange(v);
             }}
-            className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-end font-mono text-xs font-bold text-cyan-300"
+            className="min-h-[40px] w-20 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-end font-mono text-base font-bold text-cyan-300 md:min-h-0 md:text-xs"
           />
           <span className="w-14 text-[10px] text-slate-400">{unit}</span>
         </div>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={Math.min(max, Math.max(min, value))}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="dios-slider w-full"
-      />
+      <div className="py-1.5 md:py-0">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={Math.min(max, Math.max(min, value))}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="dios-slider w-full"
+        />
+      </div>
     </div>
   );
 }

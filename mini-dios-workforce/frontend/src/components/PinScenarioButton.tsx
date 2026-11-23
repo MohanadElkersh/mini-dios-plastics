@@ -84,7 +84,7 @@ export function PinScenarioButton({
         data-testid={testId}
         disabled={disabled}
         onClick={handleClick}
-        className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 md:min-h-0 ${
           justPinned
             ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-200"
             : variant === "copilot"
@@ -99,7 +99,7 @@ export function PinScenarioButton({
       {replaceOpen && (
         <div
           data-testid="pin-replace-popover"
-          className="absolute end-0 top-full z-40 mt-2 w-64 rounded-xl border border-slate-700 bg-[#0c1324] p-3 shadow-2xl shadow-black/60"
+          className="absolute end-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-700 bg-[#0c1324] p-3 shadow-2xl shadow-black/60"
         >
           <div className="mb-2 flex items-start justify-between gap-2">
             <p className="text-[11px] font-medium leading-snug text-slate-300">

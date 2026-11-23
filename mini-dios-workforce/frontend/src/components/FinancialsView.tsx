@@ -460,14 +460,14 @@ export function FinancialsView() {
       </div>
 
       {/* 2. Inline Financial Assumptions Strip */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-[#0f1629] px-5 py-3.5">
-        <div className="flex flex-wrap items-center gap-5">
+      <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-800 bg-[#0f1629] px-4 py-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
+        <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-5">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
             <Building2 className="h-4 w-4 text-cyan-400" />
             <span>{isAr ? "الافتراضات المالية:" : "Financial Assumptions:"}</span>
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center justify-between gap-2 text-xs text-slate-300 sm:justify-start">
             <span>{isAr ? `المصاريف الثابتة (${currency}/أسبوع)` : `Weekly Fixed Overhead (${currency})`}</span>
             <input
               type="number"
@@ -477,13 +477,15 @@ export function FinancialsView() {
               value={overheadDraft}
               onChange={(e) => handleOverheadChange(e.target.value)}
               dir="ltr"
-              className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-xs font-bold text-cyan-300 focus:border-cyan-500 focus:outline-none"
+              className="min-h-[40px] w-28 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-base font-bold text-cyan-300 focus:border-cyan-500 focus:outline-none md:min-h-0 md:text-xs"
             />
           </label>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
-            <Recycle className="h-3.5 w-3.5 text-emerald-400" />
-            <span>{isAr ? "استرداد الهالك (%)" : "Scrap Recovery (%)"}</span>
+          <label className="flex items-center justify-between gap-2 text-xs text-slate-300 sm:justify-start">
+            <span className="inline-flex items-center gap-1.5">
+              <Recycle className="h-3.5 w-3.5 text-emerald-400" />
+              <span>{isAr ? "استرداد الهالك (%)" : "Scrap Recovery (%)"}</span>
+            </span>
             <input
               type="number"
               min={0}
@@ -493,11 +495,11 @@ export function FinancialsView() {
               value={ph.scrap_regrind_recovery_pct}
               onChange={(e) => handleRecoveryChange(e.target.value)}
               dir="ltr"
-              className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-xs font-bold text-emerald-300 focus:border-emerald-500 focus:outline-none"
+              className="min-h-[40px] w-20 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-base font-bold text-emerald-300 focus:border-emerald-500 focus:outline-none md:min-h-0 md:text-xs"
             />
           </label>
 
-          <label className="flex items-center gap-2 text-xs text-slate-300">
+          <label className="flex items-center justify-between gap-2 text-xs text-slate-300 sm:justify-start">
             <span>{isAr ? "أسابيع التشغيل/سنة" : "Operating Weeks / Yr"}</span>
             <input
               type="number"
@@ -508,7 +510,7 @@ export function FinancialsView() {
               value={ph.annual_operating_weeks}
               onChange={(e) => handleWeeksChange(e.target.value)}
               dir="ltr"
-              className="w-16 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-xs font-bold text-blue-300 focus:border-blue-500 focus:outline-none"
+              className="min-h-[40px] w-20 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-end font-mono text-base font-bold text-blue-300 focus:border-blue-500 focus:outline-none sm:w-16 md:min-h-0 md:text-xs"
             />
           </label>
         </div>
@@ -518,7 +520,7 @@ export function FinancialsView() {
           disabled={loading}
           onClick={() => void runSolve()}
           data-testid="fin-sync-solve"
-          className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:opacity-50 sm:w-auto md:min-h-0"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
           <span>{isAr ? "مزامنة CP-SAT" : "Run CP-SAT Optimization"}</span>
@@ -590,16 +592,16 @@ export function FinancialsView() {
             </div>
             <Sparkles className="h-4 w-4 text-emerald-400" />
           </div>
-          <div dir="ltr" className="h-64 w-full">
+          <div dir="ltr" className="h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={savingsChartData}
                 layout="vertical"
-                margin={{ top: 5, right: 24, left: 20, bottom: 5 }}
+                margin={{ top: 5, right: 16, left: 4, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis type="number" stroke="#94a3b8" fontSize={11} />
-                <YAxis type="category" dataKey="name" stroke="#cbd5e1" fontSize={11} width={110} />
+                <XAxis type="number" stroke="#94a3b8" fontSize={10} />
+                <YAxis type="category" dataKey="name" stroke="#cbd5e1" fontSize={10} width={96} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: "#0b1120",
@@ -629,11 +631,13 @@ export function FinancialsView() {
               : "Side-by-Side Weekly Executive P&L Statement"}
           </h3>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs">
+        <div className="overflow-x-auto touch-pan-x">
+          <table className="w-full min-w-[580px] text-start text-xs">
             <thead className="bg-slate-900/70 text-[11px] uppercase text-slate-400">
               <tr>
-                <th className="px-5 py-3 text-start">{isAr ? "البند المالي" : "Line Item"}</th>
+                <th className="sticky start-0 z-10 bg-slate-900/95 px-3.5 py-3 text-start sm:px-5">
+                  {isAr ? "البند المالي" : "Line Item"}
+                </th>
                 <th className="px-4 py-3 text-end">{isAr ? "خط الأساس FIFO" : "Naive FIFO Baseline"}</th>
                 <th className="px-4 py-3 text-end">{isAr ? "أمثلية CP-SAT" : "CP-SAT Optimized"}</th>
                 <th className="px-4 py-3 text-end">{isAr ? "الفرق (الوفر / المكسب)" : "Delta (Savings / Gain)"}</th>
@@ -653,7 +657,11 @@ export function FinancialsView() {
                         : "hover:bg-slate-900/40"
                     }
                   >
-                    <td className={`px-5 py-3 ${row.bold ? "font-bold text-white" : "text-slate-300"}`}>
+                    <td
+                      className={`sticky start-0 z-10 bg-[#0f1629]/95 px-3.5 py-3 sm:px-5 ${
+                        row.bold ? "font-bold text-white" : "text-slate-300"
+                      }`}
+                    >
                       {row.label}
                     </td>
                     <td className="px-4 py-3 text-end font-mono text-slate-300" dir="ltr">
@@ -704,23 +712,23 @@ export function FinancialsView() {
                 : "Editing Unit Selling Price syncs immediately with Tab 2 and recalculates revenue, profit, and margins."}
             </p>
           </div>
-          <div className="relative">
+          <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute start-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={orderQuery}
               onChange={(e) => setOrderQuery(e.target.value)}
               placeholder={isAr ? "بحث بالطلب أو العميل..." : "Filter order or customer..."}
-              className="rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-xs text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+              className="min-h-[44px] w-full rounded-xl border border-slate-700 bg-slate-900 py-1.5 pe-3 ps-8 text-base text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none md:min-h-0 md:text-xs"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-start text-xs">
+        <div className="overflow-x-auto touch-pan-x">
+          <table className="w-full min-w-[720px] text-start text-xs">
             <thead className="bg-slate-900/70 text-[11px] uppercase text-slate-400">
               <tr>
-                <th className="px-4 py-3 text-start">{isAr ? "الطلب" : "Order"}</th>
+                <th className="sticky start-0 z-10 bg-slate-900/95 px-4 py-3 text-start">{isAr ? "الطلب" : "Order"}</th>
                 <th className="px-4 py-3 text-start">{isAr ? "العميل" : "Customer"}</th>
                 <th className="px-4 py-3 text-start">{isAr ? "المنتج" : "SKU"}</th>
                 <th className="px-3 py-3 text-end">{isAr ? "الكمية" : "Qty (pcs)"}</th>
@@ -749,7 +757,9 @@ export function FinancialsView() {
 
                 return (
                   <tr key={row.order_id} className="hover:bg-slate-900/40">
-                    <td className="px-4 py-2.5 font-mono font-bold text-cyan-300">{row.order_id}</td>
+                    <td className="sticky start-0 z-10 bg-[#0f1629]/95 px-4 py-2.5 font-mono font-bold text-cyan-300">
+                      {row.order_id}
+                    </td>
                     <td className="px-4 py-2.5 text-slate-200">{row.customer}</td>
                     <td className="px-4 py-2.5 text-slate-300">{row.sku_name}</td>
                     <td className="px-3 py-2.5 text-end font-mono text-slate-300" dir="ltr">

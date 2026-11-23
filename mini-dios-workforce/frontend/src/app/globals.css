@@ -8,6 +8,12 @@
   --dios-border: rgba(51, 65, 85, 0.58);
 }
 
+html {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background-color: var(--dios-canvas);
   background-image:
@@ -16,10 +22,36 @@ body {
   color: #e2e8f0;
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   overflow-x: hidden;
+  max-width: 100vw;
 }
 
 html[dir="rtl"] body {
   font-family: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+/* Enforce zero letter-spacing on Arabic RTL so connected glyphs never break */
+html[dir="rtl"] body,
+html[dir="rtl"] * {
+  letter-spacing: normal !important;
+}
+
+/* Prevent iOS Safari forced auto-zoom when tapping form controls on mobile (< 768px) */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Hide scrollbars cleanly on horizontal mobile tab/chip strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .font-mono {
@@ -50,35 +82,66 @@ html[dir="rtl"] body {
   box-shadow: inset 0 2px 0 0 rgba(244, 63, 94, 0.65);
 }
 
-/* Custom sleek range slider */
+/* Custom sleek range slider with thumb-friendly mobile touch ergonomics */
 input[type="range"].dios-slider {
   -webkit-appearance: none;
   appearance: none;
-  height: 6px;
+  height: 8px;
   border-radius: 9999px;
   background: #1e293b;
   outline: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+
+@media (min-width: 768px) {
+  input[type="range"].dios-slider {
+    height: 6px;
+  }
 }
 
 input[type="range"].dios-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 9999px;
   background: #22d3ee;
   border: 2px solid #0f172a;
   cursor: pointer;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.24);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+input[type="range"].dios-slider::-webkit-slider-thumb:active {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.32);
+}
+
+@media (min-width: 768px) {
+  input[type="range"].dios-slider::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
+  }
 }
 
 input[type="range"].dios-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: 9999px;
   background: #22d3ee;
   border: 2px solid #0f172a;
   cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.24);
+}
+
+@media (min-width: 768px) {
+  input[type="range"].dios-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.22);
+  }
 }
 
 /* Hatched Gantt Patterns for Changeover/Purge & Breakdown/PM blocks */
@@ -119,8 +182,8 @@ input[type="range"].dios-slider::-moz-range-thumb {
     rgba(245, 158, 11, 0.13),
     rgba(245, 158, 11, 0.06) 8px
   );
-  border-left: 1px dashed rgba(245, 158, 11, 0.35);
-  border-right: 1px dashed rgba(245, 158, 11, 0.35);
+  border-inline-start: 1px dashed rgba(245, 158, 11, 0.35);
+  border-inline-end: 1px dashed rgba(245, 158, 11, 0.35);
 }
 
 .band-ramadan-iftar {
@@ -129,6 +192,6 @@ input[type="range"].dios-slider::-moz-range-thumb {
     rgba(99, 102, 241, 0.16),
     rgba(99, 102, 241, 0.07) 8px
   );
-  border-left: 1px dashed rgba(129, 140, 248, 0.4);
-  border-right: 1px dashed rgba(129, 140, 248, 0.4);
+  border-inline-start: 1px dashed rgba(129, 140, 248, 0.4);
+  border-inline-end: 1px dashed rgba(129, 140, 248, 0.4);
 }

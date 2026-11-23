@@ -109,18 +109,99 @@ export function PressesEditor() {
           type="button"
           data-testid="btn-add-press"
           onClick={openNew}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-400"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-cyan-500 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 md:min-h-0"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>{t.studioAddPress}</span>
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-[#0f1629]">
+      {/* Stacked Mobile Cards (< md) */}
+      <div className="grid grid-cols-1 gap-3 md:hidden">
+        {presses.map((p) => (
+          <div
+            key={p.machine_id}
+            data-testid={`press-card-${p.machine_id}`}
+            className="rounded-2xl border border-slate-800 bg-[#0f1629] p-4 text-xs shadow-lg"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-cyan-300">{p.machine_id}</span>
+                  <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-200">
+                    {p.tonnage}T • {p.process_type}
+                  </span>
+                  {p.supports_hot_runner && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
+                      <Flame className="h-3 w-3" /> HR
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 font-semibold text-white">{p.name}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggleStatus(p)}
+                className={`inline-flex min-h-[36px] items-center gap-1 rounded-full px-3 py-1 text-[10px] font-bold transition ${
+                  p.status === "active"
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : "bg-rose-500/20 text-rose-300"
+                }`}
+              >
+                <Power className="h-3 w-3" />
+                <span>{p.status}</span>
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-2.5 text-[11px]">
+              <div>
+                <span className="text-slate-400">Energy:</span>{" "}
+                <span dir="ltr" className="font-mono font-semibold text-slate-200">
+                  {p.hourly_energy_kwh} kWh/h
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400">Op Cost:</span>{" "}
+                <span dir="ltr" className="font-mono font-semibold text-slate-200">
+                  {p.hourly_operating_cost}/h
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-800/80 pt-3">
+              <button
+                type="button"
+                onClick={() => openEdit(p)}
+                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-cyan-300"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                <span>{t.studioEdit}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => duplicatePress(p)}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-300"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(p)}
+                className="inline-flex min-h-[40px] items-center justify-center gap-1 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-300"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table (md:block) */}
+      <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 bg-[#0f1629] md:block">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-900/60 text-slate-400">
-              <th className="px-3 py-2.5 text-start">ID</th>
+              <th className="sticky start-0 z-10 bg-slate-900/95 px-3 py-2.5 text-start">ID</th>
               <th className="px-3 py-2.5 text-start">Name</th>
               <th className="px-3 py-2.5 text-start">Process</th>
               <th className="px-3 py-2.5 text-end">Tonnage</th>
@@ -135,7 +216,9 @@ export function PressesEditor() {
           <tbody className="divide-y divide-slate-800/70">
             {presses.map((p) => (
               <tr key={p.machine_id} data-testid={`press-row-${p.machine_id}`} className="hover:bg-slate-900/40">
-                <td className="px-3 py-2.5 font-mono font-bold text-cyan-300">{p.machine_id}</td>
+                <td className="sticky start-0 z-10 bg-[#0f1629]/95 px-3 py-2.5 font-mono font-bold text-cyan-300">
+                  {p.machine_id}
+                </td>
                 <td className="px-3 py-2.5 font-medium text-white">{p.name}</td>
                 <td className="px-3 py-2.5 text-slate-300">{p.process_type}</td>
                 <td dir="ltr" className="px-3 py-2.5 text-end font-mono text-slate-200">
@@ -219,25 +302,26 @@ export function PressesEditor() {
 
       {/* Add / Edit Press Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
           <form
             onSubmit={saveModal}
-            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#0f1629] p-5 shadow-2xl"
+            className="flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl border border-slate-700 bg-[#0f1629] shadow-2xl sm:rounded-2xl"
           >
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-5 py-3.5">
               <h3 className="text-sm font-bold text-white">
                 {editing.originalId ? `${t.studioEdit}: ${editing.originalId}` : t.studioAddPress}
               </h3>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white md:min-h-0 md:min-w-0"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex-1 overflow-y-auto p-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-xs">
                 <span className="text-slate-400">Machine ID</span>
                 <input
@@ -426,18 +510,20 @@ export function PressesEditor() {
               )}
             </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            </div>
+
+            <div className="flex shrink-0 justify-end gap-2 border-t border-slate-800 bg-slate-950/90 px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300"
+                className="min-h-[44px] rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 md:min-h-0"
               >
                 {t.studioCancel}
               </button>
               <button
                 type="submit"
                 data-testid="save-press-btn"
-                className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400"
+                className="min-h-[44px] rounded-lg bg-cyan-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400 md:min-h-0"
               >
                 {t.studioSave}
               </button>

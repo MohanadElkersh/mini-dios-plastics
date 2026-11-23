@@ -4,6 +4,27 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.3 — 2026-11-23 — Mobile-First Responsive UX Overhaul (375px–430px iOS/Android/WhatsApp in EN LTR & AR RTL)
+
+### Application Changes
+- **Global Mobile Ergonomics & Safe Areas (`frontend/src/app/globals.css`, `layout.tsx`, `page.tsx`, `lib/i18n.ts`):**
+  - Switched full-height shells, drawers, and modals from `vh`/`min-h-screen` to `dvh`/`min-h-dvh` with `viewportFit: "cover"` and safe-area bottom inset padding (`env(safe-area-inset-bottom)`).
+  - Enforced `16px` (`text-base`) minimum font size on all `<input>`, `<select>`, and `<textarea>` controls on mobile viewports (`< 768px`) to prevent iOS Safari forced auto-zoom, enlarged `.dios-slider` range thumbs to `24px × 24px` with vertical touch padding on mobile, enforced `≥ 44px` touch targets on primary controls, and enforced `letter-spacing: normal` across Arabic (`html[dir="rtl"]`) so connected glyphs never break.
+- **Compact Mobile Header, Controls Drawer & Sticky Bottom Action Bar (`frontend/src/components/TopBar.tsx`, `DecisionLoopStrip.tsx`, `LoginGate.tsx`):**
+  - Preserved the full desktop (`lg:`) top bar while condensing mobile (`< lg`) into a compact top row (`Brand`, `SAR/EGP`, `العربية/EN`, and `Controls` / `الإعدادات` slide-over drawer button) plus a **Sticky Bottom Action Bar (`lg:hidden`)** pinning **`Run CP-SAT Optimization`** and **`Ops Copilot`** for one-thumb mobile access.
+  - Added the **Mobile Controls Drawer** containing `Peak Tariff Avoid`, `Ramadan Shift`, `Auto PM`, `Executive Brief`, solver status telemetry, and Hosted Sandbox (`Reset Sandbox`, `Sign Out`) controls.
+  - Converted the 6 main workspace tabs and the 5-stage `Decision Intelligence Loop` into single-row horizontal snap-scroll strips on mobile with active-tab auto-scrolling, and updated `LoginGate.tsx` with `dir="ltr"` on passcode inputs so codes like `ALEX-2026` type cleanly in Arabic RTL.
+- **Responsive Studio Cards, Keyboard-Safe Modals, Touch Gantt & Copilot Drawer (`ScopeView.tsx`, `DataStudioView.tsx`, `QuickAddModal.tsx`, `ExecutiveBriefModal.tsx`, `studio/ConfirmDeleteModal.tsx`, `PressesEditor.tsx`, `MoldsEditor.tsx`, `ResinsEditor.tsx`, `OrdersEditor.tsx`, `PhysicsEditor.tsx`, `TradeoffConsole.tsx`, `PinScenarioButton.tsx`, `ScenarioComparisonMatrix.tsx`, `RiskRadarPanel.tsx`, `ProductionGanttView.tsx`, `FinancialsView.tsx`, `WorkforceView.tsx`, `CopilotDrawer.tsx`):**
+  - Added stacked mobile cards (`md:hidden`) for Presses, Molds, Resins, and Production Orders in Tab 2 while preserving desktop tables (`hidden md:block`) with sticky first columns.
+  - Upgraded all modals and the `Ops Copilot` drawer (`92dvh` on mobile) with scrollable inner bodies and sticky footers/chat input bars pinned above the mobile keyboard.
+  - Added sticky inline-start columns (`sticky start-0`) and mobile swipe hints (`Swipe timeline →` / `اسحب الجدول ←`, `Swipe table →` / `اسحب للمقارنة ←`) to `ProductionGanttView.tsx`, `ScenarioComparisonMatrix.tsx`, `FinancialsView.tsx`, and `WorkforceView.tsx`, plus **Tap-to-Inspect** block selection on the Press Gantt and 100% CSS logical directional properties (`ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`, `text-start`, `text-end`).
+
+### Master Documents Updated
+- Updated `docs/MASTER_USER_GUIDE_AND_MANUAL.md`: Section 2.4 & 2.4b (Mobile Controls Drawer, Sticky Bottom Action Bar, and Mobile-First Bilingual Ergonomics) and Section 3 (Tab 4 Sticky Press Column & Tap-to-Inspect Gantt).
+- Updated `docs/MASTER_PLAYBOOK.md`: Section 4.1 (Mobile-ready WhatsApp sandbox demo positioning).
+
+---
+
 ## v1.2 — 2026-11-22 — Boardroom Pin & Compare (A/B/C) + Shareable Hosted Demo & Login Gate
 
 ### Application Changes

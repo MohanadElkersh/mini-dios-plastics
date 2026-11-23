@@ -2,7 +2,7 @@
 
 > **Canonical Single Source of Truth** | **Edition:** Egypt & KSA Industrial Plastics (Injection, Blow Molding & Extrusion)
 > **Engine:** 100% Deterministic Google OR-Tools CP-SAT • **Zero LLM Arithmetic** • **Zero-File-Transfer Executive UI**
-> **Last Synchronized with Codebase:** 2026-11-22 (`v1.0`)
+> **Last Synchronized with Codebase:** 2026-11-23 (`v1.3`)
 
 ---
 
@@ -121,6 +121,14 @@ Located in the sticky top header (`TopBar`):
 | **Run Optimization** | `Run CP-SAT Optimization` / `تشغيل تحسين CP-SAT` | Validates the active plant dataset, solves Press CP-SAT + coupled Workforce CP-SAT + P&L + Risk Radar, saves an audit record, and navigates to Tab 3. |
 | **Executive Brief** | `Executive Brief` / `التقرير التنفيذي` | Opens the in-dashboard **Executive ROI Scorecard & Audit Brief** modal (zero file downloads required). |
 | **Hosted Session Controls** | `<Client Label>`, `Reset Sandbox` / `إعادة ضبط البيئة`, `Sign Out` / `تسجيل الخروج` | Displayed automatically when `AUTH_ENABLED=true`: shows the signed-in prospect label, resets only the current session's sandbox, or signs out back to the branded Login Gate. |
+| **Mobile Controls Drawer (`< lg`)** | `Controls` / `الإعدادات` | On smartphones (`375px–430px`) and tablets (`< 1024px`), condenses `Peak Tariff Avoid`, `Ramadan Shift`, `Auto PM`, `Executive Brief`, solver status telemetry, and Hosted Session Controls into a clean slide-over bottom sheet while pinning **`Run CP-SAT Optimization`** and **`Ops Copilot`** to a thumb-friendly **Sticky Bottom Action Bar**. |
+
+#### 2.4b Mobile-First Responsive UX & Bilingual Ergonomics (`375px–430px` iOS / Android / WhatsApp)
+When factory owners open Mini-DIOS Plastics from a WhatsApp link on iPhone or Android (`375px–430px` viewports), the interface adapts automatically while preserving the exact multi-column desktop command center at `lg:` (`≥ 1024px`):
+- **Compact Header + Sticky Bottom Action Bar:** The mobile top row displays only the brand identity, `SAR/EGP` switch, `العربية/EN` switch, and the **`Controls`** (`الإعدادات`) drawer button. **`Run CP-SAT Optimization`** and **`Ops Copilot`** stay pinned to a translucent bottom bar (`pb-[calc(0.5rem+env(safe-area-inset-bottom))]`) for one-thumb execution.
+- **Horizontally Scrollable 6-Tab Strip & Condensed Loop Stepper:** Both the 6 main workspace tabs (`1. Plant Scope` → `6. Workforce & Shifts`) and the 5-stage `DECISION INTELLIGENCE LOOP` (`1. Model → 5. Adapt`) render as single-row horizontal snap-scroll strips on mobile with automatic active-tab centering, keeping tab content immediately above the fold.
+- **Stacked Mobile Studio Cards & `90dvh` Keyboard-Safe Modals:** Wide CRUD tables in Tab 2 (`Presses`, `Molds`, `Resins`, `Orders`) automatically switch to stacked mobile cards on `< 768px` (`md:hidden`) with `≥ 44px` touch buttons while retaining full tables on desktop (`hidden md:block`). All modals (`QuickAddModal`, Studio Add/Edit modals, `ConfirmDeleteModal`, `ExecutiveBriefModal`) and the **`Ops Copilot`** drawer (`92dvh` on mobile) use dynamic viewport height (`dvh`) with sticky action footers/input bars pinned above the on-screen keyboard.
+- **iOS Auto-Zoom Prevention & RTL Logical Layout:** All `<input>`, `<select>`, and `<textarea>` controls enforce `16px` (`text-base`) on mobile viewports so iOS Safari never forces an unwanted page zoom; passcode inputs enforce `dir="ltr"` so codes like `ALEX-2026` type cleanly in Arabic mode; and all directional spacing uses CSS logical properties (`ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`, `text-start`, `text-end`) with zero letter-spacing (`letter-spacing: normal`) in Arabic RTL.
 
 ---
 
@@ -259,7 +267,7 @@ Organized into 3 cards:
      - Production blocks are colored by actual plastic pigment (`Natural` through `Black`).
      - Hatched **amber** = `Changeover / Purge`, hatched **rose** = `Breakdown / Maint`, hatched **purple** = `Mold PM Block` (showing either `Autonomous CP-SAT Window` or `Static t=0 Lock`).
      - When enabled, translucent vertical bands shade `Peak Tariff (13–17h)` and `Iftar Blackout (18–20h)`.
-   - Hover over any block to inspect exact start/end hours, mold, resin, setup time, and purge scrap kg.
+   - **Touch-Friendly Mobile Pan & Tap-to-Inspect:** The timeline scrolls smoothly inside an `overflow-x-auto touch-pan-x` container with a **sticky inline-start press-name & OEE column** (`sticky start-0 z-20`) and a mobile swipe hint (`Swipe timeline →` / `اسحب الجدول ←`). Tapping (or hovering on desktop) any production block or hatched changeover/PM block highlights it and opens the interactive **Inspector Card** below the timeline showing exact start/end hours, duration, mold, resin, pigment color, setup time, purge scrap kg, and tardiness.
 3. **Resin Consumption & Purge Scrap Charts:** Side-by-side bar charts comparing Virgin/Regrind consumption and `FIFO vs. CP-SAT Purge Scrap by Resin (kg)`.
 4. **Press Execution Sequence & Transition Audit Table:** Complete chronological job sequence per press with transition type (`continuous_run`, `light_to_dark_purge`, `mold_swap_same_material`, etc.), setup minutes, purge kg, and tardiness.
 

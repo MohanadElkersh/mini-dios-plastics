@@ -255,11 +255,16 @@ export function ScenarioComparisonMatrix() {
             </div>
           )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] border-collapse text-xs">
+          {/* Mobile-only swipe hint */}
+          <div className="flex items-center justify-end text-[11px] font-medium text-cyan-300 md:hidden">
+            <span>{t.matrixSwipeHint}</span>
+          </div>
+
+          <div className="overflow-x-auto touch-pan-x">
+            <table className="w-full min-w-[620px] border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="w-56 px-3 py-3 text-start text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="sticky start-0 z-10 w-36 min-w-[135px] max-w-[150px] border-e border-slate-800/80 bg-[#0d1425]/95 px-2.5 py-3 text-start text-[11px] font-semibold uppercase tracking-wider text-slate-400 backdrop-blur-sm sm:w-56 sm:max-w-none sm:px-3">
                     {isAr ? "المؤشر التنفيذي" : "Executive KPI"}
                   </th>
                   {pinnedScenarios.map((snap, idx) => {
@@ -269,7 +274,7 @@ export function ScenarioComparisonMatrix() {
                       <th
                         key={snap.id}
                         data-testid={`compare-col-${snap.slot}`}
-                        className="px-3 py-3 text-start align-top"
+                        className="min-w-[175px] px-2.5 py-3 text-start align-top sm:px-3"
                       >
                         <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5">
                           <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -383,7 +388,9 @@ export function ScenarioComparisonMatrix() {
 
                   return (
                     <tr key={row.id} className="hover:bg-slate-900/40">
-                      <td className="px-3 py-3 font-medium text-slate-300">{row.label}</td>
+                      <td className="sticky start-0 z-10 border-e border-slate-800/80 bg-[#0d1425]/95 px-2.5 py-3 font-medium text-slate-300 backdrop-blur-sm sm:px-3">
+                        {row.label}
+                      </td>
                       {pinnedScenarios.map((snap, idx) => {
                         const v = vals[idx];
                         const isBest =
@@ -405,11 +412,12 @@ export function ScenarioComparisonMatrix() {
                           <td
                             key={`${row.id}_${snap.id}`}
                             data-testid={`compare-cell-${row.id}-${snap.slot}`}
-                            className="px-3 py-3 align-top"
+                            className="px-2.5 py-3 align-top sm:px-3"
                           >
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span
-                                className={`font-mono text-xs font-bold ${
+                                dir="ltr"
+                                className={`whitespace-nowrap font-mono text-xs font-bold ${
                                   isBest ? "text-emerald-300" : "text-white"
                                 }`}
                               >
@@ -418,7 +426,7 @@ export function ScenarioComparisonMatrix() {
                               {isBest && (
                                 <span
                                   data-testid={`compare-best-${row.id}-${snap.slot}`}
-                                  className="inline-flex items-center gap-0.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-300"
+                                  className="inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border border-emerald-400/40 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-300"
                                 >
                                   <Award className="h-2.5 w-2.5" />
                                   {t.compareBestBadge}
@@ -427,14 +435,15 @@ export function ScenarioComparisonMatrix() {
                             </div>
 
                             {row.renderSecondary && (
-                              <div className="mt-0.5 font-mono text-[10px] text-slate-400">
+                              <div className="mt-0.5 whitespace-nowrap font-mono text-[10px] text-slate-400">
                                 {row.renderSecondary(snap, currency)}
                               </div>
                             )}
 
                             {delta !== null && row.formatDelta && (
                               <div
-                                className={`mt-1 font-mono text-[10px] font-semibold ${
+                                dir="ltr"
+                                className={`mt-1 whitespace-nowrap font-mono text-[10px] font-semibold ${
                                   deltaIsGood === null
                                     ? "text-slate-500"
                                     : deltaIsGood
@@ -455,7 +464,9 @@ export function ScenarioComparisonMatrix() {
 
                 {/* Active Disruptions & Toggles Summary Row */}
                 <tr className="hover:bg-slate-900/40">
-                  <td className="px-3 py-3 font-medium text-slate-300">{t.compareRowToggles}</td>
+                  <td className="sticky start-0 z-10 border-e border-slate-800/80 bg-[#0d1425]/95 px-2.5 py-3 font-medium text-slate-300 backdrop-blur-sm sm:px-3">
+                    {t.compareRowToggles}
+                  </td>
                   {pinnedScenarios.map((snap) => {
                     const tags = renderTogglesSummary(snap);
                     return (

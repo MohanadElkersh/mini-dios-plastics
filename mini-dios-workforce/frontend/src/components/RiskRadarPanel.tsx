@@ -312,7 +312,7 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
                 <button
                   type="button"
                   onClick={() => handleInspect(alert)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white"
+                  className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white sm:flex-initial md:min-h-0"
                 >
                   <span>{t.inspectOnSchedule}</span>
                   <ArrowRight className={`h-3 w-3 ${isAr ? "rotate-180" : ""}`} />
@@ -323,7 +323,7 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
                   onClick={() =>
                     openCopilotWithPrompt(isAr ? alert.suggested_prompt_ar : alert.suggested_prompt_en)
                   }
-                  className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/12 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25 hover:text-white"
+                  className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-lg border border-cyan-500/40 bg-cyan-500/12 px-2.5 py-1.5 text-[11px] font-semibold text-cyan-200 transition hover:bg-cyan-500/25 hover:text-white sm:flex-initial md:min-h-0"
                 >
                   <Sparkles className="h-3 w-3 text-cyan-400" />
                   <span>{t.mitigateInCopilot}</span>

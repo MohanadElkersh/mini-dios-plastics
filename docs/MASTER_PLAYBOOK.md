@@ -132,7 +132,7 @@
 > `[Your Name]` | Mini-DIOS Plastics
 
 #### English — Short WhatsApp / LinkedIn DM
-> Hi `[First Name]` — quick question for `[Plant Name]`: are your planners still scheduling injection presses and color changes in Excel? We built **Mini-DIOS Plastics** (deterministic Google OR-Tools engine, runs 100% on-prem, Arabic & English) that cuts dark-to-light purge scrap, changeover downtime, and shift overtime in < 5 seconds. Happy to run a free 15-min live test with 3 of your presses this week if useful?
+> Hi `[First Name]` — quick question for `[Plant Name]`: are your planners still scheduling injection presses and color changes in Excel? We built **Mini-DIOS Plastics** (deterministic Google OR-Tools engine, runs 100% on-prem or via mobile-ready WhatsApp demo link in Arabic & English) that cuts dark-to-light purge scrap, changeover downtime, and shift overtime in < 5 seconds. Happy to send you a 1-tap mobile sandbox link or run a free 15-min live test with 3 of your presses this week if useful?
 
 #### Arabic (Executive Gulf & Egypt) — بريد التواصل الأول
 > **الموضوع:** تقليل هالك تنظيف الخامات وساعات تبديل القوالب في مصنع `[اسم المصنع]` (اختبار عملي في 15 دقيقة)
