@@ -83,28 +83,29 @@ export function ProductionGanttView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full min-w-0 space-y-6">
       {/* Compact Proactive Risk Radar Strip */}
       <RiskRadarPanel compact />
 
       {/* Press-by-Press Production Gantt Card */}
-      <div className="dios-card rounded-2xl p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <div className="dios-card w-full max-w-full min-w-0 overflow-hidden rounded-2xl p-5">
+        <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
             <h2 className="text-sm font-bold text-white">{t.ganttTitle}</h2>
             <p className="mt-0.5 text-xs text-slate-400">{t.ganttSubtitle}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <ScheduleExportMenu compact testIdPrefix="gantt-top-export" />
             <button
               type="button"
               data-testid="gantt-zoom-toggle"
               onClick={() => setZoomDetailed((z) => !z)}
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white md:min-h-0"
             >
-              {zoomDetailed ? <Minimize2 className="h-3.5 w-3.5 text-cyan-400" /> : <Maximize2 className="h-3.5 w-3.5 text-cyan-400" />}
+              {zoomDetailed ? <Minimize2 className="h-3.5 w-3.5 shrink-0 text-cyan-400" /> : <Maximize2 className="h-3.5 w-3.5 shrink-0 text-cyan-400" />}
               <span>{zoomDetailed ? t.ganttZoomFit : t.ganttZoomDetailed}</span>
             </button>
-            <div className="inline-flex min-h-[44px] items-center rounded-xl border border-slate-700 bg-slate-900 p-1 text-xs font-semibold md:min-h-0">
+            <div className="inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1 text-xs font-semibold md:min-h-0">
               <button
                 type="button"
                 data-testid="gantt-mode-optimized"
@@ -181,8 +182,8 @@ export function ProductionGanttView() {
         </div>
 
         {/* Horizontal Timeline Container (always LTR time axis so Sun -> Sat reads cleanly) */}
-        <div dir="ltr" className="overflow-x-auto touch-pan-x pb-2" data-testid="press-gantt-chart">
-          <div className={zoomDetailed ? "min-w-[1680px]" : "min-w-[920px]"}>
+        <div dir="ltr" className="w-full max-w-full min-w-0 overflow-x-auto touch-pan-x pb-2" data-testid="press-gantt-chart">
+          <div className={zoomDetailed ? "w-full min-w-[1680px]" : "w-full min-w-[920px]"}>
             {/* Day Scale Header */}
             <div className="mb-2 flex items-center">
               <div className="sticky start-0 z-20 w-32 shrink-0 bg-[#0d1526]/95 pe-2 text-[11px] font-semibold text-slate-400 backdrop-blur-sm sm:w-44">
@@ -434,13 +435,13 @@ export function ProductionGanttView() {
       </div>
 
       {/* Charts Row: Resin Consumption & FIFO vs CP-SAT Purge Scrap Comparison */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
+      <div className="grid w-full max-w-full min-w-0 gap-6 lg:grid-cols-2">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
           <div className="mb-4 flex items-center gap-2">
-            <Layers className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">{t.resinChartTitle}</h3>
+            <Layers className="h-4 w-4 shrink-0 text-cyan-400" />
+            <h3 className="truncate text-sm font-bold text-white">{t.resinChartTitle}</h3>
           </div>
-          <div className="h-64 w-full" dir="ltr">
+          <div className="h-64 w-full min-w-0" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={resinChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -457,12 +458,12 @@ export function ProductionGanttView() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
           <div className="mb-4 flex items-center gap-2">
-            <Recycle className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white">{t.scrapCompareTitle}</h3>
+            <Recycle className="h-4 w-4 shrink-0 text-emerald-400" />
+            <h3 className="truncate text-sm font-bold text-white">{t.scrapCompareTitle}</h3>
           </div>
-          <div className="h-64 w-full" dir="ltr">
+          <div className="h-64 w-full min-w-0" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={resinChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -481,15 +482,15 @@ export function ProductionGanttView() {
       </div>
 
       {/* Detailed Press Execution Sequence Table */}
-      <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-sm font-bold text-white">{t.sequenceTableTitle}</h3>
+      <div className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
+        <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <BarChart3 className="h-4 w-4 shrink-0 text-indigo-400" />
+            <h3 className="truncate text-sm font-bold text-white">{t.sequenceTableTitle}</h3>
           </div>
           <ScheduleExportMenu testIdPrefix="gantt-export" />
         </div>
-        <div className="overflow-x-auto touch-pan-x">
+        <div className="w-full max-w-full min-w-0 overflow-x-auto touch-pan-x">
           <table className="w-full min-w-[680px] text-xs">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400">

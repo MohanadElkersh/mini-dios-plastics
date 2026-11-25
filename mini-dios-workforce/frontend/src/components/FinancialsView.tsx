@@ -326,9 +326,9 @@ export function FinancialsView() {
   ];
 
   return (
-    <div className="space-y-6" data-testid="financials-view">
+    <div className="w-full max-w-full min-w-0 space-y-6" data-testid="financials-view">
       {/* Executive Header Bar with One-Click Scenario Pinning */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#0f1629] px-5 py-3.5">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#0f1629] px-5 py-3.5">
         <div>
           <h2 className="text-sm font-bold text-white">
             {isAr ? "تقرير الإيرادات وصافي الربح والوفورات التنفيذي" : "Executive Revenue, Net Profit & Savings P&L"}
@@ -593,12 +593,12 @@ export function FinancialsView() {
       </div>
 
       {/* 3. Visual Charts (Recharts, RTL-safe dir="ltr") */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid w-full max-w-full min-w-0 gap-6 lg:grid-cols-2">
         {/* Chart A: Baseline vs CP-SAT */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
           <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-white">
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-white">
                 {isAr
                   ? "مقارنة الإيرادات والتكاليف والأرباح (FIFO مقابل CP-SAT)"
                   : "Baseline vs. CP-SAT Cost & Profit Comparison"}
@@ -607,9 +607,9 @@ export function FinancialsView() {
                 {isAr ? `جميع القيم بعملة ${resCurrency}` : `All values in ${resCurrency}`}
               </p>
             </div>
-            <Banknote className="h-4 w-4 text-cyan-400" />
+            <Banknote className="h-4 w-4 shrink-0 text-cyan-400" />
           </div>
-          <div dir="ltr" className="h-64 w-full">
+          <div dir="ltr" className="h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={comparisonChartData} margin={{ top: 10, right: 16, left: 8, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -641,7 +641,7 @@ export function FinancialsView() {
         </div>
 
         {/* Chart B: Itemized Savings Breakdown */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-white">

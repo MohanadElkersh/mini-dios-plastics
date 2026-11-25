@@ -99,17 +99,17 @@ export function TopBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-slate-800/90 bg-[#070b14]/95 backdrop-blur">
-        <div className="mx-auto max-w-[1440px] px-3 sm:px-6">
-          {/* Top Row: Brand + Global Controls */}
-          <div className="flex items-center justify-between gap-2 py-2.5 lg:flex-wrap lg:gap-3 lg:py-3">
-            {/* Brand Identity */}
-            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <header className="relative z-30 w-full max-w-full overflow-x-clip border-b border-slate-800/90 bg-[#070b14]/95 backdrop-blur lg:sticky lg:top-0">
+        <div className="mx-auto w-full max-w-[1440px] min-w-0 px-3 sm:px-6">
+          {/* Row 1 (Mobile: Compact Brand + Quick Controls | Desktop: Brand + Session Utility Cluster in Top Corner) */}
+          <div className="flex min-w-0 items-center justify-between gap-2 py-2.5 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-4 lg:gap-y-2 lg:py-2.5">
+            {/* Brand Identity (Inline-Start) */}
+            <div className="flex min-w-0 items-center gap-2.5 sm:gap-3 lg:col-start-1 lg:row-start-1">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 text-slate-950 shadow-lg shadow-cyan-500/20 sm:h-10 sm:w-10">
                 <Factory className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h1 className="truncate text-sm font-bold tracking-tight text-white sm:text-lg">
                     {t.appTitle}
                   </h1>
@@ -122,10 +122,52 @@ export function TopBar() {
               </div>
             </div>
 
-            {/* Right Controls */}
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              {/* Desktop-only Physics Mode Toggles (lg:flex) */}
-              <div className="hidden items-center gap-2 lg:flex">
+            {/* Desktop Session Utility Cluster in Top Brand Row (Inline-End: Right in EN LTR, Left in AR RTL) */}
+            <div className="hidden min-w-0 flex-wrap items-center justify-end gap-2 lg:col-start-2 lg:row-start-1 lg:flex">
+              {auth.auth_enabled && auth.authenticated && (
+                <>
+                  {auth.client_label && (
+                    <span
+                      data-testid="hosted-client-badge"
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200"
+                    >
+                      <UserCheck className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                      <span className="truncate">{auth.client_label}</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="btn-reset-sandbox"
+                    disabled={loading}
+                    onClick={() => {
+                      if (window.confirm(t.sandboxResetConfirm)) {
+                        void resetHostedSandbox();
+                      }
+                    }}
+                    title={t.sandboxResetBtn}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-amber-500/50 hover:text-amber-200 disabled:opacity-50"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+                    <span>{t.sandboxResetBtn}</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btn-sign-out"
+                    onClick={() => void logout()}
+                    title={t.signOutBtn}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-rose-500/50 hover:text-rose-200"
+                  >
+                    <LogOut className="h-3.5 w-3.5 shrink-0" />
+                    <span>{t.signOutBtn}</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Row 2 on Desktop (Full-Width Wrapping Operational Controls) / Inline-End Quick Controls on Mobile */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 lg:col-span-2 lg:row-start-2 lg:w-full lg:min-w-0 lg:shrink lg:flex-wrap lg:items-center lg:justify-between lg:gap-2 lg:border-t lg:border-slate-800/70 lg:pt-2">
+              {/* Desktop-only Physics Mode Toggles (lg:flex flex-wrap) */}
+              <div className="hidden min-w-0 flex-wrap items-center gap-2 lg:flex">
                 {/* Peak Electricity Tariff Avoidance Toggle */}
                 <button
                   type="button"
@@ -138,7 +180,7 @@ export function TopBar() {
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:text-white"
                   }`}
                 >
-                  <Zap className="h-3.5 w-3.5" />
+                  <Zap className="h-3.5 w-3.5 shrink-0" />
                   <span>{t.peakTariff}</span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
@@ -161,7 +203,7 @@ export function TopBar() {
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:text-white"
                   }`}
                 >
-                  <Moon className="h-3.5 w-3.5" />
+                  <Moon className="h-3.5 w-3.5 shrink-0" />
                   <span>{t.ramadanMode}</span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
@@ -184,7 +226,7 @@ export function TopBar() {
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:text-white"
                   }`}
                 >
-                  <Wrench className="h-3.5 w-3.5" />
+                  <Wrench className="h-3.5 w-3.5 shrink-0" />
                   <span>{t.autonomousPm}</span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
@@ -207,7 +249,7 @@ export function TopBar() {
                       : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:text-white"
                   }`}
                 >
-                  <Boxes className="h-3.5 w-3.5" />
+                  <Boxes className="h-3.5 w-3.5 shrink-0" />
                   <span>{t.containerSync}</span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
@@ -221,121 +263,85 @@ export function TopBar() {
                 </button>
               </div>
 
-              {/* Currency Switch: SAR / EGP (Visible on Mobile & Desktop) */}
-              <div className="inline-flex min-h-[44px] items-center rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-xs font-semibold lg:min-h-0">
-                {(["SAR", "EGP"] as const).map((cur) => (
+              {/* Currency, Language & Action Buttons (Shared single DOM nodes across Mobile & Desktop) */}
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2 lg:ms-auto">
+                {/* Currency Switch: SAR / EGP (Visible on Mobile & Desktop) */}
+                <div className="inline-flex min-h-[44px] items-center rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-xs font-semibold lg:min-h-0">
+                  {(["SAR", "EGP"] as const).map((cur) => (
+                    <button
+                      key={cur}
+                      type="button"
+                      data-testid={`currency-${cur}`}
+                      onClick={() => setCurrency(cur)}
+                      className={`min-h-[38px] rounded-md px-2.5 py-1 transition lg:min-h-0 ${
+                        currency === cur ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {cur}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Language Switch: EN / AR RTL (Visible on Mobile & Desktop) */}
+                <button
+                  type="button"
+                  data-testid="toggle-lang"
+                  onClick={() => setLang(lang === "en" ? "ar" : "en")}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white sm:px-3 lg:min-h-0"
+                >
+                  <Globe className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                  <span>{lang === "en" ? "العربية" : "EN"}</span>
+                </button>
+
+                {/* Mobile Controls / Settings Drawer Button (< lg) */}
+                <button
+                  type="button"
+                  data-testid="btn-mobile-controls"
+                  aria-label={t.mobileControlsBtn}
+                  onClick={() => setMobileControlsOpen(true)}
+                  className="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white lg:hidden"
+                >
+                  <Settings2 className="h-4 w-4 text-cyan-400" />
+                  <span className="hidden sm:inline">{t.mobileControlsBtn}</span>
+                  {activeModesCount > 0 && (
+                    <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-500 px-1 font-mono text-[10px] font-bold text-slate-950">
+                      {activeModesCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Desktop-only Operations Copilot + Run CP-SAT (lg:flex) */}
+                <div className="hidden min-w-0 flex-wrap items-center gap-2 lg:flex">
                   <button
-                    key={cur}
                     type="button"
-                    data-testid={`currency-${cur}`}
-                    onClick={() => setCurrency(cur)}
-                    className={`min-h-[38px] rounded-md px-2.5 py-1 transition lg:min-h-0 ${
-                      currency === cur ? "bg-cyan-500 text-slate-950" : "text-slate-400 hover:text-slate-200"
-                    }`}
+                    data-testid="btn-open-copilot"
+                    onClick={() => setCopilotOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-white"
                   >
-                    {cur}
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                    <span>{t.copilotButton}</span>
                   </button>
-                ))}
-              </div>
 
-              {/* Language Switch: EN / AR RTL (Visible on Mobile & Desktop) */}
-              <button
-                type="button"
-                data-testid="toggle-lang"
-                onClick={() => setLang(lang === "en" ? "ar" : "en")}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white sm:px-3 lg:min-h-0"
-              >
-                <Globe className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
-                <span>{lang === "en" ? "العربية" : "EN"}</span>
-              </button>
-
-              {/* Mobile Controls / Settings Drawer Button (< lg) */}
-              <button
-                type="button"
-                data-testid="btn-mobile-controls"
-                aria-label={t.mobileControlsBtn}
-                onClick={() => setMobileControlsOpen(true)}
-                className="relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/50 hover:text-white lg:hidden"
-              >
-                <Settings2 className="h-4 w-4 text-cyan-400" />
-                <span className="hidden sm:inline">{t.mobileControlsBtn}</span>
-                {activeModesCount > 0 && (
-                  <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-500 px-1 font-mono text-[10px] font-bold text-slate-950">
-                    {activeModesCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Desktop-only Operations Copilot + Run CP-SAT + Hosted Session Controls (lg:flex) */}
-              <div className="hidden items-center gap-2 lg:flex">
-                <button
-                  type="button"
-                  data-testid="btn-open-copilot"
-                  onClick={() => setCopilotOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/20 hover:text-white"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                  <span>{t.copilotButton}</span>
-                </button>
-
-                <button
-                  type="button"
-                  data-testid="btn-run-solve"
-                  disabled={loading || (validation !== null && !validation.ready)}
-                  onClick={() => {
-                    setActiveView("console");
-                    void runSolve();
-                  }}
-                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  <span>{loading ? t.solving : t.runOptimize}</span>
-                </button>
-
-                {auth.auth_enabled && auth.authenticated && (
-                  <div className="flex items-center gap-1.5 border-s border-slate-800 ps-2">
-                    {auth.client_label && (
-                      <span
-                        data-testid="hosted-client-badge"
-                        className="hidden items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 xl:inline-flex"
-                      >
-                        <UserCheck className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>{auth.client_label}</span>
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      data-testid="btn-reset-sandbox"
-                      disabled={loading}
-                      onClick={() => {
-                        if (window.confirm(t.sandboxResetConfirm)) {
-                          void resetHostedSandbox();
-                        }
-                      }}
-                      title={t.sandboxResetBtn}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-amber-500/50 hover:text-amber-200 disabled:opacity-50"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span className="hidden lg:inline">{t.sandboxResetBtn}</span>
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="btn-sign-out"
-                      onClick={() => void logout()}
-                      title={t.signOutBtn}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 transition hover:border-rose-500/50 hover:text-rose-200"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                      <span className="hidden lg:inline">{t.signOutBtn}</span>
-                    </button>
-                  </div>
-                )}
+                  <button
+                    type="button"
+                    data-testid="btn-run-solve"
+                    disabled={loading || (validation !== null && !validation.ready)}
+                    onClick={() => {
+                      setActiveView("console");
+                      void runSolve();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Play className="h-3.5 w-3.5 shrink-0" />}
+                    <span>{loading ? t.solving : t.runOptimize}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Second Row: Horizontally Scrollable 6-Tab Strip on Mobile, Full Row on Desktop */}
-          <div className="flex items-center justify-between gap-2 border-t border-slate-800/70 py-1.5 lg:flex-wrap lg:py-2">
+          {/* Row 3: Horizontally Scrollable 6-Tab Strip on Mobile, Full Wrapping Row on Desktop */}
+          <div className="flex min-w-0 items-center justify-between gap-2 border-t border-slate-800/70 py-1.5 lg:flex-wrap lg:py-2">
             <div className="relative min-w-0 flex-1">
               <nav
                 className="no-scrollbar flex flex-nowrap items-center gap-1.5 overflow-x-auto snap-x snap-mandatory whitespace-nowrap pe-4 lg:flex-wrap lg:overflow-visible lg:pe-0"

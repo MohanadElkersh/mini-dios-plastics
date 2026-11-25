@@ -81,15 +81,15 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
     return (
       <div
         data-testid="risk-radar-compact"
-        className="dios-card rounded-2xl p-4"
+        className="dios-card w-full max-w-full min-w-0 overflow-hidden rounded-2xl p-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-300">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-300">
               <Radar className="h-4 w-4" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-100">
                   {t.riskRadarTitle}
                 </h3>
@@ -97,7 +97,7 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
                   {radar.overall_risk_score}/100 • {isAr ? SEVERITY_LABEL_AR[radar.risk_level] : SEVERITY_LABEL_EN[radar.risk_level]}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="truncate text-[11px] text-slate-400">
                 {radar.alerts.length === 0
                   ? t.riskAllClear
                   : isAr
@@ -108,13 +108,13 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
           </div>
 
           {topAlerts.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
               {topAlerts.map((a) => (
                 <button
                   key={a.alert_id}
                   type="button"
                   onClick={() => openCopilotWithPrompt(isAr ? a.suggested_prompt_ar : a.suggested_prompt_en)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition hover:brightness-110 ${SEVERITY_BADGE[a.severity]}`}
+                  className={`inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition hover:brightness-110 ${SEVERITY_BADGE[a.severity]}`}
                 >
                   <AlertTriangle className="h-3 w-3 shrink-0" />
                   <span className="max-w-[220px] truncate">{isAr ? a.title_ar : a.title_en}</span>
@@ -131,7 +131,7 @@ export function RiskRadarPanel({ compact = false }: RiskRadarPanelProps) {
   return (
     <section
       data-testid="risk-radar-panel"
-      className="dios-card rounded-2xl p-5"
+      className="dios-card w-full max-w-full min-w-0 overflow-hidden rounded-2xl p-5"
     >
       {/* Header */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">

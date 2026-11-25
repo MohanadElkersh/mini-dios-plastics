@@ -53,10 +53,10 @@ function DashboardShell() {
   }
 
   return (
-    <div className="flex min-h-dvh w-full max-w-full flex-col overflow-x-hidden">
+    <div className="flex min-h-dvh w-full max-w-full min-w-0 flex-col overflow-x-clip">
       <TopBar />
       <DecisionLoopStrip />
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-3.5 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-[1440px] min-w-0 flex-1 px-3.5 py-4 sm:px-6 sm:py-6">
         {error && (
           <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-xs text-rose-100">
             <div className="flex items-center gap-2">
@@ -162,12 +162,14 @@ function DashboardShell() {
           </div>
         )}
 
-        {activeView === "scope" && <ScopeView />}
-        {activeView === "studio" && <DataStudioView />}
-        {activeView === "console" && <TradeoffConsole />}
-        {activeView === "gantt" && <ProductionGanttView />}
-        {activeView === "financials" && <FinancialsView />}
-        {activeView === "workforce" && <WorkforceView />}
+        <div className="w-full max-w-full min-w-0">
+          {activeView === "scope" && <ScopeView />}
+          {activeView === "studio" && <DataStudioView />}
+          {activeView === "console" && <TradeoffConsole />}
+          {activeView === "gantt" && <ProductionGanttView />}
+          {activeView === "financials" && <FinancialsView />}
+          {activeView === "workforce" && <WorkforceView />}
+        </div>
         <CopilotDrawer />
         <ExecutiveBriefModal />
         <HistoricalBacktestModal />

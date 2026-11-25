@@ -3,7 +3,7 @@
 > **Track B — Dedicated Engineering Ledger (For Engineers, DevOps & AI Agents)**
 > **Scope:** Complete, granular, file-by-file map of what the codebase currently contains (**Section A**) and a chronological, newest-first ledger of every code update ever made (**Section B**).
 > **Security Guardrail:** NEVER store `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens in this file (reference variable names only).
-> **Last Synchronized:** 2026-11-25 (`v1.5 / Commercial & Decision Intelligence Upgrade v1.3` • **85** active repository files mapped • **8** code updates logged)
+> **Last Synchronized:** 2026-11-25 (`v1.5.1` • **85** active repository files mapped • **9** code updates logged)
 
 ---
 
@@ -235,6 +235,20 @@ DIOs/
 ---
 
 ## Section B — Complete Code Update Ledger (Newest First)
+
+### Update 9 — `2026-11-25` • `Uncommitted / Local` • `v1.5.1`
+- **Title & Why:** Relocate desktop hosted session controls (`Admin` / plant badge, `Reset Sandbox`, `Sign Out`) to the top brand row of `TopBar.tsx` so `Sign Out` is never clipped at `1280px–1440px`, and eliminate horizontal overflow / left-shift on Tab 4 (`4. Press Gantt & Color Sequence`) across desktop and mobile viewports in both English (LTR) and Arabic (RTL).
+- **Files Changed:**
+  - *Modified (Frontend — 7 files):* `mini-dios-workforce/frontend/src/components/TopBar.tsx`, `mini-dios-workforce/frontend/src/components/ProductionGanttView.tsx`, `mini-dios-workforce/frontend/src/components/FinancialsView.tsx`, `mini-dios-workforce/frontend/src/components/RiskRadarPanel.tsx`, `mini-dios-workforce/frontend/src/components/DecisionLoopStrip.tsx`, `mini-dios-workforce/frontend/src/app/page.tsx`, `mini-dios-workforce/frontend/src/app/layout.tsx`, `mini-dios-workforce/frontend/src/app/globals.css`
+  - *Modified (Docs — 1 file):* `docs/technical/CODEBASE_AND_UPDATES_LOG.md`
+- **Granular Code Changes:**
+  - `frontend/src/components/TopBar.tsx`: Split the overcrowded desktop header into a clean 2-row CSS Grid (`lg:grid-cols-[minmax(0,1fr)_auto]`): Row 1 places Brand Identity on inline-start and the session utility cluster (`hosted-client-badge`, `Reset Sandbox`, `Sign Out`) on inline-end (top-right in EN LTR, top-left in AR RTL); Row 2 places the operational toggles (`Peak Tariff Avoid`, `Ramadan Shift`, `Auto PM`, `Container & WIP Sync`), `SAR/EGP`, `العربية/EN`, `Ops Copilot`, and `Run CP-SAT Optimization` inside a `min-w-0 flex-wrap gap-2` row while keeping single shared DOM nodes and unpinned `< lg` mobile header + drawer intact.
+  - `frontend/src/app/globals.css`, `layout.tsx`, `page.tsx`: Replaced `max-width: 100vw; overflow-x: hidden;` (which conflicted with desktop vertical scrollbar width and sticky headers) with `width: 100%; max-width: 100%; overflow-x: clip;` and added `min-w-0` on the root flex shell, `<main>`, and active tab container.
+  - `frontend/src/components/ProductionGanttView.tsx`, `RiskRadarPanel.tsx`, `DecisionLoopStrip.tsx`: Added `w-full max-w-full min-w-0 overflow-hidden` on Gantt, Risk Radar, and Recharts grid cards, added compact export buttons + `flex-wrap gap-2` in the Gantt card header, and constrained the wide timeline (`w-full min-w-[920px]` / `min-w-[1680px]`) and sequence table inside `w-full max-w-full min-w-0 overflow-x-auto` scroll containers so `mx-auto` centering never shifts left.
+- **Impact & Dependencies:** Frontend CSS/layout only (zero backend logic, solver math, API route, or state sync changes).
+- **Verification Status:** Verified via `npm.cmd run build` (0 TypeScript/ESLint errors) and headless Playwright E2E across all 6 tabs at `1280×800`, `1366×768`, `1440×900`, and `375×812` in both English (LTR) and Arabic (RTL).
+
+---
 
 ### Update 8 — `2026-11-25` • `Uncommitted / Local` • `v1.5 (Commercial & Decision Intelligence Upgrade v1.3)`
 - **Title & Why:** Implement the 6-feature Commercial & Decision Intelligence Upgrade: (1) 1-Month Historical Backtest / Replay Engine ("The Proof Engine"), (2) 5-Step Process-First Guided Onboarding Wizard (Zero ERP History Required), (3) Finished-Goods Storage & Multi-SKU Export Container Consolidation Coupling (`Container Sync`), (4) Commander-Grade Financial Trade-Off Callout Box in Operations Copilot, (5) Integration-Ready Schedule Export API (`schedule.xlsx`, `schedule.csv`, `erp-payload.json` for Odoo / SAP B1), and (6) Dual-Audience Executive Brief (`Owner / Chairman View` vs. `Plant / Production Manager View` Decision Shield) + Two-Track Commercial Outreach & Modular Licensing Kit.

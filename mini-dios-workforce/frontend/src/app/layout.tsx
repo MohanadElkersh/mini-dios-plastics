@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
         />
       </head>
-      <body className="min-h-dvh overflow-x-hidden antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
+      <body className="min-h-dvh w-full max-w-full overflow-x-clip antialiased selection:bg-cyan-500/30 selection:text-cyan-100">
         {children}
       </body>
     </html>

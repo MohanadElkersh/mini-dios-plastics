@@ -115,15 +115,15 @@ export function DecisionLoopStrip() {
   return (
     <div
       data-testid="decision-loop-strip"
-      className="border-b border-slate-800/70 bg-[#080d19]/90 backdrop-blur-sm"
+      className="w-full max-w-full overflow-x-clip border-b border-slate-800/70 bg-[#080d19]/90 backdrop-blur-sm"
     >
-      <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-2 px-3 py-1.5 sm:px-6 sm:py-2 lg:flex-wrap">
-        <div className="hidden items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 xl:flex">
+      <div className="mx-auto flex w-full max-w-[1440px] min-w-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-6 sm:py-2 lg:flex-wrap">
+        <div className="hidden shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 xl:flex">
           <Activity className="h-3.5 w-3.5 text-cyan-400" />
           <span>{isAr ? "حلقة ذكاء القرار الحتمي" : "DECISION INTELLIGENCE LOOP"}</span>
         </div>
 
-        <div className="no-scrollbar flex flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto snap-x whitespace-nowrap lg:flex-wrap lg:justify-between xl:justify-end">
+        <div className="no-scrollbar flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto snap-x whitespace-nowrap lg:flex-wrap lg:justify-between xl:justify-end">
           {stages.map((st, idx) => (
             <React.Fragment key={st.id}>
               <button
