@@ -1,177 +1,167 @@
 # Mini-DIOS Plastics — Commercial, Sales & Proposal Playbook (Egypt & KSA)
 
-> **What this document is:** Our complete commercial playbook for positioning, demonstrating, pricing, and selling **Mini-DIOS Plastics** to plastics manufacturing plants in **Egypt** and **Saudi Arabia (KSA)**.
-> **Who it is for:** Founders, sales leaders, commercial partners, and business-development teams preparing for discovery calls, live demos, and pilot proposals.
-> **What it helps you do:** Uncover hidden factory profit leaks in 10 minutes, run a convincing live demo tailored to a prospect's real presses, send crisp outreach messages in English or Arabic, and close 60-day paid pilots.
+> **What this document is:** Our complete commercial playbook for positioning, demonstrating, pricing, and selling **Mini-DIOS Plastics** to plastics injection, blow-molding, and extrusion factories in **Egypt** and **Saudi Arabia (KSA)**.
+> **Who it is for:** Founders, sales leaders, commercial partners, and business-development teams preparing for discovery calls, live demos, 1-month historical backtest challenges, and pilot proposals.
+> **What it helps you do:** Speak directly to both the Factory Owner and the Production Manager without triggering middle-manager pushback, run a live 30-day historical backtest replay that eliminates the *"too good to be true"* objection, and close modular annual licenses or 60-day paid pilots.
 
 ---
 
 ## 1. How to Position Mini-DIOS Plastics (Egypt vs. KSA)
 
-**Mini-DIOS Plastics** is **not** an accounting system (ERP) and **not** a generic AI chatbot. It is a **deterministic production-scheduling and workforce-planning command center** that sits right above a factory's existing spreadsheets or ERP. In under 5 seconds, it builds the most profitable 7-day press schedule, sequences colors cleanly from light to dark to cut resin purge waste, schedules mold maintenance before breakdowns happen, matches shift rosters to actual press load, and proves the weekly profit impact line by line—with **zero guesswork** and **zero years of historical data required**.
+**Mini-DIOS Plastics** is **not** an accounting system (ERP) and **not** a generic AI chatbot. It is a **deterministic production-scheduling and workforce-planning command center** that sits right above a factory's existing spreadsheets or ERP. In under 5 seconds, it builds the most profitable 7-day press schedule, sequences colors cleanly from light to dark to cut resin purge waste, synchronizes multi-SKU export containers so finished goods never clog the warehouse, schedules mold maintenance before breakdowns happen, matches shift rosters to actual press load, and proves the weekly profit impact line by line—with **zero guesswork** and **zero years of historical ERP data required**.
 
 ### Why We Win Against Every Alternative
 
 | Alternative | Why Plastics Plants Struggle With It | Mini-DIOS Plastics Advantage |
 | :--- | :--- | :--- |
-| **Excel & Whiteboards** | Schedules purely by due date; triggers costly dark-to-light barrel purges (about 32 kg and 2+ hours wasted per transition), extra mold swaps, and unplanned overtime. | Groups compatible molds, sequences colors light-to-dark (`Natural → Black`), and proves exact weekly cash savings side by side against traditional due-date scheduling. |
-| **Existing ERPs (SAP, Odoo, Dynamics)** | Great for accounting and order entry, but not built for color-purge sequencing, mold shot-count maintenance, or matching floor technicians to changeover peaks. | Works alongside the ERP on Day 1 without replacing it—turning weekly order lists into a conflict-free press and shift plan in seconds. |
-| **Generic AI Chatbots** | Chatbots predict words; they cannot solve complex factory schedules, frequently get numbers wrong, and require uploading sensitive factory data to public clouds. | **100% exact mathematical scheduling** with zero AI arithmetic—every press, mold, resin, and labor-law rule is checked automatically, and the system can run 100% privately inside the factory. |
-| **Legacy Western Scheduling Suites** | Take 9–18 months and hundreds of thousands of dollars to implement, with no native support for Ramadan shifts or regional electricity tariffs. | Ready in days, built natively for Egypt and KSA (**Arabic and English**, **EGP and SAR**, **Ramadan 6-hour shifts & Iftar changeover pause**, and **Peak Electricity Tariff Avoidance**). |
+| **Excel & Whiteboards** | Schedules purely by due date; triggers costly dark-to-light barrel purges (about 32 kg and 2+ hours wasted per transition), extra mold swaps, warehouse congestion from incomplete export containers, and unplanned overtime. | Groups compatible molds, sequences colors light-to-dark (`Natural → Black`), synchronizes multi-SKU export containers, and proves exact weekly cash savings side by side against traditional due-date scheduling. |
+| **Existing ERPs (SAP, Odoo, Dynamics)** | Great for accounting and order entry, but not built for color-purge sequencing, mold shot-count maintenance, container completion syncing, or matching floor technicians to changeover peaks. | Works alongside the ERP on Day 1 without replacing it—and exports ready-to-use Excel, flat CSV, and structured ERP schedule files that local Odoo or SAP Business One partners can pull in one click. |
+| **Generic AI Chatbots** | Chatbots predict words; they cannot solve complex factory schedules, frequently get numbers wrong, and require uploading sensitive factory data to public clouds. | **100% exact mathematical scheduling** with zero AI arithmetic—every press, mold, resin, container, and labor-law rule is checked automatically, and the system can run 100% privately inside the factory. |
+| **Legacy Western Scheduling Suites** | Take 9–18 months and hundreds of thousands of dollars to implement, demand years of clean ERP history, and lack native support for Ramadan shifts or regional electricity tariffs. | Configured in 3 hours using our **5-Step Process-First Guided Setup** (requiring only current machine and mold specs), built natively for Egypt and KSA (**Arabic and English**, **EGP and SAR**, **Ramadan 6-hour shifts**, and **Peak Electricity Tariff Avoidance**). |
 
 ### Tailoring the Pitch by Market
-- **Egypt (`EGP`) — Protecting Cash Flow, Resin Margins & Export Cut-Offs:** Virgin polymer resins (`PP`, `HDPE`, `PET`, `ABS`, `LDPE`) are tied to hard currency, so every unnecessary 32 kg dark-to-light purge directly burns cash. Export orders carry strict vessel cut-offs, and factory owners demand total privacy.
-  - *Winning hook:* **"Cut virgin purge scrap and changeover downtime in Week 1, protect your export container cut-offs, and run 100% privately on your own factory server so zero pricing or customer data ever leaves your building."**
+- **Egypt (`EGP`) — Protecting Cash Flow, Resin Margins & Export Container Liquidity:** Virgin polymer resins (`PP`, `HDPE`, `PET`, `ABS`, `LDPE`) are tied to hard currency, so every unnecessary 32 kg dark-to-light purge directly burns cash. Furthermore, molding one item of a 3-item export container three days early ties up hundreds of thousands of pounds on the warehouse floor until the last item finishes.
+  - *Winning hook:* **"Cut virgin purge scrap and changeover downtime in Week 1, synchronize multi-SKU export containers so cash isn't trapped on the warehouse floor, and prove it first on 30 days of your own past press logs."**
 - **Saudi Arabia (`SAR`) — Unlocking Capacity, Protecting Hypermarket SLAs & Labor Compliance:** Rapid Vision 2030 industrial growth across Riyadh, Jeddah, and Dammam brings tight delivery commitments (`OTIF` — On-Time In-Full delivery) for dairy, beverage, and retail packaging, heavy Ramadan/Hajj seasonal peaks, strict Saudi Labor Law rules (6-hour Ramadan shifts, 36-hour weekly cap, 11-hour rest gap), and **SDAIA / PDPL** data-residency requirements.
   - *Winning hook:* **"Unlock 10–15% hidden press capacity without buying a new machine, guarantee 100% Saudi Labor Law and Ramadan shift compliance, and deploy privately inside the Kingdom with full auditability."**
 
 ---
 
-## 2. Ideal Customer Profile, Buyer Personas & Discovery Questions
+## 2. Dual-Audience Strategy: Winning Both People in the Room
 
-### Target Factory Profile
-- **Industries:** Injection molding, blow molding, and extrusion plants making food/dairy packaging (caps, yogurt tubs, preforms), personal care/detergent bottles, paint pails, agricultural crates, or automotive/appliance parts.
-- **Size:** **6 to 60 presses** (`100T–1200T`), running **3+ resin grades**, **5+ colors**, and **20–250 weekly orders** across 2–3 shifts.
-- **Hubs:** Egypt (Borg El Arab, 10th of Ramadan, 6th of October, Sadat City, Obour) and KSA (Riyadh 2nd/3rd Industrial Cities, Jeddah, Dammam/Jubail).
+In every plastics plant sale, there are two key people in the room with completely different priorities. If the Production Manager feels the software is being brought in to criticize their past schedules, they will quietly stall the project. Our **Dual-Audience Executive Brief** and sales pitch win both allies simultaneously:
 
-### Who You Are Selling To
-- **Plant Owner / Chairman:** Cares about weekly cash flow, profit margin, and avoiding the cost of buying another press → *Show Tab 5 **Annualized Projected Savings** and **Unlocked Capacity Value**.*
-- **COO / Operations Director:** Cares about press uptime, on-time delivery, mold life, and shift coverage → *Show Tab 4 **Press Gantt**, Tab 1 **Proactive Risk Radar**, **Auto PM**, and Tab 6 **Workforce & Shifts**.*
-- **Production Planning Manager:** Cares about how fast they can recover when a press breaks down or a rush order lands → *Show Tab 3 **Scenario Composer**, **Pin & Compare (A/B/C)**, and **Ops Copilot**.*
-- **CFO / Finance Director:** Cares about resin waste, overtime payroll, and true profit per order → *Show Tab 5 **Weekly Profit & Loss** (zero double-counting), inline **Unit Selling Price** editing, and **Executive Brief**.*
+| Buyer Persona | Core Fear / Priority | How We Frame Mini-DIOS Plastics | What to Show Live in the Product |
+| :--- | :--- | :--- | :--- |
+| **Factory Owner / Chairman / Managing Director** | Losing money to resin waste, late export penalties, cash trapped in warehouse inventory, and relying on one person's memory if a senior planner retires or leaves. | **Institutional Memory & Ending Cross-Department Friction:** Captures floor rules into a permanent company asset, settles Production vs. Warehouse vs. Finance conflicts in one click, and unlocks cash trapped on the floor. | **Executive Brief → Owner / Chairman View**, **1-Month Historical Backtest Replay** (*Cash Left on the Floor*), and **Tab 5 Container Working Capital & Annualized Savings**. |
+| **Plant / Production Manager & Senior Planner** | Being blamed when a rush order, press breakdown, or sick callout ruins the week—or being forced to defend overtime and maintenance requests to Finance without hard proof. | **The Manager's Decision Shield:** Mini-DIOS never replaces the manager—it gives them instant mathematical proof to justify overtime, relief technicians, mold maintenance windows, and rush-order trade-offs so they spend less time firefighting. | **Executive Brief → Plant / Production Manager View (Decision Shield)**, **Ops Copilot Commander-Grade Financial Trade-Off Box**, and **Pin & Compare (A vs. B vs. C)**. |
 
 ### Top 10 Discovery Questions (Uncovering Profit Leaks)
 1. *"In a typical week, how many times do your presses switch from a dark color back to a light color—or between incompatible plastics like PP and PET/ABS—and how many kg of virgin resin do you purge each time?"*
-2. *"When a major press goes down mid-week or a VIP export customer drops a rush order, how many hours does it take your planner to rebuild the weekly schedule?"*
-3. *"How often do you pull a mold mid-run or pay weekend overtime because a mold hit its maintenance shot limit unexpectedly?"*
-4. *"Have you ever had moisture-sensitive resins like PET or ABS delay a line because pre-drying hours weren't built into the schedule?"*
-5. *"How much are peak afternoon electricity rates (`13:00–17:00`) adding to the cost of running your heaviest presses?"*
-6. *"With a fixed shift rotation, how often are your Mold Technicians stretched thin during changeover peaks—while getting paid overtime on quieter shifts?"*
-7. *"During Ramadan, how hard is it to manage 6-hour shifts, the 36-hour weekly limit, and the Iftar window without missing hypermarket or export deadlines?"*
-8. *"If a virgin resin shipment is delayed by 30%, how quickly can you calculate which industrial orders can safely use recycled regrind while keeping food and pharma orders strictly at 0%?"*
-9. *"Does your finance team see a weekly side-by-side profit statement showing exact purge scrap, power, overtime, and late-penalty costs for every order?"*
-10. *"If we enter 2 or 3 of your real presses and an order price live in a 10-minute session—completely private—would you like to see the exact savings?"*
+2. *"When an export container needs 3 different items across different molds, how often does the first item sit in your finished-goods warehouse for days waiting for the last item before you can ship and invoice?"*
+3. *"When a major press goes down mid-week or a VIP customer drops a rush order, how many hours does it take your planner to rebuild the weekly schedule—and how do they prove the cost impact to management?"*
+4. *"How often do you pull a mold mid-run or pay weekend overtime because a mold hit its maintenance shot limit unexpectedly?"*
+5. *"Have you ever had moisture-sensitive resins like PET or ABS delay a line because pre-drying hours weren't built into the schedule?"*
+6. *"How much are peak afternoon electricity rates (`13:00–17:00`) adding to the cost of running your heaviest presses?"*
+7. *"With a fixed shift rotation, how often are your Mold Technicians stretched thin during changeover peaks—while getting paid overtime on quieter shifts?"*
+8. *"During Ramadan, how hard is it to manage 6-hour shifts, the 36-hour weekly limit, and the Iftar window without missing hypermarket or export deadlines?"*
+9. *"If we don't touch your old ERP history at all—and just configure your floor rules in 3 minutes using our Guided Setup—how helpful would that be for your planning team?"*
+10. *"If you send us 2 to 4 weeks of a past press log, would you like to see an exact replay of how much purge scrap, overtime, and extra sellable output was left on the floor?"*
 
 ---
 
-## 3. Live 10-Minute Executive Demo Script
+## 3. Live 10-Minute Executive Demo Script (With Backtest Replay & Guided Setup)
 
-1. **Minute 0–1 (Private Access & Language/Currency):** Open the live demo, sign in with the prospect's private access code (`ALEX-2026` for Egypt or `KSA-2026` for KSA), and switch immediately to **`EGP`** or **`SAR`** and **`English`** or **`العربية`**. Reassure them that every guest session is completely isolated, and production runs privately on their own server.
-2. **Minute 1–2.5 (Tab 1 — Plant Scope & Risk Radar):** Show the **Proactive Risk Radar** (overall risk score, financial exposure, and the **Resin Silo Depletion Clock**) plus **Mold Shot-Count Maintenance Health** (pointing out **Mold M-04 at 96.4% — PM Required**). Explain that Mini-DIOS catches bottlenecks and safety risks before the week even begins.
-3. **Minute 2.5–4.5 (Tab 2 — Live Prospect Customization):** Open **Presses**, edit 2 presses to match the prospect's real machines, then open **Production Orders** and edit 1 order's quantity or selling price. Click **`Validate & Run Optimization →`** and watch the full 7-day plant and shift plan solve in seconds.
-4. **Minute 4.5–6 (Tab 4 — Press Gantt & Visual Proof):** Click **`Naive FIFO Baseline`** first, then switch to **`Optimized`**. Show how chaotic dark-to-light purges vanish into clean **Light → Dark** sequences. Turn **`Auto PM`** ON to show Mold M-04's maintenance sliding into the cheapest gap, and turn **`Peak Tariff Avoid`** ON to show shaded peak power bands.
-5. **Minute 6–8 (Risk Mitigation, Pin & Compare A/B/C + Ops Copilot):** Click **`Pin Scenario`** to lock **Plan A (Clean Baseline)**. On Tab 1's **Proactive Risk Radar**, click **`Mitigate in Copilot`** on an active alert (such as understaffed shift slots or tight export cut-off buffers) and click **`Apply This Scenario to Dashboard`** to show the live **Before → After Applied Summary Banner** dropping the Plant Risk Score, eliminating export risk, and lifting shift coverage to 100% across every tab in lockstep. Pin the updated plan as **Plan B**, or simulate *"Press 500T breaks down 18h on Tuesday"*, and open the **Scenario Comparison Matrix** to compare Plan A vs. Plan B side by side with exact profit, scrap, delivery, and overtime deltas.
-6. **Minute 8–10 (Tab 5 — Revenue & Savings + Executive Brief):** Walk through **Total Weekly Savings**, **Annualized Projected Savings** (50 operating weeks), **Unlocked Capacity Value**, and the itemized **Weekly Profit & Loss** table. Open **`Executive Brief`** in the top bar for the clean boardroom summary and close with: *"Shall we run a 60-day paid pilot on your actual weekly orders—with 100% of the pilot fee credited toward Year 1?"*
+1. **Minute 0–1 (Private Access & Language/Currency):** Open `https://mini-dios-plastics.onrender.com`, sign in with **`ALEX-2026`** (Egypt) or **`KSA-2026`** (KSA), and switch immediately to **`EGP`** or **`SAR`** and **`English`** or **`العربية`**. Reassure them that every guest session is isolated, and production runs privately on their own server.
+2. **Minute 1–2.5 (The "Proof Engine" — 1-Month Historical Backtest Replay):** On **Tab 1**, click **`1-Month Historical Backtest`**, then click **`Run Sample 30-Day Plant Replay`**. Show the **Actual History vs. Mini-DIOS Replay** card: exact purge scrap saved, changeover hours freed, extra sellable tons unlocked from those freed hours, **Total Cash Left on the Floor**, and a payback period measured in days. Say: *"You don't have to take our word for it—send us 2–4 weeks of your own past press spreadsheet and we will run this exact replay before you spend a pound."*
+3. **Minute 2.5–4 (3-Hour Onboarding Proof — 5-Step Guided Plant Setup):** Click **`5-Step Guided Plant Setup`** on Tab 1. Walk briefly through the 5 plain-language steps (Process & Model, Presses & Backup Logic, Purge & Regrind Rules, Shifts & Tariffs, and Export Container & Warehouse Rules). Point out the **"Current Specs Only" Readiness Checklist**—confirming that **zero historical ERP data** is required.
+4. **Minute 4–5.5 (Tab 1 Risk Radar & Container Consolidation):** Show the **Proactive Risk Radar**—including the **Resin Silo Depletion Clock**, **Mold M-04 Maintenance Health**, and **Finished-Goods Warehouse & Trapped Container Alerts**. Explain how **`Container Sync`** in the top bar aligns multi-SKU export orders so finished goods ship together instead of trapping working capital in the warehouse.
+5. **Minute 5.5–7.5 (Commander-Grade Ops Copilot & Pin-and-Compare A/B/C):** Click **`Pin Scenario`** to lock **Plan A**. Open **`Ops Copilot`** and trigger a breakdown or Risk Radar mitigation. Highlight the **Commander-Grade Financial Trade-Off Callout Box** at the top of the card (*e.g., exact overtime/power cost paid vs. export penalties avoided = Net Financial Gain*). Click **`Apply This Scenario to Dashboard`** to show the top **Before → After Applied Summary Banner** updating every tab in lockstep.
+6. **Minute 7.5–10 (Tab 5 Savings, Dual-Audience Executive Brief & ERP Export):** On **Tab 5**, review **Total Weekly Savings**, **Annualized Projected Savings**, **Container Consolidation & Trapped Working Capital**, and the itemized **Weekly Profit & Loss** table. Open **`Executive Brief`** in the top bar:
+   - Toggle between **`Owner / Chairman View`** (Institutional Memory, Ending Department Friction, Working Capital Unlocked) and **`Plant / Production Manager View`** (Decision Shield for overtime, maintenance, and rush-order proof).
+   - Point to the **`Export Schedule: Excel (.xlsx) | Flat CSV (.csv) | ERP JSON (Odoo / SAP B1)`** bar and close with the **1-Month Backtest Challenge** or **60-Day Paid Pilot**.
 
 ---
 
-## 4. Ready-to-Send Outreach & Follow-Up Library (English & Executive Arabic)
+## 4. Ready-to-Send Outreach Library: Owner vs. Production Manager & Backtest Challenge
 
-### 4.1 Cold Outreach Email (15-Minute Live Diagnostic)
-- **English:**
-  > **Subject:** Cutting purge scrap & changeover hours at `[Plant Name]` (10-min live test)
+### 4.1 Factory Owner / Chairman Angle (Institutional Memory, Working Capital & Backtest Challenge)
+- **English (WhatsApp / Email):**
+  > **Subject:** How much cash did `[Plant Name]` leave on the press floor last month? (30-Day Replay Challenge)
   >
   > Hi `[First Name]`,
   >
-  > Most injection and blow-molding plants we speak with in `[Egypt / Saudi Arabia]` lose **10–15% of weekly press capacity and significant cash in virgin resin** to two quiet scheduling leaks: dark-to-light barrel purges and frequent mold changeovers caused by due-date Excel planning.
+  > In most injection and blow-molding factories across `[Egypt / Saudi Arabia]`, three quiet friction points drain cash every week:
+  > 1. Dark-to-light barrel purges and ungrouped mold swaps burning virgin resin and press hours.
+  > 2. Multi-item export containers where the first SKU sits in the warehouse for days waiting for the last SKU before you can ship and collect cash.
+  > 3. Critical floor scheduling rules living inside one planner's head instead of a permanent company system.
   >
-  > We built **Mini-DIOS Plastics**—an exact mathematical scheduling and shift-planning platform that sequences colors light-to-dark, protects mold maintenance and resin drying times, avoids peak electricity hours, and matches floor technicians to actual changeover peaks—running 100% privately on your own factory server.
+  > Instead of pitching slides, we offer the **1-Month Historical Backtest Challenge** on **Mini-DIOS Plastics**: send us 2–4 weeks of a past press schedule (or test our built-in 30-day sample right now at `https://mini-dios-plastics.onrender.com` with code **`[ALEX-2026 / KSA-2026]`**), and we will show you side by side the exact `[EGP / SAR]` purge scrap saved, extra sellable tons unlocked, and working capital freed.
   >
-  > Instead of sending a slide deck, I'd love to offer a **10-minute live test**: give us 2 of your real presses and a couple of weekly orders, and we will show you side by side what optimized scheduling saves in `[EGP / SAR]` versus your current plan.
-  >
-  > Would `[Tuesday / Wednesday]` at `[Time]` work for a quick look?
-  >
-  > Best regards,
-  > `[Your Name]` | Mini-DIOS Plastics
+  > Open to a 10-minute look this `[Tuesday / Wednesday]`?
 
-- **Executive Arabic (مصر والخليج):**
-  > **الموضوع:** تقليل هالك تنظيف الخامات وساعات تبديل القوالب في مصنع `[اسم المصنع]` (اختبار عملي في 10 دقائق)
+- **Egyptian Executive Arabic (لرئيس مجلس الإدارة / مالك المصنع — مصر):**
+  > السلام عليكم يا فندم / بشمهندس `[الاسم]`،
   >
-  > الأستاذ/ المهندس `[الاسم]` المحترم،
+  > في أغلب مصانع البلاستيك في `[برج العرب / العاشر من رمضان / 6 أكتوبر]`، فيه 3 نقاط بتسحب سيولة وربحية كل أسبوع بهدوء:
+  > 1. هالك الخامات البكر وساعات التوقف في تنظيف الألوان من الغامق للفاتح وتبديل القوالب.
+  > 2. تجميد السيولة في المخزن لما صنف من حاوية تصدير يخلص بدري وينتظر باقي أصناف الحاوية أيام قبل الشحن والتحصيل.
+  > 3. اعتماد جدولة المصنع بالكامل على خبرة فردية غير موثقة في نظام مؤسسي دائم.
   >
-  > تحية طيبة وبعد،
+  > بدل أي عرض نظري، بنقدم لحضرتك **تحدي المحاكاة التاريخية لمدة 30 يوماً** على منصة **Mini-DIOS للبلاستيك**: تقدر تجرب فوراً نموذج 30 يوم فعلي على الرابط `https://mini-dios-plastics.onrender.com` برمز الدخول **`ALEX-2026`** (أو نبعتلك قالب إكسل بسيط لآخر أسبوعين إنتاج عندك)، وهتشوف بالجنيه المصري حجم الخامات الموفرة، والأطنان البيعية الإضافية، والسيولة المحررة من المخزن.
   >
-  > تفقد أغلب مصانع حقن ونفخ البلاستيك في `[مصر / السعودية]` ما بين 10% و15% من طاقتها الإنتاجية الأسبوعية وجزءاً كبيراً من الخامات البكر بسبب الجدولة اليدوية على الإكسل: تنظيف متكرر من الألوان الغامقة للفاتحة، تبديلات قوالب غير متسلسلة، وورديات عمالة ثابتة لا تتطابق مع ذروة التبديلات.
-  >
-  > طوّرنا **Mini-DIOS للبلاستيك**—منصة جدولة صناعية رياضية دقيقة (بصفر تخمين، وتعمل بخصوصية تامة داخل خادم مصنعكم دون خروج أي بيانات). تقوم المنصة بترتيب الألوان تلقائياً من الفاتح للغامق، وجدولة صيانة القوالب وتجنب ذروة الكهرباء، ومواءمة ورديات العمال والفنيين وفق قانون العمل وورديات رمضان، مع تقرير أرباح ووفورات أسبوعي واضح بالـ `[جنيه / ريال]`.
-  >
-  > بدلاً من عرض نظري، يسعدنا إجراء **اختبار عملي مباشر مدته 10 دقائق** نُدخل فيه مكبسين من مصنعكم لعرض الوفر الفعلي مباشرة. هل يناسبكم يوم `[الثلاثاء / الأربعاء]` الساعة `[الوقت]`؟
-  >
-  > مع خالص التقدير،
-  > `[الاسم]` | Mini-DIOS Plastics
+  > يناسب حضرتك 10 دقايق يوم `[الثلاثاء / الأربعاء]`؟
 
-### 4.2 Post-Demo Executive Recap Email
-- **English:**
-  > **Subject:** `[Plant Name]` Live Benchmark: `[Weekly Savings]`/wk (`[Annualized Savings]`/yr)
+- **Gulf Executive Arabic (لرئيس مجلس الإدارة / المدير العام — السعودية):**
+  > السلام عليكم ورحمة الله وبركاته، سعادة الأستاذ / المهندس `[الاسم]`،
   >
-  > Hi `[First Name]`,
+  > في مصانع البلاستيك والتعبئة في `[الرياض / جدة / الدمام]`، تضيع نسبة كبيرة من الطاقة الإنتاجية والسيولة الأسبوعية بسبب ثلاثة عوامل: هالك تنظيف الألوان وتبديل القوالب، وتكدس مخزون المنتج التام بانتظار اكتمال حاويات التصدير، وتضارب الأولويات بين الإنتاج والمستودعات والمالية.
   >
-  > Thank you for your time today. Here is the exact recap from our live Mini-DIOS Plastics run:
-  > - **Weekly Savings vs. Traditional Scheduling:** `[Amount EGP/SAR]` / week (`+[X]%` net profit lift)
-  > - **Annualized Projected Savings (50 operating weeks):** `[Annual Amount EGP/SAR]` / year
-  > - **Purge Scrap Cut:** `[X]` kg/wk | **Changeover Hours Freed:** `[Y]` hrs/wk
-  > - **Shift Roster:** 100% labor-law & rest-rule compliant with `[Z]` overtime hours reduced
+  > بدلاً من العروض النظرية، نقدم لسعادتكم **تحدي المحاكاة التاريخية لـ 30 يوماً** عبر منصة **Mini-DIOS للبلاستيك**: يمكنكم تجربة محاكاة 30 يوماً فورية عبر `https://mini-dios-plastics.onrender.com` برمز الدخول **`KSA-2026`** (أو تزويدنا بسجل أسبوعين إلى 4 أسابيع ماضية)، لنعرض لكم بالريال السعودي بدقة حجم الهالك الموفر، والأطنان الإضافية القابلة للبيع، وفترة الاسترداد بالأيام.
   >
-  > Attached is our **1-Page 60-Day Paid Pilot Proposal** so your planners can prove these savings on live weekly orders—with 100% of the pilot fee credited toward Year 1 upon renewal.
-  >
-  > Best regards,
-  > `[Your Name]`
+  > هل يناسبكم موعد مختصر مدته 10 دقائق يوم `[الثلاثاء / الأربعاء]`؟
 
-- **Executive Arabic:**
-  > **الموضوع:** ملخص الاختبار المباشر لمصنع `[اسم المصنع]`: وفر `[الوفر الأسبوعي]` أسبوعياً (`[الوفر السنوي]` سنوياً)
+### 4.2 Plant / Production Manager Angle ("The Manager's Decision Shield")
+- **English (WhatsApp / LinkedIn DM):**
+  > Hi `[First Name]` — as a Plant Manager, when a 500T press goes down on Tuesday or Sales drops an urgent export order, you're the one stuck rebuilding the Excel schedule for hours—and defending overtime or maintenance requests to Finance.
   >
-  > الأستاذ/ المهندس `[الاسم]` المحترم،
+  > We built **Mini-DIOS Plastics** specifically as a **Decision Shield for Production Managers**: in 5 seconds, it gives you mathematical proof showing management the exact cost paid vs. export penalty avoided (`e.g., +8,000 overtime protects 45,000 in export penalties`), coordinates multi-item export containers, and exports ready-to-run Excel shift and press sheets—requiring **zero historical ERP cleanup**.
   >
-  > سعدنا جداً بجلستنا العملية اليوم. فيما يلي ملخص الأرقام المحققة مقارنة بالجدولة التقليدية:
-  > - **إجمالي الوفر الأسبوعي:** `[المبلغ]` أسبوعياً (تحسن صافي الربح `+[X]%`)
-  > - **الوفر السنوي المتوقع (50 أسبوع تشغيل):** `[المبلغ السنوي]` سنوياً
-  > - **وفر هالك التنظيف:** `[X]` كجم أسبوعياً | **ساعات تبديل محررة:** `[Y]` ساعة أسبوعياً
-  > - **العمالة والورديات:** امتثال 100% لقواعد الراحة مع خفض `[Z]` ساعة إضافي
+  > Try the **Plant Manager View** live in 5 minutes at `https://mini-dios-plastics.onrender.com` (Access Code: **`[ALEX-2026 / KSA-2026]`**). Open to a quick 10-minute walkthrough this week?
+
+- **Arabic (لمدير المصنع / مدير تخطيط الإنتاج — "درع القرار لمدير الإنتاج"):**
+  > أهلاً يا بشمهندس `[الاسم]` — كمدير مصنع أو مدير إنتاج، لما ماكينة تعطل فجأة أو يدخل أمر تصدير عاجل، حضرتك اللي بتشيل عبء تعديل الجدول لساعات، وتبرير الساعات الإضافية أو توقف الصيانة للإدارة المالية.
   >
-  > مرفق مقترح **المرحلة التجريبية المدفوعة (60 يوماً)** لإثبات هذا العائد على أوامر مصنعكم الفعلية، مع خصم 100% من رسوم التجربة من الاشتراك السنوي عند الاعتماد.
+  > صممنا **Mini-DIOS للبلاستيك** ليكون **"درع قرار" لمدير الإنتاج**: في 5 ثوانٍ يعطيك إثباتاً رقمياً واضحاً للإدارة يوضح التكلفة المدفوعة مقابل الغرامات التي تم تفاديها، وينسق حاويات التصدير وتوافر الفنيين في ذروة التبديلات، ويصدر جدول الإكسل جاهزاً للصالة — **وبدون الحاجة لأي بيانات ERP تاريخية قديمة** (تجهيز كامل في 3 ساعات فقط).
   >
-  > مع خالص التقدير،
-  > `[الاسم]`
+  > جرب **"عرض مدير المصنع والإنتاج"** بنفسك في 5 دقائق على `https://mini-dios-plastics.onrender.com` برمز الدخول **`[ALEX-2026 / KSA-2026]`**. يسعدني نعمل جولة سريعة 10 دقائق هذا الأسبوع.
 
 ---
 
-## 5. Enterprise Proposal & Pricing Reference (EGP & SAR)
+## 5. Modular Annual Licensing, Implementation Tiers & System Integrator Partner Model (EGP & SAR)
 
-### 60-Day Paid Pilot Structure
-- **Weeks 1–2 (Setup & Calibration):** Install privately on the client's factory server (Egypt) or in-kingdom private cloud (KSA). Load real presses, molds, resins, worker certifications, and 1 week of recent orders; calibrate purge and changeover times with the Production Manager.
-- **Weeks 3–6 (Live Floor Execution):** Generate weekly press schedules and shift rosters in Mini-DIOS; track actual purge scrap kg, changeover hours, on-time delivery (`OTIF %`), and overtime hours against baseline.
-- **Weeks 7–8 (CFO Audit & Annual Rollout):** Review verified weekly savings with the Owner and CFO, then transition to an Annual License (**100% of the pilot fee is credited toward Year 1** if signed within 14 days).
+To eliminate entry barriers for mid-market factories while scaling cleanly to large enterprise groups, we offer **Modular Annual Licensing** (factories can start with a fast 1-Module or 3-Module Starter package and unlock more modules anytime) alongside our **60-Day Paid Pilot** (100% credited toward Year 1).
 
-### Commercial Pricing Tiers (Egypt EGP & Saudi SAR)
+### 5.1 Modular Annual Licensing & Implementation Packages
 
-| Tier | Facility Scope | 60-Day Paid Pilot | Annual License (Post-Pilot) |
-| :--- | :--- | :--- | :--- |
-| **Growth Plant** | Up to 15 Presses, 1 Site (All 6 Modules, Private Local Hosting, EN/AR) | **EGP 195,000** / **SAR 15,000** | **EGP 780,000/yr** / **SAR 60,000/yr** |
-| **Enterprise Plant** | 16–40 Presses, 1 Site (+ ERP/Spreadsheet Bridge + Quarterly Calibration) | **EGP 325,000** / **SAR 25,000** | **EGP 1,430,000/yr** / **SAR 110,000/yr** |
-| **Multi-Plant Group** | 40+ Presses / 2+ Sites (Multi-Plant Workspaces, Dedicated Support, Custom ERP) | **EGP 520,000** / **SAR 40,000** | **Custom (from EGP 2.34M / SAR 180k/yr)** |
+| Package Tier | Included Modules & Press Scope | 60-Day Paid Pilot *(100% Credited to Yr 1)* | One-Time 3-Hour Guided Setup & Calibration | Annual License (Egypt `EGP` / Saudi `SAR`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **1-Module Fast-Start** *(Color Purge & Press Scheduler)* | **Up to 10 Presses:** Light-to-Dark Purge Sequencing, Mold Compatibility, 7-Day Visual Press Schedule + Excel/CSV Export + 1-Month Backtest Proof | **EGP 95,000** / **SAR 7,500** | **EGP 45,000** / **SAR 3,500** *(Waived on Annual Prepay)* | **EGP 390,000/yr** / **SAR 30,000/yr** |
+| **3-Module Operations Core** *(Most Popular Mid-Market Entry)* | **Up to 15 Presses:** (1) Press & Color Purge Scheduler + (2) Proactive Risk Radar & Autonomous Mold Maintenance + (3) Export Container & Warehouse WIP Sync | **EGP 145,000** / **SAR 11,000** | **EGP 65,000** / **SAR 5,000** *(Waived on Annual Prepay)* | **EGP 585,000/yr** / **SAR 45,000/yr** |
+| **Growth Plant (All 6 Modules)** | **Up to 15 Presses, 1 Site:** All 6 Modules (adds Press-Coupled Shift & Ramadan Workforce Optimizer, CFO Profit & Loss + Dual-Audience Brief, and Bilingual Ops Copilot) | **EGP 195,000** / **SAR 15,000** | **Included** | **EGP 780,000/yr** / **SAR 60,000/yr** |
+| **Enterprise Plant (All 6 Modules + ERP Bridge)** | **16–40 Presses, 1 Site:** All 6 Modules + Direct Odoo / SAP Business One Integration Payload + Quarterly On-Site/Remote Floor Calibration | **EGP 325,000** / **SAR 25,000** | **Included** | **EGP 1,430,000/yr** / **SAR 110,000/yr** |
+| **Multi-Plant Group** | **40+ Presses / 2+ Sites:** Unlimited Workspaces, Group CFO Consolidation, Dedicated SLA & Custom ERP Connector | **EGP 520,000** / **SAR 40,000** | **Included** | **Custom (from EGP 2.34M / SAR 180k/yr)** |
 
-*Reference exchange rate: `13.0 EGP / SAR` (locked on contract date). Typical payback period for a 10–25 press plastics plant: **4 to 10 weeks**.*
+*Reference exchange rate: `13.0 EGP / SAR` (locked on contract date). Typical payback period verified via 1-Month Historical Backtest Replay: **3 to 8 weeks**.*
+
+### 5.2 System Integrator (SI) Partner Model (Odoo / SAP Business One / Dynamics Partners)
+Local ERP consultants often block third-party software if they fear losing billable hours. We turn local **Odoo, SAP Business One, and Microsoft Dynamics implementers** in Cairo, Alexandria, Riyadh, and Jeddah into active distribution partners:
+1. **SI Keeps 100% of Integration & Customization Fees:** Because Mini-DIOS exports a clean, ready-to-map **ERP JSON Integration Payload** alongside Excel and CSV right from the dashboard, the local ERP partner charges the factory directly for wiring work orders into Odoo MRP or SAP Business One—zero competition over service hours.
+2. **20% Annual Licensing Partner Commission:** Certified SI partners earn a **20% recurring referral/reseller commission** on the Mini-DIOS Annual License while giving their ERP clients an industrial plastics scheduling engine that standard Odoo/SAP modules cannot match.
+3. **3-Hour Guided Onboarding Means Zero Stalled ERP Projects:** SIs can deploy Mini-DIOS even before a factory's multi-month ERP cleanup is finished, delivering immediate floor ROI in Week 1.
 
 ---
 
-## 6. Handling the 8 Most Common Executive Objections
+## 6. Handling the 9 Most Common Executive Objections
 
-1. **"We already have SAP / Odoo / Dynamics."**
-   *Response:* "We don't replace your ERP—we make it profitable on the shop floor. ERPs record orders and accounting; they don't sequence light-to-dark barrel purges, schedule mold preventive maintenance into the cheapest gap, or match technicians to changeover peaks. Mini-DIOS sits right above your ERP and hands back an optimal weekly plan in seconds."
-2. **"Can't ChatGPT do this for free?"**
-   *Response:* "Chatbots guess text and regularly get numbers and machine rules wrong. Mini-DIOS uses exact mathematical optimization—zero AI arithmetic—so every single schedule, purge weight, rest-gap rule, and profit figure is 100% verified."
-3. **"We can't put our customer prices or factory volumes on the cloud."**
+1. **"These savings sound too good to be true—how do we know they work on our presses?"**
+   *Response:* "Don't take our word for it. Give us 2 to 4 weeks of your own past press schedule spreadsheet—or click **1-Month Historical Backtest** inside the dashboard right now. Mini-DIOS replays your exact orders and calculates side by side how much purge scrap, changeover downtime, overtime, and cash was left on the floor before you sign anything."
+2. **"Our senior planner / production manager has 20 years of experience and might push back."**
+   *Response:* "We built Mini-DIOS as a **Decision Shield** for your Production Manager, not a replacement. Switch the **Executive Brief** to **Plant / Production Manager View**: whenever a machine goes down or a rush order lands, it gives your manager instant mathematical proof to justify overtime, relief staffing, or maintenance windows to Finance."
+3. **"Long single-item batches cut changeovers, but they fill up our warehouse while export containers wait for other items."**
+   *Response:* "That exact clash between Production, Warehouse, and Finance is built right in. Turn **`Container Sync`** ON in the top bar: Mini-DIOS coordinates multi-item export containers so all items finish close together, preventing warehouse overload and freeing trapped working capital."
+4. **"We already have SAP / Odoo / Dynamics—or our ERP consultant is in the middle of an implementation."**
+   *Response:* "We never replace your ERP, and your ERP partner keeps 100% of their integration work. Every solved schedule exports directly to **Excel (`.xlsx`), Flat CSV (`.csv`), and a structured ERP JSON payload** that Odoo or SAP Business One pulls in minutes."
+5. **"Our ERP doesn't have clean historical data or sensor logs."**
+   *Response:* "You need **zero historical ERP data** and zero machine sensors. Our **5-Step Guided Plant Setup** captures your floor rules in 3 minutes and only needs your current press list, mold cycle times, current resin stock, and this week's orders."
+6. **"Can't ChatGPT do this for free?"**
+   *Response:* "Chatbots guess words and regularly invent numbers. Mini-DIOS uses 100% exact mathematical scheduling—zero AI arithmetic—and every Copilot answer includes a **Commander-Grade Financial Trade-Off Box** proving exact cost paid versus penalties avoided."
+7. **"We can't put our customer prices or factory volumes on the public cloud."**
    *Response:* "You never have to. Mini-DIOS runs 100% privately inside your own factory server with zero internet connection required, keeping every price, customer, and schedule strictly inside your walls—fully aligned with Egypt factory privacy and KSA SDAIA/PDPL standards."
-4. **"Our senior planner has 20 years of experience and knows the floor best."**
-   *Response:* "Mini-DIOS doesn't replace your planner—it gives them a superpower. When a 500T press trips at 2 PM or a VIP export order arrives, instead of spending 4 hours rebuilding spreadsheets, they test three recovery plans side by side in 10 seconds and make the final call."
-5. **"Our data isn't clean enough and we don't have years of sensor data."**
-   *Response:* "You need zero historical training data and zero machine sensors to start. All we need is your press list, mold cavities and cycle times, current resin stock, and this week's orders—and our built-in checker spots any typos before scheduling."
-6. **"Priorities change every day—a weekly plan won't survive."**
-   *Response:* "That's exactly why we built the Scenario Composer and Pin & Compare. Whenever a machine goes down or an order changes, your planner enters the change and compares recovery plans in seconds."
-7. **"Our supervisors and operators prefer Arabic."**
-   *Response:* "Every single screen, schedule, shift roster, risk alert, and Copilot question switches between English and natural Arabic in one click."
-8. **"How do we know the savings are real before signing an annual contract?"**
-   *Response:* "We prove it twice: first in a free 10-minute live test with your real presses, and then in a 60-day paid pilot measured directly against your actual weekly purge scrap, changeover hours, and overtime payroll."
+8. **"The full 6-module enterprise suite is above our current budget."**
+   *Response:* "You can start with our **1-Module Fast-Start** (`EGP 390k/yr` / `SAR 30k/yr`) or **3-Module Operations Core** (`EGP 585k/yr` / `SAR 45k/yr`), or run a **60-Day Paid Pilot** where 100% of the pilot fee is credited toward Year 1 once the floor savings are proven."
+9. **"Our supervisors and floor planners prefer Arabic."**
+   *Response:* "Every single screen, wizard step, backtest replay, shift roster, risk alert, and Copilot Financial Trade-Off Box switches between English and natural Arabic in one click."
 
 ---
 

@@ -132,6 +132,10 @@ class ProductionOrder(BaseModel):
     due_hr: float = Field(gt=0, le=MAX_HORIZON_HOURS)
     late_penalty_per_hr: float = Field(ge=0, description="Late penalty per hour in SAR")
     is_export: bool = False
+    container_group_id: Optional[str] = Field(
+        default=None,
+        description="Optional export container consolidation group ID (e.g. 'CNT-RIYADH-01')",
+    )
     unit_selling_price: float = Field(default=0.0, ge=0.0, description="Selling price per finished piece in SAR")
     discount_pct: float = Field(default=0.0, ge=0.0, le=100.0, description="Optional order discount percentage")
 
@@ -196,6 +200,12 @@ class PlantPhysicsConfig(BaseModel):
         10.0, ge=0.0, le=100.0, description="Percentage credit recovered when purge/flash scrap is granulated"
     )
     annual_operating_weeks: int = Field(50, ge=1, le=52, description="Operating weeks per year for annualized projections")
+    fg_storage_capacity_tons: float = Field(
+        22.0, gt=0.0, le=5000.0, description="Finished-goods warehouse storage capacity ceiling in metric tons"
+    )
+    wip_holding_cost_per_ton_day: float = Field(
+        85.0, ge=0.0, le=50000.0, description="Warehouse & working-capital holding cost per metric ton per day in SAR"
+    )
 
     @model_validator(mode="after")
     def _validate_peak_window(self) -> "PlantPhysicsConfig":
@@ -276,6 +286,7 @@ class SolverConfig(BaseModel):
     avoid_peak_tariff_hrs: bool = False
     ramadan_shift_mode: bool = False
     autonomous_pm_window: bool = False
+    container_sync_enabled: bool = True
     max_solve_seconds: float = Field(5.0, gt=0.1, le=120.0)
     random_seed: int = 42
     num_workers: int = Field(8, ge=1, le=64)
@@ -825,6 +836,9 @@ class ScheduledJob(BaseModel):
     color_rank: int
     quantity_pcs: int
     is_export: bool
+    container_group_id: Optional[str] = None
+    gross_weight_kg: float = 0.0
+    container_wait_hrs: float = 0.0
     scheduled: bool = True
     unscheduled_reason: Optional[str] = None
     sequence_index: int = 0
@@ -918,6 +932,28 @@ class KpiBlock(BaseModel):
     virgin_resin_used_kg: float
     regrind_resin_used_kg: float
     weighted_objective: float = 0.0
+    wip_holding_days: float = 0.0
+    peak_warehouse_tons: float = 0.0
+    fg_storage_capacity_tons: float = 22.0
+    warehouse_utilization_pct: float = 0.0
+    trapped_working_capital: float = 0.0
+    container_wait_delay_hrs: float = 0.0
+
+
+class ContainerGroupSummary(BaseModel):
+    container_group_id: str
+    order_ids: list[str]
+    customers: list[str]
+    total_weight_tons: float
+    total_revenue_value: float
+    first_finish_hr: float
+    last_finish_hr: float
+    container_due_hr: float
+    spread_wait_hrs: float
+    wip_ton_days: float
+    trapped_working_capital: float
+    holding_cost: float
+    is_delayed: bool = False
 
 
 class ScheduledMoldPm(BaseModel):
@@ -939,6 +975,7 @@ class SchedulePlan(BaseModel):
     press_summaries: list[PressSummary]
     unscheduled_order_ids: list[str] = Field(default_factory=list)
     mold_pm_windows: list[ScheduledMoldPm] = Field(default_factory=list)
+    container_groups: list[ContainerGroupSummary] = Field(default_factory=list)
     kpis: KpiBlock
 
 
@@ -1147,6 +1184,7 @@ RiskCategory = Literal[
     "press_bottleneck",
     "mold_shot_limit",
     "workforce_fragility",
+    "warehouse_congestion",
 ]
 
 
@@ -1154,7 +1192,7 @@ class RiskAlert(BaseModel):
     alert_id: str
     category: RiskCategory
     severity: Literal["critical", "elevated", "watch"]
-    entity_type: Literal["order", "resin", "press", "mold", "shift"]
+    entity_type: Literal["order", "resin", "press", "mold", "shift", "container"]
     entity_id: str
     title_en: str
     title_ar: str

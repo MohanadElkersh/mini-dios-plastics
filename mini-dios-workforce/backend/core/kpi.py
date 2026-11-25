@@ -5,6 +5,7 @@ from collections import defaultdict
 from typing import Optional
 
 from .ontology import (
+    ContainerGroupSummary,
     GanttBlock,
     KpiBlock,
     MetricCompare,
@@ -195,6 +196,8 @@ def build_schedule_plan(
                     color_rank=order.color_rank,
                     quantity_pcs=order.quantity_pcs,
                     is_export=order.is_export,
+                    container_group_id=order.container_group_id,
+                    gross_weight_kg=round(gross_kg, 2),
                     scheduled=True,
                     sequence_index=seq_idx,
                     setup_start_min=setup_start_min,
@@ -284,6 +287,8 @@ def build_schedule_plan(
                 color_rank=order.color_rank,
                 quantity_pcs=order.quantity_pcs,
                 is_export=order.is_export,
+                container_group_id=order.container_group_id,
+                gross_weight_kg=round(order_gross_weight_kg(order, mold), 2),
                 scheduled=False,
                 unscheduled_reason=item.get("unscheduled_reason") or f"Insufficient {order.resin_code} virgin resin inventory",
                 due_hr=order.due_hr,
@@ -419,6 +424,111 @@ def build_schedule_plan(
     otif_pct = round((on_time_cnt / max(total_orders, 1)) * 100.0, 1)
     plant_oee_pct = round((oee_num / max(oee_den, 1e-6)) * 100.0, 1) if oee_den > 0 else 0.0
 
+    # ------------------------------------------------------------------
+    # Multi-SKU Export Container Consolidation & Finished-Goods Warehouse WIP Accounting
+    # ------------------------------------------------------------------
+    cg_jobs_map: dict[str, list[ScheduledJob]] = defaultdict(list)
+    for j in scheduled_jobs:
+        if j.scheduled and j.container_group_id:
+            cg_jobs_map[j.container_group_id].append(j)
+
+    container_groups: list[ContainerGroupSummary] = []
+    cg_last_finish_min: dict[str, int] = {}
+    tot_container_ton_days = 0.0
+    tot_trapped_wc_sar = 0.0
+    tot_container_hold_sar = 0.0
+    max_container_wait_hrs = 0.0
+
+    for cg_id in sorted(cg_jobs_map.keys()):
+        c_jobs = cg_jobs_map[cg_id]
+        if not c_jobs:
+            continue
+        first_min = min(j.end_min for j in c_jobs)
+        last_min = max(j.end_min for j in c_jobs)
+        cg_due_hr = max((orders_by_id[j.order_id].due_hr for j in c_jobs if j.order_id in orders_by_id), default=168.0)
+        # When Container & WIP Sync is OFF, uncoordinated containers sit on the warehouse dock until container due date
+        release_min = last_min if config.container_sync_enabled else max(last_min + 480, int(round(cg_due_hr * 60)))
+        cg_last_finish_min[cg_id] = release_min
+        spread_hrs = round(max(0.0, (release_min - first_min) / 60.0), 2)
+        max_container_wait_hrs = max(max_container_wait_hrs, spread_hrs)
+
+        cg_weight_tons = 0.0
+        cg_rev_sar = 0.0
+        cg_ton_days = 0.0
+        cg_trapped_sar = 0.0
+
+        for j in c_jobs:
+            o = orders_by_id.get(j.order_id)
+            w_tons = j.gross_weight_kg / 1000.0
+            cg_weight_tons += w_tons
+            rev_sar = (o.quantity_pcs * o.unit_selling_price * (1.0 - o.discount_pct / 100.0)) if o else 0.0
+            cg_rev_sar += rev_sar
+
+            wait_hrs = round(max(0.0, (release_min - j.end_min) / 60.0), 2)
+            j.container_wait_hrs = wait_hrs
+            if wait_hrs > 0.1:
+                td = w_tons * (wait_hrs / 24.0)
+                cg_ton_days += td
+                # Working capital trapped in early-finished SKUs waiting on warehouse floor for container completion
+                cg_trapped_sar += rev_sar * min(1.0, max(0.25, wait_hrs / 36.0))
+
+        eff_ton_day_rate = ph.wip_holding_cost_per_ton_day
+        if abs(ph.holding_cost_per_kg_per_day - 0.05) > 1e-6 and abs(ph.wip_holding_cost_per_ton_day - 85.0) < 1e-6:
+            eff_ton_day_rate = ph.wip_holding_cost_per_ton_day * (ph.holding_cost_per_kg_per_day / 0.05)
+        cg_hold_sar = cg_ton_days * eff_ton_day_rate
+        tot_container_ton_days += cg_ton_days
+        tot_trapped_wc_sar += cg_trapped_sar
+        tot_container_hold_sar += cg_hold_sar
+
+        container_groups.append(
+            ContainerGroupSummary(
+                container_group_id=cg_id,
+                order_ids=[j.order_id for j in c_jobs],
+                customers=sorted({j.customer for j in c_jobs}),
+                total_weight_tons=round(cg_weight_tons, 2),
+                total_revenue_value=to_cur(cg_rev_sar),
+                first_finish_hr=round(first_min / 60.0, 2),
+                last_finish_hr=round(last_min / 60.0, 2),
+                container_due_hr=round(cg_due_hr, 1),
+                spread_wait_hrs=spread_hrs,
+                wip_ton_days=round(cg_ton_days, 2),
+                trapped_working_capital=to_cur(cg_trapped_sar),
+                holding_cost=to_cur(cg_hold_sar),
+                is_delayed=(last_min / 60.0) > cg_due_hr + 0.01,
+            )
+        )
+
+    # Sweep finished-goods warehouse inventory across the week to find peak simultaneous tonnage
+    wh_events: list[tuple[int, float]] = []
+    tot_earliness_ton_days = 0.0
+    for j in scheduled_jobs:
+        if not j.scheduled:
+            continue
+        w_tons = j.gross_weight_kg / 1000.0
+        due_min = int(round(j.due_hr * 60))
+        if j.container_group_id and j.container_group_id in cg_last_finish_min:
+            ship_min = max(cg_last_finish_min[j.container_group_id], min(due_min, cg_last_finish_min[j.container_group_id] + 360))
+        else:
+            ship_min = max(j.end_min + 240, due_min)
+        if ship_min > j.end_min:
+            wh_events.append((j.end_min, w_tons))
+            wh_events.append((ship_min, -w_tons))
+            if not j.container_group_id:
+                tot_earliness_ton_days += w_tons * ((ship_min - j.end_min) / 1440.0)
+
+    wh_events.sort(key=lambda x: (x[0], x[1]))
+    running_tons = 0.0
+    peak_wh_tons = 0.0
+    for _, delta_tons in wh_events:
+        running_tons = max(0.0, running_tons + delta_tons)
+        if running_tons > peak_wh_tons:
+            peak_wh_tons = running_tons
+
+    fg_cap_tons = max(1.0, float(ph.fg_storage_capacity_tons))
+    wh_util_pct = round((peak_wh_tons / fg_cap_tons) * 100.0, 1)
+    total_wip_days = round(tot_container_ton_days + tot_earliness_ton_days, 2)
+    tot_wip_sar += tot_container_hold_sar
+
     # Total Controllable Factory Cost = Resin Material + Purge Scrap + Energy + Press Operating + Late Penalties + WIP
     total_cost_sar = tot_resin_sar + tot_purge_sar + tot_energy_sar + tot_oper_sar + tot_late_sar + tot_wip_sar
 
@@ -445,6 +555,12 @@ def build_schedule_plan(
         virgin_resin_used_kg=round(sum(resin_virgin_used.values()), 1),
         regrind_resin_used_kg=round(sum(resin_regrind_used.values()), 1),
         weighted_objective=0.0,
+        wip_holding_days=total_wip_days,
+        peak_warehouse_tons=round(peak_wh_tons, 2),
+        fg_storage_capacity_tons=round(fg_cap_tons, 1),
+        warehouse_utilization_pct=wh_util_pct,
+        trapped_working_capital=to_cur(tot_trapped_wc_sar),
+        container_wait_delay_hrs=round(max_container_wait_hrs, 1),
     )
 
     return SchedulePlan(
@@ -454,6 +570,7 @@ def build_schedule_plan(
         press_summaries=press_summaries,
         unscheduled_order_ids=unscheduled_ids,
         mold_pm_windows=resolved_pm_windows,
+        container_groups=container_groups,
         kpis=kpis,
     )
 

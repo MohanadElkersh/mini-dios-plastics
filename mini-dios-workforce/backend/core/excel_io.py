@@ -692,3 +692,390 @@ def export_brief_workbook(
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def export_integration_schedule_workbook(
+    result: SolveResult,
+    currency_override: Optional[Currency] = None,
+) -> bytes:
+    """Export the 4-sheet Integration-Ready Schedule Workbook (`/api/export/schedule.xlsx`):
+    1. `Press Schedule`
+    2. `Workforce Shifts`
+    3. `KPIs & Savings`
+    4. `Risk Radar`
+    """
+    wb = Workbook()
+    out_cur: Currency = currency_override or result.currency
+    fx = result.fx_egp_per_sar
+    conv = lambda val: _convert_money(val, result.currency, out_cur, fx)
+
+    # Sheet 1: Press Schedule
+    ws_press = wb.active
+    ws_press.title = "Press Schedule"
+    p_headers = [
+        "Press ID",
+        "Press Name",
+        "Seq #",
+        "Order ID",
+        "Customer",
+        "SKU Name",
+        "Container Group",
+        "Mold ID",
+        "Resin",
+        "Color",
+        "Qty (pcs)",
+        "Gross Wt (kg)",
+        "Setup Start (Hr)",
+        "Run Start (Hr)",
+        "Run End (Hr)",
+        "Due (Hr)",
+        "Setup (min)",
+        "Run (min)",
+        "Purge Scrap (kg)",
+        "Container Wait (Hr)",
+        "Tardiness (Hr)",
+        "Export",
+        "Status",
+        f"Total Job Cost ({out_cur})",
+    ]
+    _style_header(ws_press, p_headers)
+    for j in result.optimized.jobs:
+        job_cost = conv(j.resin_cost + j.purge_cost + j.energy_cost + j.operating_cost + j.late_penalty_cost)
+        ws_press.append(
+            [
+                j.machine_id,
+                j.machine_name,
+                j.sequence_index if j.scheduled else 0,
+                j.order_id,
+                j.customer,
+                j.sku_name,
+                j.container_group_id or "-",
+                j.mold_id,
+                j.resin_code,
+                j.color,
+                j.quantity_pcs,
+                j.gross_weight_kg,
+                round(j.setup_start_min / 60.0, 2) if j.scheduled else "-",
+                round(j.start_min / 60.0, 2) if j.scheduled else "-",
+                round(j.end_min / 60.0, 2) if j.scheduled else "-",
+                j.due_hr,
+                j.setup_mins,
+                j.duration_mins,
+                j.purge_scrap_kg,
+                j.container_wait_hrs,
+                j.tardiness_hrs,
+                "YES" if j.is_export else "NO",
+                "SCHEDULED" if j.scheduled else "UNSCHEDULED",
+                job_cost,
+            ]
+        )
+    _autofit(ws_press, min_width=12, max_width=36)
+
+    # Sheet 2: Workforce Shifts
+    ws_wf = wb.create_sheet("Workforce Shifts")
+    wf_headers = [
+        "Worker ID",
+        "Name",
+        "Role",
+        "Sun",
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Shifts Worked",
+        "Regular Hrs",
+        "Overtime Hrs",
+        "Total Hrs",
+        f"Weekly Labor Cost ({out_cur})",
+    ]
+    _style_header(ws_wf, wf_headers)
+    if result.workforce is not None:
+        wf_cur = result.workforce.currency
+        conv_wf = lambda val: _convert_money(val, wf_cur, out_cur, fx)
+        for row in result.workforce.optimized.rosters:
+            cells = list(row.cells) + ["OFF"] * max(0, 7 - len(row.cells))
+            ws_wf.append(
+                [
+                    row.worker_id,
+                    row.name,
+                    row.role,
+                    *cells[:7],
+                    row.shifts_worked,
+                    row.regular_hours,
+                    row.overtime_hours,
+                    row.weekly_hours,
+                    conv_wf(row.labor_cost),
+                ]
+            )
+    _autofit(ws_wf, min_width=11, max_width=30)
+
+    # Sheet 3: KPIs & Savings
+    ws_kpi = wb.create_sheet("KPIs & Savings")
+    _style_header(ws_kpi, ["KPI / Financial Line Item", "FIFO Baseline", "CP-SAT Optimized", "Delta / Savings", "Unit"])
+    bk = result.baseline.kpis
+    ok = result.optimized.kpis
+    fin = result.financials
+    kpi_rows = [
+        ("Recognized Revenue", conv(fin.baseline.recognized_revenue), conv(fin.optimized.recognized_revenue), conv(fin.optimized.recognized_revenue - fin.baseline.recognized_revenue), out_cur),
+        ("Total Operating Cost", conv(fin.baseline.total_operating_cost), conv(fin.optimized.total_operating_cost), conv(fin.baseline.total_operating_cost - fin.optimized.total_operating_cost), out_cur),
+        ("Net Operating Profit", conv(fin.baseline.net_operating_profit), conv(fin.optimized.net_operating_profit), conv(fin.optimized.net_operating_profit - fin.baseline.net_operating_profit), out_cur),
+        ("Total Weekly Cash Savings", "-", conv(fin.total_weekly_savings), conv(fin.total_weekly_savings), out_cur),
+        ("Annualized Projected Savings", "-", conv(fin.annual_projected_savings), conv(fin.annual_projected_savings), out_cur),
+        ("Purge Resin Scrap", bk.purge_scrap_kg, ok.purge_scrap_kg, round(bk.purge_scrap_kg - ok.purge_scrap_kg, 1), "kg"),
+        ("Changeover & Purge Time", bk.changeover_hours, ok.changeover_hours, round(bk.changeover_hours - ok.changeover_hours, 2), "hrs"),
+        ("Plant OEE", bk.oee_pct, ok.oee_pct, round(ok.oee_pct - bk.oee_pct, 1), "%"),
+        ("Export & Order OTIF", bk.otif_pct, ok.otif_pct, round(ok.otif_pct - bk.otif_pct, 1), "%"),
+        ("Finished-Goods Warehouse Utilization", bk.warehouse_utilization_pct, ok.warehouse_utilization_pct, round(ok.warehouse_utilization_pct - bk.warehouse_utilization_pct, 1), "%"),
+        ("Trapped Container Working Capital", conv(bk.trapped_working_capital), conv(ok.trapped_working_capital), conv(bk.trapped_working_capital - ok.trapped_working_capital), out_cur),
+        ("WIP Holding Days", bk.wip_holding_days, ok.wip_holding_days, round(bk.wip_holding_days - ok.wip_holding_days, 2), "ton-days"),
+    ]
+    for r_item in kpi_rows:
+        ws_kpi.append(list(r_item))
+    _autofit(ws_kpi, min_width=16, max_width=44)
+
+    # Sheet 4: Risk Radar
+    ws_risk = wb.create_sheet("Risk Radar")
+    _style_header(
+        ws_risk,
+        ["Alert ID", "Severity", "Category", "Entity", "Title (EN)", "Metric", f"Financial Exposure ({out_cur})", "Recommended Mitigation"],
+    )
+    if result.risk_radar is not None:
+        for a in result.risk_radar.alerts:
+            ws_risk.append(
+                [
+                    a.alert_id,
+                    a.severity.upper(),
+                    a.category,
+                    f"{a.entity_type}:{a.entity_id}",
+                    a.title_en,
+                    f"{a.metric_label}: {a.metric_value}",
+                    conv(a.financial_exposure),
+                    a.suggested_prompt_en,
+                ]
+            )
+    _autofit(ws_risk, min_width=14, max_width=52)
+
+    out_buf = io.BytesIO()
+    wb.save(out_buf)
+    return out_buf.getvalue()
+
+
+def export_integration_schedule_csv(
+    result: SolveResult,
+    currency_override: Optional[Currency] = None,
+) -> bytes:
+    """Export a clean flat press-run schedule CSV (`/api/export/schedule.csv`)."""
+    import csv
+
+    out_cur: Currency = currency_override or result.currency
+    fx = result.fx_egp_per_sar
+    conv = lambda val: _convert_money(val, result.currency, out_cur, fx)
+
+    headers = [
+        "order_id",
+        "customer",
+        "sku_name",
+        "container_group_id",
+        "machine_id",
+        "sequence_index",
+        "mold_id",
+        "resin_code",
+        "color",
+        "quantity_pcs",
+        "gross_weight_kg",
+        "setup_start_hr",
+        "start_hr",
+        "end_hr",
+        "due_hr",
+        "setup_mins",
+        "duration_mins",
+        "purge_scrap_kg",
+        "virgin_kg",
+        "regrind_kg",
+        "container_wait_hrs",
+        "tardiness_hrs",
+        "is_export",
+        "scheduled",
+        "total_job_cost",
+        "currency",
+    ]
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(headers)
+
+    for j in result.optimized.jobs:
+        total_job_cost = conv(j.resin_cost + j.purge_cost + j.energy_cost + j.operating_cost + j.late_penalty_cost)
+        writer.writerow(
+            [
+                j.order_id,
+                j.customer,
+                j.sku_name,
+                j.container_group_id or "",
+                j.machine_id,
+                j.sequence_index if j.scheduled else 0,
+                j.mold_id,
+                j.resin_code,
+                j.color,
+                j.quantity_pcs,
+                j.gross_weight_kg,
+                round(j.setup_start_min / 60.0, 2) if j.scheduled else 0.0,
+                round(j.start_min / 60.0, 2) if j.scheduled else 0.0,
+                round(j.end_min / 60.0, 2) if j.scheduled else 0.0,
+                j.due_hr,
+                j.setup_mins,
+                j.duration_mins,
+                j.purge_scrap_kg,
+                j.virgin_kg,
+                j.regrind_kg,
+                j.container_wait_hrs,
+                j.tardiness_hrs,
+                j.is_export,
+                j.scheduled,
+                total_job_cost,
+                out_cur,
+            ]
+        )
+    return buf.getvalue().encode("utf-8")
+
+
+def export_integration_erp_payload(
+    result: SolveResult,
+    dataset: Optional[PlantDataset] = None,
+    currency_override: Optional[Currency] = None,
+) -> dict[str, Any]:
+    """Build a versioned integration JSON payload (`/api/export/erp-payload.json`) suitable for Odoo / SAP B1 / custom ERPs."""
+    out_cur: Currency = currency_override or result.currency
+    fx = result.fx_egp_per_sar
+    conv = lambda val: _convert_money(val, result.currency, out_cur, fx)
+    ok = result.optimized.kpis
+    fin = result.financials
+
+    return {
+        "schema_version": "mini-dios-plastics-erp/v1.3",
+        "compatible_targets": ["Odoo MRP (mrp.production / mrp.workorder)", "SAP Business One (OWOR)", "Custom Factory MES/ERP"],
+        "run_id": result.run_id,
+        "generated_at": result.created_at,
+        "plant_name": result.dataset_name,
+        "currency": out_cur,
+        "fx_egp_per_sar": fx,
+        "solver_telemetry": {
+            "engine": "Google OR-Tools CP-SAT",
+            "ortools_version": result.audit.ortools_version,
+            "status": result.status,
+            "solve_time_ms": result.solve_time_ms,
+            "inputs_sha256": result.audit.inputs_sha256,
+            "schedule_sha256": result.audit.schedule_sha256,
+            "all_hard_constraints_passed": result.audit.all_hard_constraints_passed,
+            "container_sync_enabled": result.audit.config.container_sync_enabled,
+        },
+        "work_orders": [
+            {
+                "work_order_id": f"WO-{j.order_id}",
+                "order_id": j.order_id,
+                "customer": j.customer,
+                "sku_name": j.sku_name,
+                "container_group_id": j.container_group_id,
+                "workcenter_id": j.machine_id,
+                "workcenter_name": j.machine_name,
+                "tooling_mold_id": j.mold_id,
+                "tooling_mold_name": j.mold_name,
+                "sequence_index": j.sequence_index,
+                "scheduled": j.scheduled,
+                "material": {
+                    "resin_code": j.resin_code,
+                    "color": j.color,
+                    "color_rank": j.color_rank,
+                    "quantity_pcs": j.quantity_pcs,
+                    "gross_weight_kg": j.gross_weight_kg,
+                    "virgin_resin_kg": j.virgin_kg,
+                    "regrind_resin_kg": j.regrind_kg,
+                    "purge_scrap_kg": j.purge_scrap_kg,
+                },
+                "timing": {
+                    "setup_start_hr": round(j.setup_start_min / 60.0, 2),
+                    "production_start_hr": round(j.start_min / 60.0, 2),
+                    "production_end_hr": round(j.end_min / 60.0, 2),
+                    "due_hr": j.due_hr,
+                    "setup_mins": j.setup_mins,
+                    "duration_mins": j.duration_mins,
+                    "container_wait_hrs": j.container_wait_hrs,
+                    "tardiness_hrs": j.tardiness_hrs,
+                    "transition_type": j.transition_type,
+                },
+                "costs": {
+                    "resin_cost": conv(j.resin_cost),
+                    "purge_cost": conv(j.purge_cost),
+                    "energy_cost": conv(j.energy_cost),
+                    "operating_cost": conv(j.operating_cost),
+                    "late_penalty_cost": conv(j.late_penalty_cost),
+                    "currency": out_cur,
+                },
+            }
+            for j in result.optimized.jobs
+        ],
+        "mold_maintenance_windows": [
+            pm.model_dump(mode="json") for pm in (result.optimized.mold_pm_windows or [])
+        ],
+        "container_consolidations": [
+            {
+                **cg.model_dump(mode="json"),
+                "total_revenue_value": conv(cg.total_revenue_value),
+                "trapped_working_capital": conv(cg.trapped_working_capital),
+                "holding_cost": conv(cg.holding_cost),
+                "currency": out_cur,
+            }
+            for cg in (result.optimized.container_groups or [])
+        ],
+        "workforce_shift_roster": (
+            [
+                {
+                    "worker_id": r.worker_id,
+                    "name": r.name,
+                    "role": r.role,
+                    "daily_shifts_sun_to_sat": r.cells,
+                    "regular_hours": r.regular_hours,
+                    "overtime_hours": r.overtime_hours,
+                    "weekly_hours": r.weekly_hours,
+                    "weekly_labor_cost": _convert_money(
+                        r.labor_cost, result.workforce.currency, out_cur, fx
+                    ),
+                }
+                for r in result.workforce.optimized.rosters
+            ]
+            if result.workforce
+            else []
+        ),
+        "kpis_and_financials": {
+            "recognized_revenue": conv(fin.optimized.recognized_revenue),
+            "net_operating_profit": conv(fin.optimized.net_operating_profit),
+            "net_margin_pct": fin.optimized.net_margin_pct,
+            "total_weekly_savings": conv(fin.total_weekly_savings),
+            "annual_projected_savings": conv(fin.annual_projected_savings),
+            "purge_scrap_kg": ok.purge_scrap_kg,
+            "changeover_hours": ok.changeover_hours,
+            "oee_pct": ok.oee_pct,
+            "otif_pct": ok.otif_pct,
+            "warehouse_utilization_pct": ok.warehouse_utilization_pct,
+            "peak_warehouse_tons": ok.peak_warehouse_tons,
+            "trapped_working_capital": conv(ok.trapped_working_capital),
+            "wip_holding_days": ok.wip_holding_days,
+        },
+        "risk_alerts": (
+            [
+                {
+                    "alert_id": a.alert_id,
+                    "severity": a.severity,
+                    "category": a.category,
+                    "entity_type": a.entity_type,
+                    "entity_id": a.entity_id,
+                    "title_en": a.title_en,
+                    "financial_exposure": conv(a.financial_exposure),
+                }
+                for a in result.risk_radar.alerts
+            ]
+            if result.risk_radar
+            else []
+        ),
+    }

@@ -4,6 +4,33 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.5 (Commercial & Decision Intelligence Upgrade v1.3) — 2026-11-25 — 1-Month Historical Backtest Replay, 5-Step Guided Onboarding, Container & Warehouse WIP Sync, Commander-Grade Copilot Trade-Offs, ERP Export API & Dual-Audience Executive Brief
+
+### Application Changes
+- **Feature 1 — 1-Month Historical Backtest / Replay Engine (`backend/core/backtest.py`, `backend/api/routes.py`, `frontend/src/components/HistoricalBacktestModal.tsx`, `ScopeView.tsx`, `FinancialsView.tsx`):**
+  - Added `GET /api/backtest/template?format=csv|xlsx` returning a 13-column historical press-log template (`order_id`, `customer`, `sku_name`, `resin`, `color`, `qty_units`, `press_id`, `actual_changeover_hrs`, `actual_purge_scrap_kg`, `actual_overtime_hrs`, `actual_late_hours`, `export_penalty_cost`, `unit_margin`).
+  - Added `POST /api/backtest/replay` accepting either an uploaded CSV/Excel file or a 1-click `"sample_30day_log"` trigger, running deterministic OR-Tools CP-SAT across the historical orders and returning `actual_vs_optimized` metrics (purge scrap saved, changeover hours freed, overtime cut, export penalties avoided, extra sellable units & tons unlocked, 1-month & annualized cash left on the floor, and payback period in days).
+  - Built `HistoricalBacktestModal.tsx` accessible from Tab 1 (`ScopeView.tsx`) and Tab 5 (`FinancialsView.tsx`).
+- **Feature 2 — Guided "Process-First" 5-Step Onboarding Wizard (`backend/core/onboarding.py`, `backend/api/routes.py`, `frontend/src/components/GuidedOnboardingModal.tsx`, `ScopeView.tsx`):**
+  - Added `POST /api/onboarding/generate` and `GuidedOnboardingModal.tsx` interviewing the user in 5 bilingual (`EN` / `AR`) steps: (1) Process & Operating Model (`Injection`/`BlowMolding`/`Extrusion`/`Hybrid`, `MTO`/`MTS`/`Hybrid`, `EGP`/`SAR`), (2) Presses & Backup Logic, (3) Color/Resin Purge & Batch Rules, (4) Workforce & Tariff Rules, and (5) Export & Warehouse Rules.
+  - Generates an immediately solved workspace in the user's sandbox alongside a 6-item **"Current Specs Only" Readiness Checklist** reassuring factories that zero historical ERP data is needed.
+- **Feature 3 — Finished-Goods Storage & Export-Container Consolidation Coupling (`backend/core/ontology.py`, `seed.py`, `solver.py`, `kpi.py`, `risk_radar.py`, `TopBar.tsx`, `TradeoffConsole.tsx`, `FinancialsView.tsx`):**
+  - Extended `ProductionOrder` with `container_group_id` (seeded with 4 multi-SKU export container groups: `CNT-RIYADH-01`, `CNT-JEDDAH-02`, `CNT-AUTO-03`, `CNT-CHEM-04`), `PlantPhysicsConfig` with `fg_storage_capacity_tons` (`22.0t`) and `wip_holding_cost_per_ton_day` (`85.0`), and `SolverConfig` with `container_sync_enabled` (`True` by default).
+  - Coupled multi-SKU container completion variables (`cg_ship`, `cg_wait`) into CP-SAT `wc_terms` in `solver.py`, added post-solve container consolidation and finished-goods warehouse utilization sweeps (`ContainerGroupSummary`, `warehouse_utilization_pct`, `peak_warehouse_tons`, `trapped_working_capital`, `wip_holding_days`, `container_wait_delay_hrs`) in `kpi.py`, and added `warehouse_congestion` alerts with bilingual Copilot mitigation prompts in `risk_radar.py`.
+  - Added the `Container Sync` toggle to `TopBar.tsx` (desktop & mobile drawer) and Tab 3 (`TradeoffConsole.tsx`), plus Container Consolidation & Warehouse WIP panels in Tab 3 and Tab 5 (`FinancialsView.tsx`).
+- **Feature 4 — "Commander-Grade" Financial Trade-Off Explanations in Ops Copilot (`backend/core/copilot.py`, `frontend/src/components/CopilotDrawer.tsx`):**
+  - Added deterministic `_compute_financial_tradeoff_summary()` computing exact cost paid vs. value protected and net financial gain (`FinancialTradeoffSummary`) in both live Gemini and offline CP-SAT simulations, rendered in a highlighted **Commander-Grade Financial Trade-Off Callout Box** at the top of every Copilot simulation card.
+- **Feature 5 — Integration-Ready Export API (`backend/core/excel_io.py`, `backend/api/routes.py`, `frontend/src/components/ScheduleExportMenu.tsx`, `ExecutiveBriefModal.tsx`, `ProductionGanttView.tsx`, `WorkforceView.tsx`):**
+  - Added `GET /api/export/schedule.xlsx` (4 sheets: `Press Schedule`, `Workforce Shifts`, `KPIs & Savings`, `Risk Radar`), `GET /api/export/schedule.csv`, and `GET /api/export/erp-payload.json` (versioned `mini-dios-plastics-erp/v1.3` payload for Odoo / SAP Business One / custom ERPs), wired to `ScheduleExportMenu.tsx` on Tab 4, Tab 6, and `ExecutiveBriefModal.tsx`.
+- **Feature 6 — Dual-Audience Executive Brief & Updated Two-Track Docs / Outreach Kit (`frontend/src/components/ExecutiveBriefModal.tsx`, `docs/*`):**
+  - Added a 2-tab audience switcher inside `ExecutiveBriefModal.tsx`: **Owner / Chairman View** (Institutional Memory, Ending Department Friction, Working Capital & Annualized Cash Unlocked) vs. **Plant / Production Manager View** (**The Manager's Decision Shield** providing instant mathematical proof for overtime, relief staffing, mold maintenance, and rush-order trade-offs).
+
+### Master Documents Updated
+- Updated `docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`, and `docs/templates-and-drafts/hosted-demo-outreach-pilot-kit-en-ar.md` (Track A — 100% plain human language).
+- Updated `docs/technical/TECHNICAL_REFERENCE.md`, `docs/CHANGELOG.md`, and `docs/technical/CODEBASE_AND_UPDATES_LOG.md` (Track B — Separate Technical Track), and synced all documents in-place to Google Drive.
+
+---
+
 ## v1.4 — 2026-11-23 — Lockstep Dashboard State Synchronization, Unified Copilot Scenario Bundle & Actionable Risk Radar Mitigations
 
 ### Application Changes

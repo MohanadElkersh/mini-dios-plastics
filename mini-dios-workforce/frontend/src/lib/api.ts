@@ -1,9 +1,12 @@
 import type {
   AuditLogItem,
   AuthStatus,
+  BacktestReplayReport,
   CopilotResult,
   Currency,
   FinancialReport,
+  GuidedSetupRequest,
+  GuidedSetupResponse,
   Lang,
   PlantDataset,
   PlantWorkspace,
@@ -327,4 +330,92 @@ export async function deleteWorkspaceApi(
     credentials: "include",
   });
   return handleJson<{ deleted: boolean; workspace_id: string }>(res);
+}
+
+// --------------------------------------------------------------------------------------------
+// v1.3 Decision Intelligence Upgrade Endpoints (Backtest, Guided Onboarding, Integration Exports)
+// --------------------------------------------------------------------------------------------
+export function getBacktestTemplateUrl(format: "csv" | "xlsx" = "csv"): string {
+  return `${API_BASE}/api/backtest/template?format=${format}`;
+}
+
+export async function runBacktestSampleApi(
+  currency: Currency,
+  dataset?: PlantDataset | null,
+  config?: SolverConfig | null
+): Promise<BacktestReplayReport> {
+  const res = await fetch(`${API_BASE}/api/backtest/replay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      mode: "sample_30day_log",
+      currency,
+      dataset: dataset ?? undefined,
+      config: config ?? undefined,
+    }),
+  });
+  return handleJson<BacktestReplayReport>(res);
+}
+
+export async function uploadBacktestFileApi(
+  file: File,
+  currency: Currency,
+  dataset?: PlantDataset | null,
+  config?: SolverConfig | null
+): Promise<BacktestReplayReport> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("currency", currency);
+  if (dataset) {
+    form.append("dataset", JSON.stringify(dataset));
+  }
+  if (config) {
+    form.append("config", JSON.stringify(config));
+  }
+  const res = await fetch(`${API_BASE}/api/backtest/replay`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  return handleJson<BacktestReplayReport>(res);
+}
+
+export async function generateGuidedWorkspaceApi(
+  payload: GuidedSetupRequest
+): Promise<GuidedSetupResponse> {
+  const res = await fetch(`${API_BASE}/api/onboarding/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson<GuidedSetupResponse>(res);
+}
+
+export async function downloadIntegrationExportApi(
+  format: "xlsx" | "csv" | "json",
+  runId?: string | null,
+  currency?: Currency
+): Promise<Blob> {
+  const endpoint =
+    format === "xlsx"
+      ? "schedule.xlsx"
+      : format === "csv"
+        ? "schedule.csv"
+        : "erp-payload.json";
+  const params = new URLSearchParams();
+  if (runId) params.set("run_id", runId);
+  if (currency) params.set("currency", currency);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+
+  const res = await fetch(`${API_BASE}/api/export/${endpoint}${qs}`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Export ${endpoint} failed (HTTP ${res.status})`);
+  }
+  return res.blob();
 }

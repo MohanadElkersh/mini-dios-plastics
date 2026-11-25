@@ -382,6 +382,34 @@ export const COPY = {
     ganttSwipeHint: "Swipe timeline →",
     ganttTapHint: "Tap or hover any colored production block or hatched changeover/PM block above to inspect exact timing, mold, resin, and purge scrap.",
     matrixSwipeHint: "Swipe table →",
+
+    // v1.3 Decision Intelligence Upgrade (Backtest, Guided Onboarding, Container Sync, Exports, Dual Brief)
+    containerSync: "Container & WIP Sync",
+    containerSyncBanner:
+      "Export Container & Warehouse WIP Sync Active: CP-SAT aligns multi-SKU export container completion times to cut trapped working capital and finished-goods storage congestion.",
+    backtestBtn: "1-Month Historical Backtest",
+    backtestBadge: "Proof Engine",
+    backtestTitle: "1-Month Historical Backtest & ROI Replay Engine",
+    backtestSubtitle:
+      "Compare 30 days of actual past press logs against deterministic Mini-DIOS CP-SAT replay — before paying a single pound or riyal.",
+    backtestRunSampleBtn: "Run Sample 30-Day Plant Replay",
+    backtestDownloadCsvBtn: "Download Log Template (.csv)",
+    backtestDownloadXlsxBtn: "Template (.xlsx)",
+    backtestUploadLabel: "Upload 2–4 Week Historical Press Log (.csv / .xlsx)",
+    backtestCashLeftTitle: "Total Cash Left on the Floor (1 Month)",
+    backtestAnnualizedTitle: "Annualized Recoverable Cash (12 Months)",
+    backtestExtraOutputTitle: "Extra Sellable Output Unlocked",
+    backtestPaybackTitle: "Estimated License Payback Period",
+    guidedSetupBtn: "Guided 5-Step Plant Setup",
+    guidedSetupTitle: "Guided Process-First Factory Setup (Zero ERP History Needed)",
+    guidedSetupSubtitle:
+      "Configure floor physics and operating rules in 5 quick steps — requires only today's specs, never messy historical ERP tables.",
+    exportScheduleLabel: "Export Schedule",
+    exportExcelBtn: "Excel (.xlsx)",
+    exportCsvBtn: "Flat CSV (.csv)",
+    exportErpJsonBtn: "ERP JSON (Odoo / SAP B1)",
+    briefOwnerTab: "Owner / Chairman View",
+    briefManagerTab: "Plant / Production Manager View",
   },
   ar: {
     appTitle: "Mini-DIOS للبلاستيك",
@@ -626,5 +654,33 @@ export const COPY = {
     ganttSwipeHint: "اسحب الجدول ←",
     ganttTapHint: "اضغط أو مرر على أي أمر إنتاج ملون أو فترة تبديل/صيانة أعلاه لعرض التوقيت الدقيق، القالب، الخامة، وهالك التنظيف.",
     matrixSwipeHint: "اسحب للمقارنة ←",
+
+    // v1.3 Decision Intelligence Upgrade (AR)
+    containerSync: "مزامنة الحاويات والمخزن",
+    containerSyncBanner:
+      "مزامنة حاويات التصدير ومخزن المنتج التام مفعّلة: ينسق محرك CP-SAT اكتمال أصناف الحاوية المشتركة لتقليل تجميد رأس المال العامل وازدحام المخزن.",
+    backtestBtn: "اختبار تاريخي لشهر كامل",
+    backtestBadge: "محرك الإثبات",
+    backtestTitle: "محرك الاختبار التاريخي وإعادة تشغيل 30 يوماً (Actual vs. Mini-DIOS)",
+    backtestSubtitle:
+      "قارن سجلات تشغيل مصنعك الفعلية خلال الشهر الماضي مقابل إعادة الجدولة الحتمية عبر Mini-DIOS قبل دفع أي اشتراك.",
+    backtestRunSampleBtn: "تشغيل محاكاة شهر كامل للمصنع (30 يوماً)",
+    backtestDownloadCsvBtn: "تحميل قالب السجل التاريخي (.csv)",
+    backtestDownloadXlsxBtn: "قالب (.xlsx)",
+    backtestUploadLabel: "ارفع سجل تشغيل المكابس لآخر ٢–٤ أسابيع (.csv / .xlsx)",
+    backtestCashLeftTitle: "إجمالي النقد المهدر على أرضية المصنع (خلال شهر)",
+    backtestAnnualizedTitle: "النقد السنوي القابل للاسترداد (١٢ شهراً)",
+    backtestExtraOutputTitle: "الإنتاج الإضافي القابل للبيع المحرر",
+    backtestPaybackTitle: "فترة استرداد تكلفة الاشتراك",
+    guidedSetupBtn: "إعداد المصنع الموجّه (5 خطوات)",
+    guidedSetupTitle: "إعداد المصنع الموجّه حسب العمليات (بدون الحاجة لتاريخ ERP)",
+    guidedSetupSubtitle:
+      "اضبط قواعد التشغيل والماكينات في 5 خطوات سريعة — نحتاج فقط المواصفات الحالية للمصنع ولا نحتاج أي سجلات مبيعات تاريخية.",
+    exportScheduleLabel: "تصدير الجدول",
+    exportExcelBtn: "إكسل (.xlsx)",
+    exportCsvBtn: "ملف CSV (.csv)",
+    exportErpJsonBtn: "ربط ERP JSON (Odoo / SAP B1)",
+    briefOwnerTab: "رؤية المالك / رئيس مجلس الإدارة",
+    briefManagerTab: "رؤية مدير المصنع / مدير الإنتاج",
   },
 } as const;

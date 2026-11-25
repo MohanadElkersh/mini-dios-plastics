@@ -30,7 +30,26 @@ from core.auth import (
 )
 from core.copilot import CopilotResult, run_plastics_copilot
 from core.disruptions import apply_plant_scenarios
-from core.excel_io import build_template_workbook, export_brief_workbook, parse_workbook_bytes
+from core.excel_io import (
+    build_template_workbook,
+    export_brief_workbook,
+    export_integration_erp_payload,
+    export_integration_schedule_csv,
+    export_integration_schedule_workbook,
+    parse_workbook_bytes,
+)
+from core.backtest import (
+    BacktestReplayReport,
+    build_backtest_template_csv,
+    build_backtest_template_xlsx,
+    parse_backtest_upload,
+    run_historical_backtest_replay,
+)
+from core.onboarding import (
+    GuidedSetupRequest,
+    ReadinessChecklistItem,
+    build_guided_plant_workspace,
+)
 from core.financials import compute_financial_report
 from core.ontology import (
     Currency,
@@ -515,3 +534,203 @@ def delete_workspace_endpoint(
     if not success:
         raise HTTPException(status_code=404, detail=f"Workspace '{workspace_id}' not found.")
     return {"deleted": True, "workspace_id": workspace_id}
+
+
+# --------------------------------------------------------------------------------------------
+# v1.3 Feature 1: 1-Month Historical Backtest / Replay Mode ("The Proof Engine")
+# --------------------------------------------------------------------------------------------
+@router.get("/backtest/template")
+def download_backtest_template(
+    format: str = Query(default="csv", description="Template format: 'csv' or 'xlsx'"),
+    session: AuthSession = Depends(require_auth_session),
+) -> Response:
+    fmt = (format or "csv").strip().lower()
+    if fmt == "xlsx":
+        xlsx_bytes = build_backtest_template_xlsx()
+        return Response(
+            content=xlsx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="mini_dios_30day_backtest_template.xlsx"'},
+        )
+    csv_bytes = build_backtest_template_csv()
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="mini_dios_30day_backtest_template.csv"'},
+    )
+
+
+@router.post("/backtest/replay", response_model=BacktestReplayReport)
+async def backtest_replay_endpoint(
+    request: Request,
+    session: AuthSession = Depends(require_auth_session),
+) -> BacktestReplayReport:
+    """Run deterministic CP-SAT replay on an uploaded CSV/Excel press log or built-in sample_30day_log."""
+    content_type = (request.headers.get("content-type") or "").lower()
+    rows = None
+    source_label = "sample_30day_log"
+    dataset = demo_dataset()
+    config = default_config()
+
+    if "multipart/form-data" in content_type:
+        form = await request.form()
+        upload = form.get("file")
+        if upload is not None and hasattr(upload, "read"):
+            raw_bytes = await upload.read()
+            filename = getattr(upload, "filename", "backtest_log.csv") or "backtest_log.csv"
+            try:
+                rows = parse_backtest_upload(raw_bytes, filename=filename)
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid historical backtest file: {exc}") from exc
+            source_label = filename
+        cur_raw = form.get("currency")
+        if cur_raw in ("SAR", "EGP"):
+            config = config.model_copy(update={"currency": str(cur_raw)})  # type: ignore[arg-type]
+        cfg_raw = form.get("config")
+        if cfg_raw:
+            config = SolverConfig.model_validate_json(str(cfg_raw))
+        ds_raw = form.get("dataset")
+        if ds_raw:
+            dataset = PlantDataset.model_validate_json(str(ds_raw))
+    else:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        if isinstance(body, dict):
+            if body.get("dataset"):
+                dataset = PlantDataset.model_validate(body["dataset"])
+            if body.get("config"):
+                config = SolverConfig.model_validate(body["config"])
+            if body.get("currency") in ("SAR", "EGP"):
+                config = config.model_copy(update={"currency": body["currency"]})
+            if body.get("csv_text"):
+                try:
+                    rows = parse_backtest_upload(str(body["csv_text"]).encode("utf-8"), "uploaded_log.csv")
+                    source_label = str(body.get("source_label") or "uploaded_log.csv")
+                except Exception as exc:
+                    raise HTTPException(status_code=400, detail=f"Invalid CSV content: {exc}") from exc
+            elif body.get("rows") and isinstance(body["rows"], list):
+                rows = body["rows"]
+                source_label = str(body.get("source_label") or "custom_rows")
+            else:
+                source_label = str(body.get("mode") or body.get("source_label") or "sample_30day_log")
+
+    return await asyncio.to_thread(
+        run_historical_backtest_replay,
+        dataset,
+        config,
+        rows,
+        source_label,
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# v1.3 Feature 2: Guided "Process-First" 5-Step Onboarding Wizard
+# --------------------------------------------------------------------------------------------
+class GuidedSetupResponse(BaseModel):
+    workspace_id: str
+    dataset: PlantDataset
+    config: SolverConfig
+    result: SolveResult
+    readiness_checklist: list[ReadinessChecklistItem]
+
+
+@router.post("/onboarding/generate", response_model=GuidedSetupResponse)
+def onboarding_generate_endpoint(
+    payload: GuidedSetupRequest,
+    session: AuthSession = Depends(require_auth_session),
+) -> GuidedSetupResponse:
+    """Build and immediately solve a tailored plant workspace from the 5-step Guided Setup interview."""
+    ds, cfg, checklist = build_guided_plant_workspace(payload)
+    result = solve_plant_schedule(ds, cfg)
+    ws_id = f"guided-{result.run_id.lower()}"
+    store = get_audit_store()
+    store.save_workspace(ws_id, ds.name, ds, cfg, session_id=session.session_id)
+    store.save_run(result, dataset=ds, session_id=session.session_id)
+    return GuidedSetupResponse(
+        workspace_id=ws_id,
+        dataset=ds,
+        config=cfg,
+        result=result,
+        readiness_checklist=checklist,
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# v1.3 Feature 5: Integration-Ready Export API (Excel, CSV & ERP JSON)
+# --------------------------------------------------------------------------------------------
+def _resolve_active_session_result(
+    session_id: str,
+    run_id: Optional[str] = None,
+    currency: Optional[Currency] = None,
+) -> tuple[SolveResult, Optional[PlantDataset]]:
+    store = get_audit_store()
+    result: Optional[SolveResult] = None
+    if run_id:
+        result = store.get_run(run_id, session_id=session_id)
+    if result is None:
+        runs = store.list_runs(limit=1, session_id=session_id)
+        if runs:
+            result = store.get_run(runs[0]["run_id"], session_id=session_id)
+
+    ws = store.get_workspace("default", session_id=session_id)
+    ds = PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset()
+    cfg = SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config()
+    if currency in ("SAR", "EGP"):
+        cfg = cfg.model_copy(update={"currency": currency})
+
+    if result is None:
+        result = solve_plant_schedule(ds, cfg)
+        store.save_run(result, dataset=ds, session_id=session_id)
+    return result, ds
+
+
+@router.get("/export/schedule.xlsx")
+def export_schedule_xlsx_endpoint(
+    run_id: Optional[str] = Query(default=None),
+    currency: Optional[Currency] = Query(default=None),
+    session: AuthSession = Depends(require_auth_session),
+) -> Response:
+    result, _ = _resolve_active_session_result(session.session_id, run_id=run_id, currency=currency)
+    xlsx_bytes = export_integration_schedule_workbook(result, currency_override=currency)
+    filename = f"mini_dios_schedule_{result.run_id}.xlsx"
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/schedule.csv")
+def export_schedule_csv_endpoint(
+    run_id: Optional[str] = Query(default=None),
+    currency: Optional[Currency] = Query(default=None),
+    session: AuthSession = Depends(require_auth_session),
+) -> Response:
+    result, _ = _resolve_active_session_result(session.session_id, run_id=run_id, currency=currency)
+    csv_bytes = export_integration_schedule_csv(result, currency_override=currency)
+    filename = f"mini_dios_schedule_{result.run_id}.csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/erp-payload.json")
+def export_erp_payload_endpoint(
+    run_id: Optional[str] = Query(default=None),
+    currency: Optional[Currency] = Query(default=None),
+    session: AuthSession = Depends(require_auth_session),
+) -> Response:
+    result, ds = _resolve_active_session_result(session.session_id, run_id=run_id, currency=currency)
+    payload = export_integration_erp_payload(result, dataset=ds, currency_override=currency)
+    filename = f"mini_dios_erp_payload_{result.run_id}.json"
+    import json
+
+    return Response(
+        content=json.dumps(payload, indent=2).encode("utf-8"),
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

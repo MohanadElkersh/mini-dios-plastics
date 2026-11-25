@@ -12,6 +12,7 @@ import {
   Recycle,
 } from "lucide-react";
 import { RiskRadarPanel } from "@/components/RiskRadarPanel";
+import { ScheduleExportMenu } from "@/components/ScheduleExportMenu";
 import {
   Bar,
   BarChart,
@@ -481,9 +482,12 @@ export function ProductionGanttView() {
 
       {/* Detailed Press Execution Sequence Table */}
       <div className="rounded-2xl border border-slate-800 bg-[#0f1629] p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-indigo-400" />
-          <h3 className="text-sm font-bold text-white">{t.sequenceTableTitle}</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-white">{t.sequenceTableTitle}</h3>
+          </div>
+          <ScheduleExportMenu testIdPrefix="gantt-export" />
         </div>
         <div className="overflow-x-auto touch-pan-x">
           <table className="w-full min-w-[680px] text-xs">

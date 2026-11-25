@@ -44,6 +44,7 @@ export function TopBar() {
     toggleRamadanMode,
     togglePeakTariffMode,
     toggleAutonomousPmMode,
+    toggleContainerSyncMode,
     runSolve,
     setBriefModalOpen,
     setCopilotOpen,
@@ -62,7 +63,8 @@ export function TopBar() {
   const activeModesCount =
     (config.avoid_peak_tariff_hrs ? 1 : 0) +
     (config.ramadan_shift_mode ? 1 : 0) +
-    (config.autonomous_pm_window ? 1 : 0);
+    (config.autonomous_pm_window ? 1 : 0) +
+    (config.container_sync_enabled !== false ? 1 : 0);
 
   const tabs: { id: ViewTab; label: string; icon: React.ReactNode }[] = [
     { id: "scope", label: t.tabScope, icon: <Boxes className="h-4 w-4 shrink-0" /> },
@@ -190,6 +192,31 @@ export function TopBar() {
                     }`}
                   >
                     {config.autonomous_pm_window ? t.stateOn : t.stateOff}
+                  </span>
+                </button>
+
+                {/* Container & Warehouse WIP Sync Toggle (v1.3 Feature 3) */}
+                <button
+                  type="button"
+                  data-testid="toggle-container-sync"
+                  disabled={loading}
+                  onClick={() => void toggleContainerSyncMode()}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition ${
+                    config.container_sync_enabled !== false
+                      ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-200"
+                      : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:text-white"
+                  }`}
+                >
+                  <Boxes className="h-3.5 w-3.5" />
+                  <span>{t.containerSync}</span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                      config.container_sync_enabled !== false
+                        ? "bg-cyan-400 text-slate-950"
+                        : "bg-slate-800 text-slate-400"
+                    }`}
+                  >
+                    {config.container_sync_enabled !== false ? t.stateOn : t.stateOff}
                   </span>
                 </button>
               </div>
@@ -511,6 +538,32 @@ export function TopBar() {
                     }`}
                   >
                     {config.autonomous_pm_window ? t.stateOn : t.stateOff}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="mobile-toggle-container-sync"
+                  disabled={loading}
+                  onClick={() => void toggleContainerSyncMode()}
+                  className={`flex min-h-[48px] w-full items-center justify-between rounded-xl border px-4 py-2.5 text-xs font-semibold transition ${
+                    config.container_sync_enabled !== false
+                      ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-200"
+                      : "border-slate-700 bg-slate-900 text-slate-200"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    <Boxes className="h-4 w-4 text-cyan-400" />
+                    <span>{t.containerSync}</span>
+                  </span>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                      config.container_sync_enabled !== false
+                        ? "bg-cyan-400 text-slate-950"
+                        : "bg-slate-800 text-slate-400"
+                    }`}
+                  >
+                    {config.container_sync_enabled !== false ? t.stateOn : t.stateOff}
                   </span>
                 </button>
               </div>

@@ -95,6 +95,7 @@ export interface ProductionOrder {
   due_hr: number;
   late_penalty_per_hr: number;
   is_export: boolean;
+  container_group_id?: string | null;
   unit_selling_price: number;
   discount_pct: number;
 }
@@ -142,6 +143,8 @@ export interface PlantPhysicsConfig {
   weekly_fixed_overhead: number;
   scrap_regrind_recovery_pct: number;
   annual_operating_weeks: number;
+  fg_storage_capacity_tons?: number;
+  wip_holding_cost_per_ton_day?: number;
 }
 
 export interface SolverConfig {
@@ -155,6 +158,7 @@ export interface SolverConfig {
   avoid_peak_tariff_hrs: boolean;
   ramadan_shift_mode: boolean;
   autonomous_pm_window?: boolean;
+  container_sync_enabled?: boolean;
   max_solve_seconds: number;
   random_seed: number;
   num_workers: number;
@@ -248,6 +252,9 @@ export interface ScheduledJob {
   color_rank: number;
   quantity_pcs: number;
   is_export: boolean;
+  container_group_id?: string | null;
+  gross_weight_kg?: number;
+  container_wait_hrs?: number;
   scheduled: boolean;
   unscheduled_reason?: string | null;
   sequence_index: number;
@@ -341,6 +348,28 @@ export interface KpiBlock {
   virgin_resin_used_kg: number;
   regrind_resin_used_kg: number;
   weighted_objective: number;
+  wip_holding_days?: number;
+  peak_warehouse_tons?: number;
+  fg_storage_capacity_tons?: number;
+  warehouse_utilization_pct?: number;
+  trapped_working_capital?: number;
+  container_wait_delay_hrs?: number;
+}
+
+export interface ContainerGroupSummary {
+  container_group_id: string;
+  order_ids: string[];
+  customers: string[];
+  total_weight_tons: number;
+  total_revenue_value: number;
+  first_finish_hr: number;
+  last_finish_hr: number;
+  container_due_hr: number;
+  spread_wait_hrs: number;
+  wip_ton_days: number;
+  trapped_working_capital: number;
+  holding_cost: number;
+  is_delayed: boolean;
 }
 
 export interface ScheduledMoldPm {
@@ -362,6 +391,7 @@ export interface SchedulePlan {
   press_summaries: PressSummary[];
   unscheduled_order_ids: string[];
   mold_pm_windows?: ScheduledMoldPm[];
+  container_groups?: ContainerGroupSummary[];
   kpis: KpiBlock;
 }
 
@@ -551,13 +581,14 @@ export type RiskCategory =
   | "resin_stockout"
   | "press_bottleneck"
   | "mold_shot_limit"
-  | "workforce_fragility";
+  | "workforce_fragility"
+  | "warehouse_congestion";
 
 export interface RiskAlert {
   alert_id: string;
   category: RiskCategory;
   severity: "critical" | "elevated" | "watch";
-  entity_type: "order" | "resin" | "press" | "mold" | "shift";
+  entity_type: "order" | "resin" | "press" | "mold" | "shift" | "container";
   entity_id: string;
   title_en: string;
   title_ar: string;
@@ -651,6 +682,20 @@ export interface BottleneckInsight {
   recommendation: string;
 }
 
+export interface FinancialTradeoffSummary {
+  headline_en: string;
+  headline_ar: string;
+  cost_paid_label_en: string;
+  cost_paid_label_ar: string;
+  cost_paid_amount: number;
+  value_protected_label_en: string;
+  value_protected_label_ar: string;
+  value_protected_amount: number;
+  net_financial_gain: number;
+  currency: Currency;
+  is_positive_net: boolean;
+}
+
 export interface CopilotTiming {
   gemini_ms: number;
   solver_ms: number;
@@ -679,6 +724,7 @@ export interface CopilotResult {
     avoid_peak_tariff_hrs: boolean;
     ramadan_shift_mode: boolean;
     autonomous_pm_window: boolean;
+    container_sync_enabled?: boolean;
   } | null;
   result?: SolveResult | null;
   production_result?: SolveResult | null;
@@ -686,9 +732,123 @@ export interface CopilotResult {
   risk_radar?: RiskRadarReport | null;
   comparison?: StrategyComparison | null;
   bottleneck?: BottleneckInsight | null;
+  financial_tradeoff_summary?: FinancialTradeoffSummary | null;
   timing: CopilotTiming;
   source: string;
   quota_limited?: boolean;
+}
+
+export interface BacktestPeriodMetrics {
+  purge_scrap_kg: number;
+  purge_scrap_cost: number;
+  changeover_hrs: number;
+  changeover_downtime_cost: number;
+  overtime_hrs: number;
+  overtime_cost: number;
+  late_hours: number;
+  export_penalty_cost: number;
+  total_avoidable_waste_cost: number;
+}
+
+export interface BacktestDeltaMetrics {
+  purge_scrap_saved_kg: number;
+  purge_scrap_saved_cost: number;
+  purge_scrap_cut_pct: number;
+  changeover_hrs_freed: number;
+  changeover_cut_pct: number;
+  overtime_hrs_cut: number;
+  overtime_cost_saved: number;
+  late_hours_avoided: number;
+  export_penalties_avoided: number;
+  extra_sellable_units_unlocked: number;
+  extra_sellable_tons_unlocked: number;
+  extra_output_margin_unlocked: number;
+  direct_cost_savings_1month: number;
+  total_cash_left_on_floor_1month: number;
+  annualized_cash_left_on_floor: number;
+  estimated_monthly_subscription_cost: number;
+  estimated_payback_days: number;
+}
+
+export interface BacktestPressRow {
+  press_id: string;
+  orders_count: number;
+  actual_changeover_hrs: number;
+  optimized_changeover_hrs: number;
+  unlocked_hrs: number;
+  actual_purge_scrap_kg: number;
+  optimized_purge_scrap_kg: number;
+  scrap_saved_kg: number;
+}
+
+export interface BacktestOrderRow {
+  order_id: string;
+  customer: string;
+  sku_name: string;
+  resin: string;
+  color: string;
+  qty_units: number;
+  actual_press_id: string;
+  optimized_press_id: string;
+  actual_changeover_hrs: number;
+  optimized_changeover_hrs: number;
+  actual_purge_scrap_kg: number;
+  optimized_purge_scrap_kg: number;
+  actual_late_hours: number;
+  optimized_late_hours: number;
+}
+
+export interface BacktestReplayReport {
+  source_label: string;
+  period_days: number;
+  orders_analyzed: number;
+  currency: Currency;
+  fx_egp_per_sar: number;
+  solve_time_ms: number;
+  solver_status: string;
+  actual: BacktestPeriodMetrics;
+  optimized: BacktestPeriodMetrics;
+  actual_vs_optimized: BacktestDeltaMetrics;
+  press_breakdown: BacktestPressRow[];
+  order_comparison: BacktestOrderRow[];
+}
+
+export interface GuidedSetupRequest {
+  plant_name: string;
+  primary_process: "Injection" | "BlowMolding" | "Extrusion" | "Hybrid";
+  operating_model: "MTO" | "MTS" | "Hybrid";
+  currency: Currency;
+  press_count: number;
+  tonnage_tier: "small_med" | "heavy" | "mixed";
+  backup_press_enabled: boolean;
+  backup_speed_factor: number;
+  standard_pm_duration_hrs: number;
+  light_to_dark_priority: "strict" | "balanced";
+  min_batch_run_hrs: number;
+  max_regrind_allowance_pct: number;
+  shift_pattern: "3x8h" | "2x12h" | "ramadan_4x6h";
+  avoid_peak_tariff_hrs: boolean;
+  max_weekly_hours_cap: number;
+  container_sync_enabled: boolean;
+  fg_storage_capacity_tons: number;
+}
+
+export interface ReadinessChecklistItem {
+  item_id: string;
+  title_en: string;
+  title_ar: string;
+  detail_en: string;
+  detail_ar: string;
+  erp_history_needed: boolean;
+  status: string;
+}
+
+export interface GuidedSetupResponse {
+  workspace_id: string;
+  dataset: PlantDataset;
+  config: SolverConfig;
+  result: SolveResult;
+  readiness_checklist: ReadinessChecklistItem[];
 }
 
 export interface AppliedScenarioDelta {

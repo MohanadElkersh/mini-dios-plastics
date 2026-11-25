@@ -761,8 +761,8 @@ def _solve_role_roster(
     solver.parameters.num_workers = 4
     solver.parameters.interleave_search = True
     solver.parameters.random_seed = int(config.random_seed)
-    solver.parameters.max_deterministic_time = min(1.0, max(0.5, float(time_limit_s) * 0.75))
-    solver.parameters.max_time_in_seconds = max(0.5, float(time_limit_s))
+    solver.parameters.max_deterministic_time = min(0.22, float(time_limit_s) * 0.55)
+    solver.parameters.max_time_in_seconds = max(0.45, float(time_limit_s))
     solver.parameters.relative_gap_limit = REL_GAP
     status = solver.Solve(model)
     status_name = {

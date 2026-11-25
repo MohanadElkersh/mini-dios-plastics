@@ -25,7 +25,8 @@ from pydantic import BaseModel, Field
 from .ontology import (
     COLOR_RANKS,
     DAY_NAMES,
-     WORKER_ROLES,
+    WORKER_ROLES,
+    Currency,
     FactoryWorker,
     MachineBreakdown,
     MoldPmLock,
@@ -92,6 +93,22 @@ class BottleneckInsight(BaseModel):
     recommendation: str
 
 
+class FinancialTradeoffSummary(BaseModel):
+    """Commander-Grade CFO + Plant Director deterministic trade-off summary (Zero LLM Math)."""
+
+    headline_en: str
+    headline_ar: str
+    cost_paid_label_en: str
+    cost_paid_label_ar: str
+    cost_paid_amount: float
+    value_protected_label_en: str
+    value_protected_label_ar: str
+    value_protected_amount: float
+    net_financial_gain: float
+    currency: Currency
+    is_positive_net: bool = True
+
+
 class CopilotResult(BaseModel):
     reply: str
     action: str
@@ -107,6 +124,7 @@ class CopilotResult(BaseModel):
     risk_radar: Optional[RiskRadarReport] = None
     comparison: Optional[StrategyComparison] = None
     bottleneck: Optional[BottleneckInsight] = None
+    financial_tradeoff_summary: Optional[FinancialTradeoffSummary] = None
     timing: CopilotTiming
     source: str = "gemini"  # "gemini" | "offline_fallback"
     quota_limited: bool = False
@@ -128,8 +146,131 @@ def _extract_weights_and_toggles(cfg: SolverConfig) -> tuple[dict[str, Any], dic
         "avoid_peak_tariff_hrs": bool(cfg.avoid_peak_tariff_hrs),
         "ramadan_shift_mode": bool(cfg.ramadan_shift_mode),
         "autonomous_pm_window": bool(cfg.autonomous_pm_window),
+        "container_sync_enabled": bool(cfg.container_sync_enabled),
     }
     return weights, toggles
+
+
+def _compute_financial_tradeoff_summary(
+    result: Optional[SolveResult],
+    config: SolverConfig,
+    reference_result: Optional[SolveResult] = None,
+) -> Optional[FinancialTradeoffSummary]:
+    """Deterministically compute Commander-Grade Cost Paid vs. Value Protected from CP-SAT P&L."""
+    if result is None or result.financials is None:
+        return None
+
+    cur = result.currency
+    opt_fin = result.financials.optimized
+    base_fin = result.financials.baseline
+
+    # Compare against prior active plan if it differs meaningfully, else against FIFO baseline
+    ref_fin = base_fin
+    if (
+        reference_result is not None
+        and reference_result.financials is not None
+        and reference_result.currency == cur
+        and abs(reference_result.financials.optimized.total_operating_cost - opt_fin.total_operating_cost) > 1.0
+    ):
+        ref_fin = reference_result.financials.optimized
+
+    # Itemized cost deltas (opt - ref): positive = extra cost paid, negative = cost saved
+    d_energy = round(opt_fin.energy_and_press_operating_cost - ref_fin.energy_and_press_operating_cost, 2)
+    d_labor = round(opt_fin.direct_labor_and_overtime_cost - ref_fin.direct_labor_and_overtime_cost, 2)
+    d_purge = round(opt_fin.purge_scrap_cost - ref_fin.purge_scrap_cost, 2)
+    d_resin = round(opt_fin.direct_resin_cost - ref_fin.direct_resin_cost, 2)
+    d_wip = round(opt_fin.wip_holding_cost - ref_fin.wip_holding_cost, 2)
+    d_pen = round(opt_fin.late_delivery_penalties - ref_fin.late_delivery_penalties, 2)
+    d_rev = round(opt_fin.recognized_revenue - ref_fin.recognized_revenue, 2)
+
+    costs_paid: list[tuple[float, str, str]] = []
+    values_protected: list[tuple[float, str, str]] = []
+
+    for delta, lbl_en, lbl_ar in [
+        (d_energy, "press power & re-sequencing", "طاقة المكابس وإعادة الترتيب"),
+        (d_labor, "shift overtime & relief staffing", "العمل الإضافي وعمالة الإسناد"),
+        (d_purge, "barrel purge & mold setups", "هدر التنظيف وتبديل القوالب"),
+        (d_resin, "virgin resin mix", "مزيج الخام البكر"),
+        (d_wip, "warehouse WIP staging", "تخزين المنتج تحت التشغيل"),
+        (d_pen, "schedule delay penalties", "غرامات تأخير الجدول"),
+    ]:
+        if delta > 1.0:
+            costs_paid.append((delta, lbl_en, lbl_ar))
+        elif delta < -1.0:
+            values_protected.append((abs(delta), lbl_en, lbl_ar))
+
+    if d_rev > 1.0:
+        values_protected.append((d_rev, "recovered order revenue", "إيرادات أوامر مستردة"))
+    elif d_rev < -1.0:
+        costs_paid.append((abs(d_rev), "unscheduled revenue deferral", "تأجيل إيرادات غير مجدولة"))
+
+    # If comparing to identical state or pure disruption where all costs rose vs calm baseline,
+    # frame the trade-off against the unmitigated FIFO baseline under the same disruption!
+    if not values_protected or (sum(x[0] for x in values_protected) < sum(x[0] for x in costs_paid) and ref_fin is not base_fin):
+        costs_paid = []
+        values_protected = []
+        sb = result.financials.savings_breakdown
+        for saved, lbl_en, lbl_ar in [
+            (sb.avoided_late_penalties, "export & delivery penalties", "غرامات التصدير والتسليم"),
+            (sb.purge_scrap_saved, "purge resin waste", "هالك تنظيف الخامات"),
+            (sb.labor_and_overtime_saved, "shift labor & overtime", "تكلفة الورديات والإضافي"),
+            (sb.energy_and_operating_saved, "press power & operating", "طاقة وتشغيل المكابس"),
+            (sb.regrind_blend_savings, "regrind material blending", "خلط الخام المعاد تدويره"),
+            (sb.wip_holding_saved, "container & warehouse WIP holding", "تكلفة تخزين الحاويات والمخزن"),
+        ]:
+            if saved > 1.0:
+                values_protected.append((round(saved, 2), lbl_en, lbl_ar))
+            elif saved < -1.0:
+                costs_paid.append((round(abs(saved), 2), lbl_en, lbl_ar))
+        rev_gain_vs_fifo = round(opt_fin.recognized_revenue - base_fin.recognized_revenue, 2)
+        if rev_gain_vs_fifo > 1.0:
+            values_protected.append((rev_gain_vs_fifo, "protected export revenue", "إيرادات تصدير محمية"))
+
+    costs_paid.sort(key=lambda x: -x[0])
+    values_protected.sort(key=lambda x: -x[0])
+
+    cost_amt = round(sum(x[0] for x in costs_paid), 2)
+    val_amt = round(sum(x[0] for x in values_protected), 2)
+    net_gain = round(val_amt - cost_amt, 2)
+
+    cost_lbl_en = " + ".join(x[1] for x in costs_paid[:2]) if costs_paid else "zero added floor cost"
+    cost_lbl_ar = " + ".join(x[2] for x in costs_paid[:2]) if costs_paid else "صفر تكلفة إضافية"
+    val_lbl_en = " + ".join(x[1] for x in values_protected[:2]) if values_protected else "schedule stability"
+    val_lbl_ar = " + ".join(x[2] for x in values_protected[:2]) if values_protected else "استقرار الجدول"
+
+    sign = "+" if net_gain >= 0 else ""
+    if cost_amt > 0:
+        headline_en = (
+            f"Re-optimizing presses & shifts adds {cost_amt:,.0f} {cur} in {cost_lbl_en}, "
+            f"but protects {val_amt:,.0f} {cur} in {val_lbl_en} — Net Gain: {sign}{net_gain:,.0f} {cur}"
+        )
+        headline_ar = (
+            f"إعادة جدولة المكابس والورديات تضيف {cost_amt:,.0f} {cur} في ({cost_lbl_ar})، "
+            f"لكنها تحمي {val_amt:,.0f} {cur} من ({val_lbl_ar}) — صافي المكسب: {sign}{net_gain:,.0f} {cur}"
+        )
+    else:
+        headline_en = (
+            f"CP-SAT sequencing & container sync saves {val_amt:,.0f} {cur} across {val_lbl_en} "
+            f"with 0 {cur} added trade-off cost — Net Gain: {sign}{net_gain:,.0f} {cur}"
+        )
+        headline_ar = (
+            f"جدولة CP-SAT ومزامنة الحاويات توفر {val_amt:,.0f} {cur} في ({val_lbl_ar}) "
+            f"دون أي تكلفة إضافية — صافي المكسب: {sign}{net_gain:,.0f} {cur}"
+        )
+
+    return FinancialTradeoffSummary(
+        headline_en=headline_en,
+        headline_ar=headline_ar,
+        cost_paid_label_en=cost_lbl_en,
+        cost_paid_label_ar=cost_lbl_ar,
+        cost_paid_amount=cost_amt,
+        value_protected_label_en=val_lbl_en,
+        value_protected_label_ar=val_lbl_ar,
+        value_protected_amount=val_amt,
+        net_financial_gain=net_gain,
+        currency=cur,
+        is_positive_net=net_gain >= 0,
+    )
 
 
 def _build_copilot_result(
@@ -144,9 +285,11 @@ def _build_copilot_result(
     source: str,
     comparison: Optional[StrategyComparison] = None,
     bottleneck: Optional[BottleneckInsight] = None,
+    reference_result: Optional[SolveResult] = None,
     quota_limited: bool = False,
 ) -> CopilotResult:
     weights, toggles = _extract_weights_and_toggles(config)
+    tradeoff = _compute_financial_tradeoff_summary(result, config, reference_result)
     return CopilotResult(
         reply=reply,
         action=action,
@@ -162,6 +305,7 @@ def _build_copilot_result(
         risk_radar=result.risk_radar if result is not None else None,
         comparison=comparison,
         bottleneck=bottleneck,
+        financial_tradeoff_summary=tradeoff,
         timing=timing,
         source=source,
         quota_limited=quota_limited,
@@ -171,12 +315,27 @@ def _build_copilot_result(
 # --------------------------------------------------------------------------------------------
 # Deterministic Tool Implementations (Called by BOTH Gemini Function Calling & Offline Engine)
 # --------------------------------------------------------------------------------------------
-def _solve_interactive(dataset: PlantDataset, config: SolverConfig) -> tuple[SolveResult, int]:
-    """Run CP-SAT with interactive wall-clock cap (<= 2.5s) for snappy Copilot responses."""
-    capped = config.model_copy(update={"max_solve_seconds": min(config.max_solve_seconds, 2.5)})
+_INTERACTIVE_BASELINE_CACHE: dict[str, SolveResult] = {}
+
+
+def _solve_interactive(dataset: PlantDataset, config: SolverConfig, use_cache: bool = False) -> tuple[SolveResult, int]:
+    """Run CP-SAT with interactive wall-clock cap (<= 2.0s) for snappy Copilot responses."""
+    capped = config.model_copy(update={"max_solve_seconds": min(config.max_solve_seconds, 2.0)})
+    cache_key = ""
+    if use_cache:
+        import hashlib
+        raw = f"{dataset.model_dump_json()}|{capped.model_dump_json()}"
+        cache_key = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        cached = _INTERACTIVE_BASELINE_CACHE.get(cache_key)
+        if cached is not None:
+            return cached, 1
     t0 = time.perf_counter()
     res = solve_plant_schedule(dataset, capped)
     ms = max(1, int((time.perf_counter() - t0) * 1000))
+    if use_cache and cache_key:
+        if len(_INTERACTIVE_BASELINE_CACHE) > 8:
+            _INTERACTIVE_BASELINE_CACHE.clear()
+        _INTERACTIVE_BASELINE_CACHE[cache_key] = res
     return res, ms
 
 
@@ -281,6 +440,8 @@ def _merge_scenario_args(
         next_cfg.ramadan_shift_mode = bool(args["ramadan_shift_mode"])
     if args.get("autonomous_pm_window") is not None:
         next_cfg.autonomous_pm_window = bool(args["autonomous_pm_window"])
+    if args.get("container_sync_enabled") is not None:
+        next_cfg.container_sync_enabled = bool(args["container_sync_enabled"])
 
     # 6. Objective weights
     for wk in ("w_changeover_scrap", "w_otif", "w_energy_cost", "w_working_capital"):
@@ -580,7 +741,7 @@ def execute_simulate_plant_scenario(
 
     cur_res = current_result
     if cur_res is None:
-        cur_res, cur_ms = _solve_interactive(dataset, current_config)
+        cur_res, cur_ms = _solve_interactive(dataset, current_config, use_cache=True)
         solve_ms += cur_ms
 
     ok = new_res.optimized.kpis
@@ -1175,6 +1336,10 @@ def run_offline_composable_copilot(
             "tariff",
             "autonomous",
             "overtime",
+            "container",
+            "warehouse",
+            "wip",
+            "synchronize",
         )
     ) or any(
         k in text
@@ -1208,6 +1373,10 @@ def run_offline_composable_copilot(
             "فعّل",
             "اسمح",
             "أعد",
+            "حاوية",
+            "الحاويات",
+            "مخزن",
+            "المخزن",
         )
     )
 
@@ -1428,6 +1597,14 @@ def run_offline_composable_copilot(
         sim_args["avoid_peak_tariff_hrs"] = False if "off" in low else True
     if "autonomous pm" in low or "auto pm" in low or "الصيانة الذاتية" in text:
         sim_args["autonomous_pm_window"] = False if "off" in low else True
+    if any(k in low for k in ("container", "warehouse", "wip sync")) or any(
+        k in text for k in ("حاوية", "الحاويات", "مخزن", "المخزن")
+    ):
+        sim_args["container_sync_enabled"] = False if "off" in low else True
+        if "w_working_capital" not in sim_args:
+            sim_args["w_working_capital"] = 60
+        if "w_otif" not in sim_args:
+            sim_args["w_otif"] = 45
 
     # 3g. Production Objective Weight Shifts (preset keywords + explicit numbers)
     if any(k in low for k in ("min scrap", "minimum scrap", "maximize purge scrap reduction", "rebalance load", "هالك")):
@@ -1558,6 +1735,7 @@ def run_offline_composable_copilot(
         config=next_cfg,
         dataset=next_ds,
         result=new_res,
+        reference_result=current_result,
         timing=CopilotTiming(gemini_ms=0, solver_ms=solver_ms, total_ms=total_ms),
         source="offline_fallback",
     )
@@ -1928,6 +2106,7 @@ def _call_gemini_composable_copilot(
         result=final_res,
         comparison=final_comp,
         bottleneck=final_bn,
+        reference_result=current_result,
         timing=CopilotTiming(gemini_ms=gemini_ms, solver_ms=solver_ms_total, total_ms=total_ms),
         source="gemini",
     )

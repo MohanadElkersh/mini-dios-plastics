@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   Activity,
   AlertOctagon,
+  Boxes,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -54,6 +55,7 @@ export function TradeoffConsole() {
     clearAllScenarios,
     loadAuditRunById,
     setCopilotOpen,
+    toggleContainerSyncMode,
   } = useApp();
 
   const t = COPY[lang];
@@ -166,6 +168,110 @@ export function TradeoffConsole() {
 
       {/* Boardroom Side-by-Side Scenario Comparison Matrix (A vs. B vs. C) */}
       <ScenarioComparisonMatrix />
+
+      {/* v1.3 Feature 3: Export-Container Consolidation & Finished-Goods Warehouse WIP Impact */}
+      {result && (
+        <div
+          data-testid="container-wip-sync-panel"
+          className="rounded-2xl border border-cyan-500/30 bg-[#0f1629] p-5"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-300">
+                <Boxes className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">
+                  {lang === "ar"
+                    ? "تزامن حاويات التصدير وإشغال مخزن المنتج التام ورأس المال العامل"
+                    : "Export-Container Consolidation & Finished-Goods Warehouse WIP Sync"}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {lang === "ar"
+                    ? "يمنع تكديس الأصناف المبكرة في المخزن ويقلل تجميد السيولة حتى اكتمال حاوية التصدير"
+                    : "Models the trade-off between long single-SKU press runs, warehouse floor capacity, and trapped export container cash"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              data-testid="console-toggle-container-sync"
+              disabled={loading}
+              onClick={() => void toggleContainerSyncMode()}
+              className={`inline-flex min-h-[40px] items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition md:min-h-0 ${
+                config.container_sync_enabled !== false
+                  ? "border-cyan-400/60 bg-cyan-500/20 text-cyan-200"
+                  : "border-slate-700 bg-slate-900 text-slate-300"
+              }`}
+            >
+              <Boxes className="h-3.5 w-3.5" />
+              <span>{t.containerSync}:</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] ${
+                  config.container_sync_enabled !== false
+                    ? "bg-cyan-400 text-slate-950"
+                    : "bg-slate-800 text-slate-400"
+                }`}
+              >
+                {config.container_sync_enabled !== false ? t.stateOn : t.stateOff}
+              </span>
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+              <div className="text-[11px] text-slate-400">
+                {lang === "ar" ? "ذروة إشغال مخزن المنتج التام" : "Peak Warehouse Utilization"}
+              </div>
+              <div dir="ltr" className="mt-1 font-mono text-lg font-bold text-cyan-300">
+                {(result.optimized.kpis.warehouse_utilization_pct ?? 0).toFixed(1)}%
+              </div>
+              <div dir="ltr" className="text-[11px] font-mono text-slate-400">
+                {(result.optimized.kpis.peak_warehouse_tons ?? 0).toFixed(1)}t /{" "}
+                {(result.optimized.kpis.fg_storage_capacity_tons ?? 22).toFixed(0)}t cap
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+              <div className="text-[11px] text-slate-400">
+                {lang === "ar" ? "رأس المال العامل المحتجز بالحاويات" : "Trapped Container Working Capital"}
+              </div>
+              <div dir="ltr" className="mt-1 font-mono text-lg font-bold text-amber-300">
+                {money(result.optimized.kpis.trapped_working_capital ?? 0)}
+              </div>
+              <div dir="ltr" className="text-[11px] font-mono text-slate-400">
+                FIFO: {money(result.baseline.kpis.trapped_working_capital ?? 0)}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+              <div className="text-[11px] text-slate-400">
+                {lang === "ar" ? "أيام تخزين المنتج تحت التجميع" : "WIP Staging (Ton-Days)"}
+              </div>
+              <div dir="ltr" className="mt-1 font-mono text-lg font-bold text-indigo-300">
+                {(result.optimized.kpis.wip_holding_days ?? 0).toFixed(1)} t-days
+              </div>
+              <div dir="ltr" className="text-[11px] font-mono text-slate-400">
+                Cost: {money(result.optimized.kpis.wip_holding_cost)}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+              <div className="text-[11px] text-slate-400">
+                {lang === "ar" ? "أقصى انتظار لاكتمال حاوية التصدير" : "Max Container Staging Spread"}
+              </div>
+              <div dir="ltr" className="mt-1 font-mono text-lg font-bold text-emerald-300">
+                {(result.optimized.kpis.container_wait_delay_hrs ?? 0).toFixed(1)} hrs
+              </div>
+              <div className="text-[11px] text-slate-400">
+                {(result.optimized.container_groups ?? []).length}{" "}
+                {lang === "ar" ? "حاويات تصدير مشتركة" : "multi-SKU export containers"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Controls Grid: 4 Sliders (Left) + Custom Composable Scenario Builder (Right) */}
       <div className="grid gap-6 lg:grid-cols-12">

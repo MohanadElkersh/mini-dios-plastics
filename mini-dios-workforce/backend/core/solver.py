@@ -621,7 +621,7 @@ def _solve_cpsat_model(
                 energy_terms.append(peak_cents_per_min * ov)
     energy_expr = sum(energy_terms)
 
-    # 4. Working Capital term (virgin vs. regrind resin spend + early WIP holding)
+    # 4. Working Capital term (virgin vs. regrind resin spend + early WIP holding + multi-SKU export container sync)
     wc_terms = []
     for i, o in enumerate(orders):
         r = resins_by_code[o.resin_code]
@@ -639,6 +639,30 @@ def _solve_cpsat_model(
         )
         if wip_cents_per_min > 0:
             wc_terms.append(wip_cents_per_min * earliness_vars[i])
+
+    # Multi-SKU Export Container Consolidation Coupling (Feature 3)
+    cg_ship_vars: dict[str, cp_model.IntVar] = {}
+    cg_wait_vars: dict[tuple[str, int], cp_model.IntVar] = {}
+    cg_to_idxs: dict[str, list[int]] = defaultdict(list)
+    if config.container_sync_enabled and config.w_working_capital > 25:
+        for i, o in enumerate(orders):
+            if o.container_group_id:
+                cg_to_idxs[o.container_group_id].append(i)
+        for cg_id, idxs in cg_to_idxs.items():
+            if len(idxs) < 2:
+                continue
+            cg_ship = model.NewIntVar(0, horizon_mins, f"cg_ship_{cg_id}")
+            cg_ship_vars[cg_id] = cg_ship
+            for i in idxs:
+                model.Add(cg_ship >= end_vars[i]).OnlyEnforceIf(scheduled[i])
+                wait_i = model.NewIntVar(0, horizon_mins, f"cg_wait_{cg_id}_{i}")
+                cg_wait_vars[(cg_id, i)] = wait_i
+                model.Add(wait_i >= cg_ship - end_vars[i]).OnlyEnforceIf(scheduled[i])
+                gross_tons = (gross_10[i] / 10.0) / 1000.0
+                daily_hold_sar = gross_tons * ph.wip_holding_cost_per_ton_day
+                cg_cents_per_min = max(1, int(round((daily_hold_sar / 1440.0) * 100)))
+                wc_terms.append(cg_cents_per_min * wait_i)
+
     wc_expr = sum(wc_terms)
 
     # Combine with the 4 executive weights (scale by weight + small floor so non-active objectives stay clean)
@@ -691,6 +715,24 @@ def _solve_cpsat_model(
         for (amid, u, v), avar in arc_vars.items():
             if amid == mid:
                 model.AddHint(avar, 1 if (u, v) in active_arcs else 0)
+
+    # Hint container consolidation variables from FIFO baseline end times for complete warm-start validity
+    for cg_id, cg_ship in cg_ship_vars.items():
+        idxs = cg_to_idxs.get(cg_id, [])
+        end_hints: dict[int, int] = {}
+        for i in idxs:
+            fj = fifo_by_oid.get(orders[i].order_id)
+            if fj and fj.scheduled:
+                s_h = max(start_lbs[i], min(horizon_mins - dur_mins[i], int(fj.start_min)))
+                end_hints[i] = s_h + dur_mins[i]
+            else:
+                end_hints[i] = start_lbs[i] + dur_mins[i]
+        ship_hint = max(end_hints.values()) if end_hints else 0
+        model.AddHint(cg_ship, min(horizon_mins, ship_hint))
+        for i in idxs:
+            wait_var = cg_wait_vars.get((cg_id, i))
+            if wait_var is not None:
+                model.AddHint(wait_var, max(0, min(horizon_mins, ship_hint - end_hints[i])))
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = float(config.max_solve_seconds)

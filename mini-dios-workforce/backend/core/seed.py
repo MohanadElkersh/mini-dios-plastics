@@ -25,6 +25,7 @@ def default_config() -> SolverConfig:
         energy_tariff_per_kwh=0.32,
         avoid_peak_tariff_hrs=False,
         ramadan_shift_mode=False,
+        container_sync_enabled=True,
         max_solve_seconds=5.0,
         physics=PlantPhysicsConfig(),
     )
@@ -361,6 +362,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=74.0,
             late_penalty_per_hr=420.0,
             is_export=True,
+            container_group_id="CNT-RIYADH-01",
             unit_selling_price=0.032,
         ),
         ProductionOrder(
@@ -376,6 +378,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=78.0,
             late_penalty_per_hr=380.0,
             is_export=True,
+            container_group_id="CNT-RIYADH-01",
             unit_selling_price=0.030,
         ),
         ProductionOrder(
@@ -421,6 +424,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=92.0,
             late_penalty_per_hr=460.0,
             is_export=True,
+            container_group_id="CNT-JEDDAH-02",
             unit_selling_price=0.056,
         ),
         ProductionOrder(
@@ -451,6 +455,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=132.0,
             late_penalty_per_hr=390.0,
             is_export=True,
+            container_group_id="CNT-JEDDAH-02",
             unit_selling_price=0.056,
         ),
         ProductionOrder(
@@ -482,6 +487,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=66.0,
             late_penalty_per_hr=520.0,
             is_export=True,
+            container_group_id="CNT-RIYADH-01",
             unit_selling_price=0.175,
         ),
         ProductionOrder(
@@ -497,6 +503,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=72.0,
             late_penalty_per_hr=480.0,
             is_export=True,
+            container_group_id="CNT-RIYADH-01",
             unit_selling_price=0.175,
         ),
         ProductionOrder(
@@ -527,6 +534,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=84.0,
             late_penalty_per_hr=550.0,
             is_export=True,
+            container_group_id="CNT-JEDDAH-02",
             unit_selling_price=0.39,
         ),
         ProductionOrder(
@@ -542,6 +550,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=102.0,
             late_penalty_per_hr=510.0,
             is_export=True,
+            container_group_id="CNT-JEDDAH-02",
             unit_selling_price=0.39,
         ),
         ProductionOrder(
@@ -588,6 +597,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=76.0,
             late_penalty_per_hr=640.0,
             is_export=True,
+            container_group_id="CNT-AUTO-03",
             unit_selling_price=7.40,
         ),
         ProductionOrder(
@@ -603,6 +613,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=88.0,
             late_penalty_per_hr=690.0,
             is_export=True,
+            container_group_id="CNT-AUTO-03",
             unit_selling_price=7.60,
         ),
         ProductionOrder(
@@ -618,6 +629,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=102.0,
             late_penalty_per_hr=440.0,
             is_export=True,
+            container_group_id="CNT-AUTO-03",
             unit_selling_price=6.80,
         ),
         ProductionOrder(
@@ -679,6 +691,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=64.0,
             late_penalty_per_hr=450.0,
             is_export=True,
+            container_group_id="CNT-CHEM-04",
             unit_selling_price=2.10,
         ),
         ProductionOrder(
@@ -694,6 +707,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=82.0,
             late_penalty_per_hr=410.0,
             is_export=True,
+            container_group_id="CNT-CHEM-04",
             unit_selling_price=2.12,
         ),
         ProductionOrder(
@@ -709,6 +723,7 @@ def demo_dataset() -> PlantDataset:
             due_hr=144.0,
             late_penalty_per_hr=490.0,
             is_export=True,
+            container_group_id="CNT-CHEM-04",
             unit_selling_price=0.85,
         ),
     ]

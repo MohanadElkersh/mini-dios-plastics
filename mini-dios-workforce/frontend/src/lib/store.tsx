@@ -25,8 +25,10 @@ import type {
   AppliedScenarioDelta,
   AuditLogItem,
   AuthStatus,
+  BacktestReplayReport,
   Currency,
   FactoryWorker,
+  GuidedSetupResponse,
   Lang,
   MachineBreakdown,
   Mold,
@@ -38,6 +40,7 @@ import type {
   PlantWorkspace,
   PressMachine,
   ProductionOrder,
+  ReadinessChecklistItem,
   ResinCode,
   ResinShortage,
   ResinStock,
@@ -131,6 +134,8 @@ export const DEFAULT_PHYSICS: PlantPhysicsConfig = {
   weekly_fixed_overhead: 18500,
   scrap_regrind_recovery_pct: 10,
   annual_operating_weeks: 50,
+  fg_storage_capacity_tons: 22.0,
+  wip_holding_cost_per_ton_day: 85.0,
 };
 
 export const DEFAULT_WORKFORCE: WorkforceConfig = {
@@ -155,6 +160,7 @@ const DEFAULT_CONFIG: SolverConfig = {
   avoid_peak_tariff_hrs: false,
   ramadan_shift_mode: false,
   autonomous_pm_window: false,
+  container_sync_enabled: true,
   max_solve_seconds: 5.0,
   random_seed: 42,
   num_workers: 8,
@@ -240,6 +246,7 @@ function computeProductionSignature(ds: PlantDataset | null, cfg: SolverConfig):
     avoid_peak_tariff_hrs: Boolean(cfg.avoid_peak_tariff_hrs),
     ramadan_shift_mode: Boolean(cfg.ramadan_shift_mode),
     autonomous_pm_window: Boolean(cfg.autonomous_pm_window),
+    container_sync_enabled: Boolean(cfg.container_sync_enabled ?? true),
     physics: cfg.physics,
     scenarios: cfg.scenarios,
   });
@@ -356,6 +363,16 @@ interface AppState {
   toggleRamadanMode: () => Promise<void>;
   togglePeakTariffMode: () => Promise<void>;
   toggleAutonomousPmMode: () => Promise<void>;
+  toggleContainerSyncMode: () => Promise<void>;
+  // v1.3 Modals & Decision Intelligence state
+  backtestModalOpen: boolean;
+  setBacktestModalOpen: (open: boolean) => void;
+  backtestReport: BacktestReplayReport | null;
+  setBacktestReport: React.Dispatch<React.SetStateAction<BacktestReplayReport | null>>;
+  onboardingModalOpen: boolean;
+  setOnboardingModalOpen: (open: boolean) => void;
+  readinessChecklist: ReadinessChecklistItem[] | null;
+  applyGuidedWorkspace: (res: GuidedSetupResponse) => void;
   addBreakdown: (bd: MachineBreakdown) => void;
   removeBreakdown: (idx: number) => void;
   addResinShortage: (rs: ResinShortage) => void;
@@ -479,6 +496,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("default");
   const [briefModalOpen, setBriefModalOpen] = useState(false);
+  const [backtestModalOpen, setBacktestModalOpen] = useState(false);
+  const [backtestReport, setBacktestReport] = useState<BacktestReplayReport | null>(null);
+  const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
+  const [readinessChecklist, setReadinessChecklist] = useState<ReadinessChecklistItem[] | null>(null);
   const [activeQuickModal, setActiveQuickModal] = useState<QuickModalType | null>(null);
   const [quickModalItem, setQuickModalItem] = useState<any>(null);
   const [studioSubTab, setStudioSubTab] = useState<StudioSubTab>("presses");
@@ -849,6 +870,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toggleAutonomousPmMode = useCallback(async () => {
     const nextCfg: SolverConfig = { ...config, autonomous_pm_window: !config.autonomous_pm_window };
+    setConfig(nextCfg);
+    if (dataset) {
+      await runSolve(nextCfg, dataset);
+    }
+  }, [config, dataset, runSolve]);
+
+  const toggleContainerSyncMode = useCallback(async () => {
+    const nextCfg: SolverConfig = {
+      ...config,
+      container_sync_enabled: !(config.container_sync_enabled ?? true),
+    };
     setConfig(nextCfg);
     if (dataset) {
       await runSolve(nextCfg, dataset);
@@ -1442,6 +1474,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const applyGuidedWorkspace = useCallback(
+    (res: GuidedSetupResponse) => {
+      const nextCfg = normalizeConfig(res.config);
+      markSolvedSignature(res.dataset, nextCfg);
+      setDataset(res.dataset);
+      setConfig(nextCfg);
+      setCurrencyState(nextCfg.currency);
+      setResult(res.result);
+      setValidation(res.result.validation);
+      setActiveWorkspaceId(res.workspace_id);
+      setReadinessChecklist(res.readiness_checklist);
+      setAppliedDelta(null);
+      readyForPersistRef.current = true;
+      void loadWorkspaces();
+      void refreshAudit();
+    },
+    [loadWorkspaces, markSolvedSignature, refreshAudit]
+  );
+
   const switchWorkspace = useCallback(
     async (wsId: string) => {
       setLoading(true);
@@ -1768,6 +1819,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleRamadanMode,
         togglePeakTariffMode,
         toggleAutonomousPmMode,
+        toggleContainerSyncMode,
+        backtestModalOpen,
+        setBacktestModalOpen,
+        backtestReport,
+        setBacktestReport,
+        onboardingModalOpen,
+        setOnboardingModalOpen,
+        readinessChecklist,
+        applyGuidedWorkspace,
         addBreakdown,
         removeBreakdown,
         addResinShortage,

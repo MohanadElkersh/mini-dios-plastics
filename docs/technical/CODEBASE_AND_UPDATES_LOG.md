@@ -3,7 +3,7 @@
 > **Track B — Dedicated Engineering Ledger (For Engineers, DevOps & AI Agents)**
 > **Scope:** Complete, granular, file-by-file map of what the codebase currently contains (**Section A**) and a chronological, newest-first ledger of every code update ever made (**Section B**).
 > **Security Guardrail:** NEVER store `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens in this file (reference variable names only).
-> **Last Synchronized:** 2026-11-23 (`v1.4` • **80** active repository files mapped • **7** code updates logged)
+> **Last Synchronized:** 2026-11-25 (`v1.5 / Commercial & Decision Intelligence Upgrade v1.3` • **85** active repository files mapped • **8** code updates logged)
 
 ---
 
@@ -44,11 +44,13 @@ DIOs/
     │   │   ├── __init__.py
     │   │   ├── audit.py
     │   │   ├── auth.py
+    │   │   ├── backtest.py
     │   │   ├── copilot.py
     │   │   ├── disruptions.py
     │   │   ├── excel_io.py
     │   │   ├── financials.py
     │   │   ├── kpi.py
+    │   │   ├── onboarding.py
     │   │   ├── ontology.py
     │   │   ├── risk_radar.py
     │   │   ├── seed.py
@@ -85,12 +87,15 @@ DIOs/
             │   ├── DecisionLoopStrip.tsx
             │   ├── ExecutiveBriefModal.tsx
             │   ├── FinancialsView.tsx
+            │   ├── GuidedOnboardingModal.tsx
+            │   ├── HistoricalBacktestModal.tsx
             │   ├── LoginGate.tsx
             │   ├── PinScenarioButton.tsx
             │   ├── ProductionGanttView.tsx
             │   ├── QuickAddModal.tsx
             │   ├── RiskRadarPanel.tsx
             │   ├── ScenarioComparisonMatrix.tsx
+            │   ├── ScheduleExportMenu.tsx
             │   ├── ScopeView.tsx
             │   ├── TopBar.tsx
             │   ├── TradeoffConsole.tsx
@@ -112,28 +117,30 @@ DIOs/
 
 ---
 
-### A.2 File-by-File Inventory — Backend (`mini-dios-workforce/backend/`, 29 files)
+### A.2 File-by-File Inventory — Backend (`mini-dios-workforce/backend/`, 31 files)
 
-#### Core Application & API (`16` files)
+#### Core Application & API (`18` files)
 | File Path | Purpose | Key Classes, Functions & Routes | Key Dependencies |
 | :--- | :--- | :--- | :--- |
 | `backend/main.py` | FastAPI app entrypoint, CORS middleware, and router mounting. | `root()` | `fastapi`, `api/routes.py` |
 | `backend/api/__init__.py` | Package marker for API routers. | — | — |
-| `backend/api/routes.py` | All REST, auth, sandbox, solver, Copilot, workspace, audit, and Excel endpoints under `/api`. | `GET /health`, `GET /auth/me`, `POST /auth/login`, `POST /auth/logout`, `POST /sandbox/reset`, `GET /demo-data`, `GET /template.xlsx`, `POST /validate`, `POST /solve`, `POST /workforce/solve`, `POST /copilot/ask`, `POST /export-dataset.xlsx`, `POST /export-brief.xlsx`, `GET /audit-log`, `GET /audit-log/{run_id}`, `GET/POST/DELETE /workspaces` | `core/auth.py`, `core/solver.py`, `core/workforce_solver.py`, `core/copilot.py`, `core/excel_io.py`, `core/audit.py` |
+| `backend/api/routes.py` | All REST, auth, sandbox, solver, Copilot, Backtest, Guided Onboarding, Integration Export, workspace, audit, and Excel endpoints under `/api`. | `GET /health`, `GET /auth/me`, `POST /auth/login`, `POST /auth/logout`, `POST /sandbox/reset`, `GET /demo-data`, `GET /template.xlsx`, `POST /validate`, `POST /solve`, `POST /workforce/solve`, `POST /copilot/ask`, `GET /backtest/template`, `POST /backtest/replay`, `POST /onboarding/generate`, `GET /export/schedule.xlsx`, `GET /export/schedule.csv`, `GET /export/erp-payload.json`, `POST /export-dataset.xlsx`, `POST /export-brief.xlsx`, `GET /audit-log`, `GET /audit-log/{run_id}`, `GET/POST/DELETE /workspaces` | `core/auth.py`, `core/solver.py`, `core/workforce_solver.py`, `core/copilot.py`, `core/backtest.py`, `core/onboarding.py`, `core/excel_io.py`, `core/audit.py` |
 | `backend/core/__init__.py` | Re-exports core domain schemas and solver helpers. | — | `core/*` |
-| `backend/core/ontology.py` | Industrial plastics Pydantic models, physics helpers, and Pre-Solve Plant Anomaly Validator. | `PressMachine`, `Mold`, `ResinStock`, `ProductionOrder`, `FactoryWorker`, `PlantPhysicsConfig`, `WorkforceConfig`, `SolverConfig`, `ScenarioDisruptions`, `PlantDataset`, `SolveResult`, `validate_plant_data()`, `transition_penalty()`, `order_duration_mins()`, `order_gross_weight_kg()`, `peak_overlap_mins()` | `pydantic` |
+| `backend/core/ontology.py` | Industrial plastics Pydantic models (including container consolidation & warehouse WIP schemas), physics helpers, and Pre-Solve Plant Anomaly Validator. | `PressMachine`, `Mold`, `ResinStock`, `ProductionOrder`, `FactoryWorker`, `PlantPhysicsConfig`, `WorkforceConfig`, `SolverConfig`, `ScenarioDisruptions`, `ContainerGroupSummary`, `PlantDataset`, `SolveResult`, `validate_plant_data()`, `transition_penalty()`, `order_duration_mins()`, `order_gross_weight_kg()`, `peak_overlap_mins()` | `pydantic` |
 | `backend/core/disruptions.py` | Composable scenario engine transforming base `PlantDataset` + `SolverConfig.scenarios` without mutating caller state. | `EffectivePlantState`, `apply_plant_scenarios()` | `core/ontology.py` |
-| `backend/core/solver.py` | Deterministic Google OR-Tools CP-SAT parallel-machine scheduler (`HC1–HC6`, `Auto PM`, 6.5h export buffer) + Naive FIFO baseline comparator. | `DatasetValidationError`, `run_fifo_baseline()`, `solve_plant_schedule()` | `ortools.sat.python.cp_model`, `disruptions.py`, `workforce_solver.py`, `financials.py`, `risk_radar.py`, `kpi.py`, `verify.py` |
+| `backend/core/solver.py` | Deterministic Google OR-Tools CP-SAT parallel-machine scheduler (`HC1–HC6`, `Auto PM`, 6.5h export buffer, `container_sync_enabled` multi-SKU export container coupling) + Naive FIFO baseline comparator. | `DatasetValidationError`, `run_fifo_baseline()`, `solve_plant_schedule()` | `ortools.sat.python.cp_model`, `disruptions.py`, `workforce_solver.py`, `financials.py`, `risk_radar.py`, `kpi.py`, `verify.py` |
 | `backend/core/verify.py` | Independent zero-tolerance post-solve verifier for all 6 Press hard constraints (`HC1–HC6`). | `verify_hard_constraints()` | `core/ontology.py` |
 | `backend/core/workforce_solver.py` | Press-coupled 5-role Workforce CP-SAT roster optimizer (`WHC1–WHC5`), Ramadan 4×6h clamp, Naive Static Rotation baseline, and callout simulator. | `ShiftDef`, `SlotDemand`, `shift_layout()`, `derive_demand()`, `evaluate_roster()`, `verify_workforce()`, `build_naive_roster()`, `solve_workforce()`, `solve_workforce_with_callouts()` | `ortools.sat.python.cp_model`, `core/ontology.py` |
-| `backend/core/kpi.py` | Deterministic KPI evaluator, Gantt block builder, resin/press summaries, and Baseline vs. CP-SAT ROI scorecard. | `build_schedule_plan()`, `build_scorecard()` | `core/ontology.py` |
+| `backend/core/kpi.py` | Deterministic KPI evaluator, container consolidation & finished-goods warehouse inventory sweep, Gantt block builder, resin/press summaries, and Baseline vs. CP-SAT ROI scorecard. | `build_schedule_plan()`, `build_scorecard()` | `core/ontology.py` |
 | `backend/core/financials.py` | Zero-double-counting weekly P&L reconciliation, monthly/annual projections, unlocked capacity value, and per-order margin table. | `compute_financial_report()` | `core/ontology.py` |
-| `backend/core/risk_radar.py` | Deterministic Proactive Delay & Bottleneck Risk Radar (balanced per-category score caps, resin silo depletion clock, mold/press/shift alerts, 9 bilingual mitigation prompts). | `compute_risk_radar()` | `core/ontology.py` |
-| `backend/core/copilot.py` | Unlimited Composable Operations Copilot (`google-genai` `gemini-4-hydrogen` + EN/AR deterministic offline parser) returning unified scenario bundles with multi-lever dataset mitigations. | `CopilotResult`, `StrategyComparison`, `BottleneckInsight`, `execute_simulate_plant_scenario()`, `execute_inspect_bottleneck()`, `execute_compare_two_strategies()`, `run_offline_composable_copilot()`, `run_plastics_copilot()` | `google-genai`, `solver.py`, `workforce_solver.py`, `financials.py`, `risk_radar.py` |
-| `backend/core/excel_io.py` | 4-tab Excel workbook generator (`Presses`, `Molds`, `Resin_Inventory`, `Production_Orders`), parser, and Executive Brief `.xlsx` exporter. | `build_template_workbook()`, `parse_workbook_bytes()`, `export_brief_workbook()` | `openpyxl`, `core/ontology.py` |
+| `backend/core/risk_radar.py` | Deterministic Proactive Delay & Bottleneck Risk Radar (6 categories including `warehouse_congestion` & trapped container alerts with bilingual Copilot mitigation prompts). | `compute_risk_radar()` | `core/ontology.py` |
+| `backend/core/copilot.py` | Unlimited Composable Operations Copilot (`google-genai` `gemini-4-hydrogen` + EN/AR deterministic offline parser) returning unified scenario bundles and Commander-Grade `FinancialTradeoffSummary`. | `FinancialTradeoffSummary`, `CopilotResult`, `StrategyComparison`, `BottleneckInsight`, `_compute_financial_tradeoff_summary()`, `execute_simulate_plant_scenario()`, `execute_inspect_bottleneck()`, `execute_compare_two_strategies()`, `run_offline_composable_copilot()`, `run_plastics_copilot()` | `google-genai`, `solver.py`, `workforce_solver.py`, `financials.py`, `risk_radar.py` |
+| `backend/core/backtest.py` | 1-Month Historical Backtest / Replay Engine ("The Proof Engine") generating 13-column CSV/XLSX templates, parsing historical logs, and replaying them via CP-SAT. | `HistoricalLogRow`, `BacktestComparisonBlock`, `HistoricalBacktestReport`, `build_backtest_template_csv()`, `build_backtest_template_xlsx()`, `sample_30day_historical_rows()`, `parse_backtest_upload()`, `run_historical_backtest_replay()` | `openpyxl`, `core/ontology.py`, `core/solver.py` |
+| `backend/core/onboarding.py` | Guided "Process-First" 5-Step Plant Onboarding Generator building immediately solvable plant workspaces + "Current Specs Only" Readiness Checklist. | `GuidedSetupRequest`, `ReadinessChecklistItem`, `GuidedSetupResponse`, `build_current_specs_checklist()`, `build_guided_plant_workspace()` | `core/ontology.py`, `core/solver.py`, `core/seed.py` |
+| `backend/core/excel_io.py` | 4-tab Excel workbook generator/parser, Executive Brief `.xlsx` exporter, and Integration-Ready Schedule exporters (`schedule.xlsx`, `schedule.csv`, `erp-payload.json`). | `build_template_workbook()`, `parse_workbook_bytes()`, `export_brief_workbook()`, `export_integration_schedule_workbook()`, `export_integration_schedule_csv()`, `export_integration_erp_payload()` | `openpyxl`, `core/ontology.py` |
 | `backend/core/audit.py` | SQLite persistence layer for SHA-256 audit runs and multi-tenant/sandboxed plant workspaces. | `AuditStore` | `sqlite3`, `core/ontology.py` |
 | `backend/core/auth.py` | Signed HMAC cookie sessions, multi-client passcode parsing (`DEMO_ACCESS_CODES`), sandbox namespace isolation, and per-hour Copilot quota shield. | `AuthSession`, `is_auth_enabled()`, `verify_passcode()`, `sign_session_token()`, `verify_session_token()`, `set_session_cookie()`, `clear_session_cookie()` | `hmac`, `hashlib`, `fastapi` |
-| `backend/core/seed.py` | Seeded Delta & Riyadh Polymer Packaging Plant (6 presses, 10 molds, 5 resins, 24 orders, 28 floor workers). | `default_config()`, `demo_workers()`, `demo_dataset()` | `core/ontology.py` |
+| `backend/core/seed.py` | Seeded Delta & Riyadh Polymer Packaging Plant (6 presses, 10 molds, 5 resins, 24 orders across 4 export container groups, 28 floor workers). | `default_config()`, `demo_workers()`, `demo_dataset()` | `core/ontology.py` |
 
 #### Backend Tests & Config (`13` files)
 | File Path | Purpose | Key Functions / Contents | Key Dependencies |
@@ -154,30 +161,33 @@ DIOs/
 
 ---
 
-### A.3 File-by-File Inventory — Frontend (`mini-dios-workforce/frontend/`, 38 files)
+### A.3 File-by-File Inventory — Frontend (`mini-dios-workforce/frontend/`, 41 files)
 
 #### App Router, Proxy & Core Libraries (`10` files)
 | File Path | Purpose | Key Exports / Hooks | Key Dependencies |
 | :--- | :--- | :--- | :--- |
 | `frontend/src/app/layout.tsx` | Root Next.js layout, metadata, mobile viewport config (`viewport-fit=cover`), and `AppProvider` wrapper. | `viewport`, `metadata`, `RootLayout` | `globals.css`, `lib/store.tsx` |
-| `frontend/src/app/page.tsx` | Main command center shell routing between `LoginGate`, `TopBar`, `DecisionLoopStrip`, Applied Delta Banner, Tabs 1–6, `QuickAddModal`, `ExecutiveBriefModal`, and `CopilotDrawer`. | `HomePage` | All top-level views & modals, `lib/store.tsx` |
+| `frontend/src/app/page.tsx` | Main command center shell routing between `LoginGate`, `TopBar`, `DecisionLoopStrip`, Applied Delta Banner, Tabs 1–6, `QuickAddModal`, `ExecutiveBriefModal`, `HistoricalBacktestModal`, `GuidedOnboardingModal`, and `CopilotDrawer`. | `HomePage` | All top-level views & modals, `lib/store.tsx` |
 | `frontend/src/app/api/[...path]/route.ts` | Server-side Next.js API catch-all proxy to `BACKEND_INTERNAL_URL` with explicit header allowlist (prevents Render HTTP 508 loop), self-proxy guard, cookie `Domain=` stripping, and single GET retry on 502/503/504 cold starts. | `dynamic`, `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS` | `next/server` |
 | `frontend/src/app/globals.css` | Tailwind CSS base, dark theme tokens, hatched Gantt patterns, Peak/Iftar bands, 24px mobile slider thumbs, safe-area padding, and RTL typography rules. | CSS utility classes | Tailwind CSS |
 | `frontend/src/app/icon.svg` | Browser favicon SVG for Mini-DIOS Plastics. | SVG asset | — |
-| `frontend/src/lib/store.tsx` | Global React state context: workspaces, dataset CRUD, solver config, atomic Copilot bundle commit, signature-based debounced auto-sync across Tabs 1–6, Pin & Compare A/B/C slots, currency/lang, and auth session. | `AppProvider`, `useApp`, `QuickModalType`, `StudioSubTab`, `DEFAULT_PHYSICS`, `DEFAULT_WORKFORCE` | `lib/api.ts`, `lib/types.ts` |
-| `frontend/src/lib/api.ts` | Typed HTTP client (`handleJson` single-read stream parser) for auth, validation, solve, workforce solve, Copilot, workspaces, and audit endpoints. | `API_BASE`, `fetchAuthMe`, `loginWithPasscodeApi`, `runSolveApi`, `runWorkforceSolveApi`, `askCopilotApi`, `listWorkspacesApi`, `saveWorkspaceApi` (+13) | `lib/types.ts` |
-| `frontend/src/lib/types.ts` | Complete TypeScript domain interfaces mirroring `backend/core/ontology.py`, `copilot.py`, and `auth.py`. | `PlantDataset`, `SolverConfig`, `SolveResult`, `WorkforceResult`, `FinancialReport`, `RiskRadarReport`, `CopilotResult`, `PinnedScenario` (+60) | — |
-| `frontend/src/lib/i18n.ts` | Complete English (LTR) and Arabic (RTL) dictionary for all UI labels, roles, shifts, colors, constraints, and Risk Radar copy. | `COPY`, `WORKER_ROLE_LABELS`, `SHIFT_LABELS`, `CONSTRAINT_LABELS`, `WORKFORCE_CONSTRAINT_LABELS`, `COLOR_LABELS`, `DAY_NAMES_I18N` | `lib/types.ts` |
+| `frontend/src/lib/store.tsx` | Global React state context: workspaces, dataset CRUD, solver config, `toggleContainerSyncMode`, `backtestModalOpen`, `onboardingModalOpen`, `applyGuidedWorkspace`, atomic Copilot bundle commit, signature-based debounced auto-sync across Tabs 1–6, Pin & Compare A/B/C slots, currency/lang, and auth session. | `AppProvider`, `useApp`, `QuickModalType`, `StudioSubTab`, `DEFAULT_PHYSICS`, `DEFAULT_WORKFORCE` | `lib/api.ts`, `lib/types.ts` |
+| `frontend/src/lib/api.ts` | Typed HTTP client (`handleJson` single-read stream parser) for auth, validation, solve, workforce solve, Copilot, Backtest replay/templates, Guided Onboarding, Integration Schedule Exports, workspaces, and audit endpoints. | `API_BASE`, `fetchAuthMe`, `loginWithPasscodeApi`, `runSolveApi`, `runWorkforceSolveApi`, `askCopilotApi`, `runHistoricalBacktestReplayApi`, `generateGuidedSetupApi`, `downloadIntegrationScheduleXlsx` (+18) | `lib/types.ts` |
+| `frontend/src/lib/types.ts` | Complete TypeScript domain interfaces mirroring `backend/core/ontology.py`, `copilot.py`, `backtest.py`, `onboarding.py`, and `auth.py`. | `PlantDataset`, `SolverConfig`, `SolveResult`, `WorkforceResult`, `FinancialReport`, `RiskRadarReport`, `CopilotResult`, `FinancialTradeoffSummary`, `HistoricalBacktestReport`, `GuidedSetupRequest`, `PinnedScenario` (+68) | — |
+| `frontend/src/lib/i18n.ts` | Complete English (LTR) and Arabic (RTL) dictionary for all UI labels, roles, shifts, colors, constraints, Backtest, Guided Onboarding, Dual-Audience Brief, and Risk Radar copy. | `COPY`, `WORKER_ROLE_LABELS`, `SHIFT_LABELS`, `CONSTRAINT_LABELS`, `WORKFORCE_CONSTRAINT_LABELS`, `COLOR_LABELS`, `DAY_NAMES_I18N` | `lib/types.ts` |
 | `frontend/src/lib/format.ts` | Deterministic SAR ↔ EGP currency conversion and number/money formatting helpers. | `convertCurrency`, `formatMoney`, `formatNumber` | `lib/types.ts` |
 
-#### Views, Modals & Studio Editors (`22` files)
+#### Views, Modals & Studio Editors (`25` files)
 | File Path | Purpose | Key Exports | Key Dependencies |
 | :--- | :--- | :--- | :--- |
 | `frontend/src/components/LoginGate.tsx` | Hosted executive access gate supporting multi-client passcodes (`ALEX-2026`, `KSA-2026`, `DIOS-2026`) and optional instant demo. | `LoginGate` | `lib/store.tsx`, `lib/i18n.ts` |
-| `frontend/src/components/TopBar.tsx` | Responsive header (desktop bar + mobile compact bar with slide-over Controls drawer + sticky bottom action bar for Run Optimization & Ops Copilot). | `TopBar` | `lib/store.tsx`, `lib/i18n.ts` |
+| `frontend/src/components/TopBar.tsx` | Responsive header (desktop bar + mobile compact bar with slide-over Controls drawer including `Container Sync` + sticky bottom action bar for Run Optimization & Ops Copilot). | `TopBar` | `lib/store.tsx`, `lib/i18n.ts` |
 | `frontend/src/components/DecisionLoopStrip.tsx` | 5-stage horizontal snap-scroll strip (`1. Model → 2. Sense → 3. Optimize → 4. Command → 5. Adapt`) with live risk, status, constraint, and savings badges. | `DecisionLoopStrip` | `lib/store.tsx`, `lib/i18n.ts` |
-| `frontend/src/components/ScopeView.tsx` | Tab 1 (`Plant Scope & Readiness`): Saved Workspaces, Quick-Add Hub, 6 clickable KPI pills, Risk Radar, inline Resin & Mold PM health, Pre-Solve Diagnostics, Press Fleet. | `ScopeView` | `RiskRadarPanel`, `lib/store.tsx` |
-| `frontend/src/components/RiskRadarPanel.tsx` | Full & compact Risk Radar cards displaying `Plant Risk Score`, financial exposure, Resin Silo Depletion Clock, and one-click `Mitigate in Copilot` / `Inspect` actions. | `RiskRadarPanel` | `lib/store.tsx`, `lib/format.ts` |
+| `frontend/src/components/ScopeView.tsx` | Tab 1 (`Plant Scope & Readiness`): Saved Workspaces, 1-Month Historical Backtest & 5-Step Guided Setup action banner, Current Specs Readiness Checklist, Quick-Add Hub, 6 KPI pills, Risk Radar, inline Resin & Mold PM health, Pre-Solve Diagnostics, Press Fleet. | `ScopeView` | `RiskRadarPanel`, `lib/store.tsx` |
+| `frontend/src/components/HistoricalBacktestModal.tsx` | Bilingual 1-Month Historical Backtest / Replay modal ("The Proof Engine") with CSV/XLSX template downloads, file uploader, 1-click sample 30-day replay, and Actual vs. Mini-DIOS ROI Replay Card. | `HistoricalBacktestModal` | `lib/api.ts`, `lib/store.tsx`, `lib/format.ts` |
+| `frontend/src/components/GuidedOnboardingModal.tsx` | Bilingual 5-Step Process-First Guided Plant Setup Wizard + "Current Specs Only" 3-Hour Readiness Checklist. | `GuidedOnboardingModal` | `lib/api.ts`, `lib/store.tsx`, `lib/i18n.ts` |
+| `frontend/src/components/ScheduleExportMenu.tsx` | Integration-Ready Schedule Export button bar (`Excel .xlsx`, `Flat CSV .csv`, `ERP JSON Odoo / SAP B1`). | `ScheduleExportMenu` | `lib/api.ts`, `lib/store.tsx` |
+| `frontend/src/components/RiskRadarPanel.tsx` | Full & compact Risk Radar cards displaying `Plant Risk Score`, financial exposure, Resin Silo Depletion Clock, Warehouse Congestion alerts, and one-click `Mitigate in Copilot` / `Inspect` actions. | `RiskRadarPanel` | `lib/store.tsx`, `lib/format.ts` |
 | `frontend/src/components/DataStudioView.tsx` | Tab 2 (`Plant Data & Parameters`): Sticky action bar, validation pill, and 5 Studio sub-tabs. | `DataStudioView` | `studio/*`, `lib/store.tsx` |
 | `frontend/src/components/studio/PressesEditor.tsx` | Tab 2A CRUD editor for presses (stacked mobile cards + desktop table). | `PressesEditor` | `ConfirmDeleteModal`, `lib/store.tsx` |
 | `frontend/src/components/studio/MoldsEditor.tsx` | Tab 2B CRUD editor for molds, compatibility, cycle times, and shot intervals. | `MoldsEditor` | `ConfirmDeleteModal`, `lib/store.tsx` |
@@ -185,14 +195,14 @@ DIOs/
 | `frontend/src/components/studio/OrdersEditor.tsx` | Tab 2D CRUD editor for production orders with search/filter and live run-time/weight estimates. | `OrdersEditor` | `ConfirmDeleteModal`, `lib/store.tsx` |
 | `frontend/src/components/studio/PhysicsEditor.tsx` | Tab 2E editor for purge physics, tariffs, peak windows, currency/FX, horizon, overhead, and solver time cap. | `PhysicsEditor` | `lib/store.tsx` |
 | `frontend/src/components/studio/ConfirmDeleteModal.tsx` | Referential-safety confirmation modal warning of impacted orders/molds before deleting a press, mold, or resin. | `ConfirmDeleteModal` | `lib/i18n.ts` |
-| `frontend/src/components/TradeoffConsole.tsx` | Tab 3 (`Trade-Off & Scenario Composer`): 4 KPI delta cards, 4 executive sliders + presets, composable disruption builder, `PinScenarioButton`, `ScenarioComparisonMatrix`, `6/6` HC verification, and audit history. | `TradeoffConsole` | `PinScenarioButton`, `ScenarioComparisonMatrix`, `lib/store.tsx` |
+| `frontend/src/components/TradeoffConsole.tsx` | Tab 3 (`Trade-Off & Scenario Composer`): 4 KPI delta cards, 4 executive sliders + presets, Export Container Consolidation & Finished-Goods Warehouse WIP card, composable disruption builder, `PinScenarioButton`, `ScenarioComparisonMatrix`, `6/6` HC verification, and audit history. | `TradeoffConsole` | `PinScenarioButton`, `ScenarioComparisonMatrix`, `lib/store.tsx` |
 | `frontend/src/components/PinScenarioButton.tsx` | One-click button/popover to pin the active schedule into Comparison Slot A, B, or C. | `PinScenarioButton` | `lib/store.tsx` |
 | `frontend/src/components/ScenarioComparisonMatrix.tsx` | Side-by-side A vs. B vs. C boardroom matrix with exact deltas, `Best` badges, and `Promote to Active Plan`. | `ScenarioComparisonMatrix` | `lib/store.tsx`, `lib/format.ts` |
-| `frontend/src/components/ProductionGanttView.tsx` | Tab 4 (`Press Gantt & Color Sequence`): 168h pigment-colored Gantt, FIFO vs. CP-SAT switch, Peak/Iftar bands, tap-to-inspect mobile support, resin/scrap charts, and sequence audit table. | `ProductionGanttView` | `RiskRadarPanel`, `recharts`, `lib/store.tsx` |
-| `frontend/src/components/FinancialsView.tsx` | Tab 5 (`Revenue & Savings`): 5 financial KPI cards, inline assumptions, FIFO vs. CP-SAT P&L reconciliation, per-order profitability with inline `Unit Selling Price` editing, and `ScenarioComparisonMatrix`. | `FinancialsView` | `PinScenarioButton`, `ScenarioComparisonMatrix`, `recharts`, `lib/store.tsx` |
-| `frontend/src/components/WorkforceView.tsx` | Tab 6 (`Workforce & Shifts`): 5 workforce KPI cards, 3 objective sliders, sick-callout chips, Roster Matrix, Demand vs. Scheduled Coverage Chart, Worker Directory CRUD, and `5/5 WHC` verification. | `WorkforceView` | `recharts`, `lib/store.tsx` |
-| `frontend/src/components/CopilotDrawer.tsx` | Slide-over bilingual Operations Copilot drawer (`92dvh` mobile-safe) with starter chips, Before → After Applied Delta banner, Bottleneck/Comparison cards, `Pin for Comparison`, and `Apply This Scenario to Dashboard`. | `CopilotDrawer` | `lib/api.ts`, `lib/store.tsx` |
-| `frontend/src/components/ExecutiveBriefModal.tsx` | In-dashboard boardroom ROI scorecard modal (`6/6` verified constraints + Resin Purge Audit, zero file transfers). | `ExecutiveBriefModal` | `lib/store.tsx`, `lib/format.ts` |
+| `frontend/src/components/ProductionGanttView.tsx` | Tab 4 (`Press Gantt & Color Sequence`): 168h pigment-colored Gantt, `ScheduleExportMenu`, FIFO vs. CP-SAT switch, Peak/Iftar bands, tap-to-inspect mobile support, resin/scrap charts, and sequence audit table. | `ProductionGanttView` | `RiskRadarPanel`, `ScheduleExportMenu`, `recharts`, `lib/store.tsx` |
+| `frontend/src/components/FinancialsView.tsx` | Tab 5 (`Revenue & Savings`): 5 financial KPI cards, 1-Month Historical Backtest trigger, Container Consolidation & Working Capital Lockup table, inline assumptions, FIFO vs. CP-SAT P&L reconciliation, per-order profitability, and `ScenarioComparisonMatrix`. | `FinancialsView` | `PinScenarioButton`, `ScenarioComparisonMatrix`, `recharts`, `lib/store.tsx` |
+| `frontend/src/components/WorkforceView.tsx` | Tab 6 (`Workforce & Shifts`): 5 workforce KPI cards, `ScheduleExportMenu`, 3 objective sliders, sick-callout chips, Roster Matrix, Demand vs. Scheduled Coverage Chart, Worker Directory CRUD, and `5/5 WHC` verification. | `WorkforceView` | `ScheduleExportMenu`, `recharts`, `lib/store.tsx` |
+| `frontend/src/components/CopilotDrawer.tsx` | Slide-over bilingual Operations Copilot drawer (`92dvh` mobile-safe) with Commander-Grade Financial Trade-Off Callout Box, starter chips, Before → After Applied Delta banner, Bottleneck/Comparison cards, `Pin for Comparison`, and `Apply This Scenario to Dashboard`. | `CopilotDrawer` | `lib/api.ts`, `lib/store.tsx` |
+| `frontend/src/components/ExecutiveBriefModal.tsx` | Dual-Audience boardroom ROI scorecard modal (`Owner / Chairman View` vs. `Plant / Production Manager View` Decision Shield + `ScheduleExportMenu` + `6/6` verified constraints + Resin Purge Audit). | `ExecutiveBriefModal` | `ScheduleExportMenu`, `lib/store.tsx`, `lib/format.ts` |
 | `frontend/src/components/QuickAddModal.tsx` | Tab 1 modal for fast inline creation/editing of presses, molds, resins, orders, and plant physics. | `QuickAddModal` | `lib/store.tsx` |
 
 #### Frontend Config & Build (`6` files)
@@ -225,6 +235,26 @@ DIOs/
 ---
 
 ## Section B — Complete Code Update Ledger (Newest First)
+
+### Update 8 — `2026-11-25` • `Uncommitted / Local` • `v1.5 (Commercial & Decision Intelligence Upgrade v1.3)`
+- **Title & Why:** Implement the 6-feature Commercial & Decision Intelligence Upgrade: (1) 1-Month Historical Backtest / Replay Engine ("The Proof Engine"), (2) 5-Step Process-First Guided Onboarding Wizard (Zero ERP History Required), (3) Finished-Goods Storage & Multi-SKU Export Container Consolidation Coupling (`Container Sync`), (4) Commander-Grade Financial Trade-Off Callout Box in Operations Copilot, (5) Integration-Ready Schedule Export API (`schedule.xlsx`, `schedule.csv`, `erp-payload.json` for Odoo / SAP B1), and (6) Dual-Audience Executive Brief (`Owner / Chairman View` vs. `Plant / Production Manager View` Decision Shield) + Two-Track Commercial Outreach & Modular Licensing Kit.
+- **Files Changed:**
+  - *Added (Backend — 2 files):* `mini-dios-workforce/backend/core/backtest.py`, `mini-dios-workforce/backend/core/onboarding.py`
+  - *Added (Frontend — 3 files):* `mini-dios-workforce/frontend/src/components/HistoricalBacktestModal.tsx`, `mini-dios-workforce/frontend/src/components/GuidedOnboardingModal.tsx`, `mini-dios-workforce/frontend/src/components/ScheduleExportMenu.tsx`
+  - *Modified (Backend — 9 files):* `backend/core/ontology.py`, `backend/core/seed.py`, `backend/core/solver.py`, `backend/core/workforce_solver.py`, `backend/core/kpi.py`, `backend/core/risk_radar.py`, `backend/core/copilot.py`, `backend/core/excel_io.py`, `backend/api/routes.py`, `backend/tests/test_api.py`
+  - *Modified (Frontend — 13 files):* `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/i18n.ts`, `frontend/src/lib/store.tsx`, `frontend/src/app/page.tsx`, `frontend/src/components/TopBar.tsx`, `frontend/src/components/ScopeView.tsx`, `frontend/src/components/TradeoffConsole.tsx`, `frontend/src/components/ProductionGanttView.tsx`, `frontend/src/components/FinancialsView.tsx`, `frontend/src/components/WorkforceView.tsx`, `frontend/src/components/CopilotDrawer.tsx`, `frontend/src/components/ExecutiveBriefModal.tsx`
+  - *Modified (Docs — 6 files):* `docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`, `docs/templates-and-drafts/hosted-demo-outreach-pilot-kit-en-ar.md`, `docs/technical/TECHNICAL_REFERENCE.md`, `docs/CHANGELOG.md`, `docs/technical/CODEBASE_AND_UPDATES_LOG.md`
+- **Granular Code Changes:**
+  - `backend/core/backtest.py` & `api/routes.py`: Built 13-column CSV/XLSX historical press-log template generator (`GET /api/backtest/template`), upload parser, 28-order built-in 30-day sample log, and deterministic CP-SAT replay engine (`POST /api/backtest/replay`) returning `HistoricalBacktestReport` (`actual_vs_optimized`, extra sellable units/tons unlocked, 1-month & annualized cash left on the floor, and payback days).
+  - `backend/core/onboarding.py` & `api/routes.py`: Built 5-step process-first plant generator (`POST /api/onboarding/generate`) creating tailored presses (with backup press speed factor), molds, resins, multi-SKU export container orders, 2/3-shift workforce, and a 6-item bilingual `"Current Specs Only" Readiness Checklist`.
+  - `backend/core/ontology.py`, `seed.py`, `solver.py`, `kpi.py`, `risk_radar.py`: Added `container_group_id` across 4 seeded export container groups (`CNT-RIYADH-01`, `CNT-JEDDAH-02`, `CNT-AUTO-03`, `CNT-CHEM-04`), `fg_storage_capacity_tons` (`22.0t`), `wip_holding_cost_per_ton_day` (`85.0`), and `container_sync_enabled` (`True`); coupled multi-SKU container completion variables (`cg_ship`, `cg_wait`) into CP-SAT `wc_terms`; computed `ContainerGroupSummary`, `warehouse_utilization_pct`, `peak_warehouse_tons`, `trapped_working_capital`, `wip_holding_days`, and `container_wait_delay_hrs`; added `warehouse_congestion` alerts to Risk Radar.
+  - `backend/core/copilot.py`: Added `_compute_financial_tradeoff_summary()` and `FinancialTradeoffSummary` (`headline_en`, `headline_ar`, `cost_paid_amount`, `value_protected_amount`, `net_financial_gain`, `is_positive_net`) on `CopilotResult`.
+  - `backend/core/excel_io.py` & `api/routes.py`: Added `export_integration_schedule_workbook` (`GET /api/export/schedule.xlsx`), `export_integration_schedule_csv` (`GET /api/export/schedule.csv`), and `export_integration_erp_payload` (`GET /api/export/erp-payload.json`).
+  - `frontend/src/components/*` & `lib/*`: Added `HistoricalBacktestModal`, `GuidedOnboardingModal`, `ScheduleExportMenu`, `Container Sync` toggles in `TopBar` and `TradeoffConsole`, Commander-Grade Financial Trade-Off Callout Box in `CopilotDrawer`, and Dual-Audience switcher (`Owner / Chairman View` vs. `Plant / Production Manager View`) in `ExecutiveBriefModal`.
+- **Impact & Dependencies:** Full-stack upgrade across Backend solver/API, Frontend Tabs 1–6 & modals, and Two-Track documentation. Zero new environment variables required.
+- **Verification Status:** Verified via `pytest` (including `test_v13_backtest_template_and_replay_engine` and `test_v13_guided_onboarding_container_sync_copilot_tradeoff_and_exports`), `npm.cmd run build`, and Google Drive Two-Track in-place sync.
+
+---
 
 ### Update 7 — `2026-11-23` • `Uncommitted / Local` • `v1.4.1`
 - **Title & Why:** Register dedicated `CODEBASE_AND_UPDATES_LOG.md` ledger in persistent workspace rules and Drive sync engine so every future code change is automatically mapped and logged without manual reminders.

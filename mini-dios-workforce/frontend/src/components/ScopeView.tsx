@@ -11,6 +11,7 @@ import {
   Edit3,
   Factory,
   Flame,
+  History,
   Info,
   Layers,
   Package,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   Save,
   Sliders,
+  Sparkles,
   Trash2,
   Wrench,
   XCircle,
@@ -47,6 +49,8 @@ export function ScopeView() {
     navigateToStudioSubTab,
     runSolve,
     setActiveView,
+    setBacktestModalOpen,
+    setOnboardingModalOpen,
   } = useApp();
 
   const t = COPY[lang];
@@ -128,15 +132,27 @@ export function ScopeView() {
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-            <button
-              type="button"
-              data-testid="btn-new-blank-plant"
-              onClick={createNewBlankPlant}
-              className="inline-flex min-h-[44px] items-center gap-1 text-xs font-semibold text-cyan-400 transition hover:text-cyan-300 md:min-h-0 md:text-[11px]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>{t.newBlankPlant}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                data-testid="btn-open-guided-onboarding"
+                onClick={() => setOnboardingModalOpen(true)}
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/25 md:min-h-0"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                <span>{t.guidedSetupBtn}</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="btn-new-blank-plant"
+                onClick={createNewBlankPlant}
+                className="inline-flex min-h-[40px] items-center gap-1 text-xs font-semibold text-slate-300 transition hover:text-cyan-300 md:min-h-0 md:text-[11px]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{t.newBlankPlant}</span>
+              </button>
+            </div>
 
             <div className="flex items-center gap-3">
               <button
@@ -225,7 +241,7 @@ export function ScopeView() {
             </div>
           </div>
 
-          <div className="mt-3 border-t border-slate-800/80 pt-3">
+          <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-800/80 pt-3 sm:grid-cols-2">
             <button
               type="button"
               data-testid="btn-quick-edit-physics"
@@ -234,6 +250,16 @@ export function ScopeView() {
             >
               <Zap className="h-3.5 w-3.5" />
               <span>{t.editPhysicsBtn}</span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="btn-open-backtest-scope"
+              onClick={() => setBacktestModalOpen(true)}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-200 transition hover:bg-emerald-500/25 md:min-h-0"
+            >
+              <History className="h-3.5 w-3.5 text-emerald-400" />
+              <span>{t.backtestBtn}</span>
             </button>
           </div>
         </div>

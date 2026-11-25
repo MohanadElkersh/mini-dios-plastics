@@ -7,6 +7,8 @@ import { DataStudioView } from "@/components/DataStudioView";
 import { DecisionLoopStrip } from "@/components/DecisionLoopStrip";
 import { ExecutiveBriefModal } from "@/components/ExecutiveBriefModal";
 import { FinancialsView } from "@/components/FinancialsView";
+import { GuidedOnboardingModal } from "@/components/GuidedOnboardingModal";
+import { HistoricalBacktestModal } from "@/components/HistoricalBacktestModal";
 import { LoginGate } from "@/components/LoginGate";
 import { ProductionGanttView } from "@/components/ProductionGanttView";
 import { QuickAddModal } from "@/components/QuickAddModal";
@@ -168,6 +170,8 @@ function DashboardShell() {
         {activeView === "workforce" && <WorkforceView />}
         <CopilotDrawer />
         <ExecutiveBriefModal />
+        <HistoricalBacktestModal />
+        <GuidedOnboardingModal />
         <QuickAddModal />
       </main>
       <footer className="border-t border-slate-800/70 px-4 pt-3 pb-24 text-center text-[11px] text-slate-500 lg:pb-3">

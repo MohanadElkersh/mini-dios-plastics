@@ -5,10 +5,12 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Banknote,
+  Boxes,
   Building2,
   CalendarRange,
   CheckCircle2,
   DollarSign,
+  History,
   Loader2,
   Play,
   Recycle,
@@ -51,6 +53,7 @@ export function FinancialsView() {
     updatePhysics,
     upsertOrder,
     runSolve,
+    setBacktestModalOpen,
   } = useApp();
 
   const isAr = lang === "ar";
@@ -336,7 +339,69 @@ export function FinancialsView() {
               : "100% deterministic OR-Tools CP-SAT P&L with instant SAR / EGP currency reconciliation"}
           </p>
         </div>
-        <PinScenarioButton testId="btn-pin-scenario-financials" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-testid="btn-open-backtest-financials"
+            onClick={() => setBacktestModalOpen(true)}
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-bold text-emerald-200 transition hover:bg-emerald-500/25 md:min-h-0"
+          >
+            <History className="h-3.5 w-3.5 text-emerald-400" />
+            <span>
+              {isAr ? "اختبار تاريخي لشهر كامل (Actual vs. Mini-DIOS)" : "1-Month Historical Backtest (Proof Engine)"}
+            </span>
+          </button>
+          <PinScenarioButton testId="btn-pin-scenario-financials" />
+        </div>
+      </div>
+
+      {/* v1.3 Feature 3: Working Capital & Multi-SKU Export Container WIP Holding Strip */}
+      <div
+        data-testid="financials-container-wip-card"
+        className="grid gap-3 rounded-2xl border border-cyan-500/30 bg-[#0f1629] p-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-300">
+            <Boxes className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-[11px] text-slate-400">
+              {isAr ? "رأس المال المحتجز بالحاويات" : "Trapped Container Working Capital"}
+            </div>
+            <div dir="ltr" className="font-mono text-sm font-bold text-amber-300">
+              {fmtDisp(result.optimized.kpis.trapped_working_capital ?? 0)}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[11px] text-slate-400">
+            {isAr ? "ذروة إشغال مخزن المنتج التام" : "FG Warehouse Peak Load"}
+          </div>
+          <div dir="ltr" className="mt-0.5 font-mono text-sm font-bold text-cyan-300">
+            {(result.optimized.kpis.warehouse_utilization_pct ?? 0).toFixed(1)}% (
+            {(result.optimized.kpis.peak_warehouse_tons ?? 0).toFixed(1)}t /{" "}
+            {(result.optimized.kpis.fg_storage_capacity_tons ?? 22).toFixed(0)}t)
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[11px] text-slate-400">
+            {isAr ? "أيام تخزين التجميع (طن-يوم)" : "WIP Holding Volume (Ton-Days)"}
+          </div>
+          <div dir="ltr" className="mt-0.5 font-mono text-sm font-bold text-indigo-300">
+            {(result.optimized.kpis.wip_holding_days ?? 0).toFixed(1)} t-days
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[11px] text-slate-400">
+            {isAr ? "تكلفة الاحتفاظ بالمخزون WIP" : "Weekly WIP & Container Holding Cost"}
+          </div>
+          <div dir="ltr" className="mt-0.5 font-mono text-sm font-bold text-emerald-300">
+            {fmtDisp(opt.wip_holding_cost)} (FIFO: {fmtDisp(base.wip_holding_cost)})
+          </div>
+        </div>
       </div>
 
       {/* Boardroom Side-by-Side Scenario Comparison Matrix (A vs. B vs. C) */}

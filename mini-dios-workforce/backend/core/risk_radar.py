@@ -488,6 +488,97 @@ def compute_risk_radar(
                     )
                 )
 
+    # ------------------------------------------------------------------
+    # 6. Finished-Goods Warehouse Congestion & Trapped Export Container Radar
+    # ------------------------------------------------------------------
+    wh_util = plan.kpis.warehouse_utilization_pct
+    peak_tons = plan.kpis.peak_warehouse_tons
+    cap_tons = plan.kpis.fg_storage_capacity_tons
+    trapped_wc = plan.kpis.trapped_working_capital
+
+    if wh_util >= 78.0 or any(cg.spread_wait_hrs >= 14.0 for cg in (plan.container_groups or [])):
+        worst_cg = max(
+            plan.container_groups or [],
+            key=lambda cg: (cg.spread_wait_hrs, cg.trapped_working_capital),
+            default=None,
+        )
+        if worst_cg is not None and worst_cg.spread_wait_hrs >= 14.0:
+            if not config.container_sync_enabled:
+                sev = "critical" if (wh_util >= 95.0 or worst_cg.spread_wait_hrs >= 32.0) else "elevated"
+            else:
+                sev = "elevated" if wh_util >= 88.0 else "watch"
+            alerts.append(
+                RiskAlert(
+                    alert_id=f"risk-container-{worst_cg.container_group_id}",
+                    category="warehouse_congestion",
+                    severity=sev,
+                    entity_type="container",
+                    entity_id=worst_cg.container_group_id,
+                    title_en=(
+                        f"Trapped Export Container {worst_cg.container_group_id} "
+                        f"({worst_cg.spread_wait_hrs:.1f}h SKU wait • {wh_util:.0f}% Warehouse)"
+                    ),
+                    title_ar=(
+                        f"احتجاز حاوية تصدير {worst_cg.container_group_id} "
+                        f"(انتظار {worst_cg.spread_wait_hrs:.1f} ساعة • إشغال مخزن {wh_util:.0f}%)"
+                    ),
+                    detail_en=(
+                        f"Multi-SKU shipment ({', '.join(worst_cg.order_ids)}) finishes between "
+                        f"H{worst_cg.first_finish_hr:.1f} and H{worst_cg.last_finish_hr:.1f}, locking "
+                        f"{worst_cg.trapped_working_capital:,.0f} {cur} working capital and "
+                        f"{peak_tons:.1f}/{cap_tons:.0f}t floor storage."
+                    ),
+                    detail_ar=(
+                        f"شحنة التصدير المشتركة ({'، '.join(worst_cg.order_ids)}) تكتمل بين س{worst_cg.first_finish_hr:.1f} "
+                        f"وس{worst_cg.last_finish_hr:.1f}، مما يجمد {worst_cg.trapped_working_capital:,.0f} {cur} رأس مال عامل "
+                        f"ويشغل {peak_tons:.1f}/{cap_tons:.0f} طن من المخزن."
+                    ),
+                    metric_label="Trapped Capital",
+                    metric_value=f"{worst_cg.trapped_working_capital:,.0f} {cur}",
+                    financial_exposure=round(worst_cg.trapped_working_capital, 2),
+                    suggested_prompt_en=(
+                        f"Enable Container & WIP Sync and set working capital weight to 60 and OTIF weight to 45 "
+                        f"to synchronize multi-SKU export container {worst_cg.container_group_id} and free warehouse space"
+                    ),
+                    suggested_prompt_ar=(
+                        f"فعّل مزامنة الحاويات والمخزون وارفع وزن رأس المال العامل إلى 60 ووزن التسليم OTIF إلى 45 "
+                        f"لمزامنة حاوية التصدير {worst_cg.container_group_id} وتحرير مساحة المخزن"
+                    ),
+                )
+            )
+        elif wh_util >= 78.0:
+            sev = "critical" if wh_util >= 95.0 else "elevated"
+            alerts.append(
+                RiskAlert(
+                    alert_id="risk-warehouse-congestion",
+                    category="warehouse_congestion",
+                    severity=sev,
+                    entity_type="container",
+                    entity_id="WH-FG-01",
+                    title_en=f"Finished-Goods Warehouse at {wh_util:.0f}% ({peak_tons:.1f}t / {cap_tons:.0f}t)",
+                    title_ar=f"ازدحام مخزن المنتج التام عند {wh_util:.0f}% ({peak_tons:.1f} / {cap_tons:.0f} طن)",
+                    detail_en=(
+                        f"Early batching stages {peak_tons:.1f} tons against {cap_tons:.0f}t ceiling "
+                        f"({trapped_wc:,.0f} {cur} working capital tied up in waiting pallets)."
+                    ),
+                    detail_ar=(
+                        f"التجميع المبكر يكدس {peak_tons:.1f} طن مقابل سقف {cap_tons:.0f} طن "
+                        f"(تجميد {trapped_wc:,.0f} {cur} من رأس المال العامل في المخزن)."
+                    ),
+                    metric_label="Warehouse Load",
+                    metric_value=f"{wh_util:.0f}%",
+                    financial_exposure=round(trapped_wc, 2),
+                    suggested_prompt_en=(
+                        "Enable Container & WIP Sync and set working capital weight to 60 "
+                        "to reduce early WIP staging and relieve finished-goods warehouse congestion"
+                    ),
+                    suggested_prompt_ar=(
+                        "فعّل مزامنة الحاويات والمخزون وارفع وزن رأس المال العامل إلى 60 "
+                        "لخفض التكديس المبكر وتخفيف ازدحام مخزن المنتج التام"
+                    ),
+                )
+            )
+
     # Sort alerts: critical -> elevated -> watch, then highest financial exposure
     alerts.sort(key=lambda a: (SEVERITY_RANK[a.severity], -a.financial_exposure, a.alert_id))
 

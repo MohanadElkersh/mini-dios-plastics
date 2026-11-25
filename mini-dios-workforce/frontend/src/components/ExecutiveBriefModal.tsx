@@ -1,28 +1,43 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Award,
+  Boxes,
+  Building2,
   CheckCircle2,
   Clock,
-  DollarSign,
   Droplet,
   Flame,
+  History,
   Layers,
   Scale,
   ShieldCheck,
   TrendingUp,
+  UserCheck,
+  Wrench,
   X,
   Zap,
 } from "lucide-react";
+import { ScheduleExportMenu } from "@/components/ScheduleExportMenu";
 import { convertCurrency, formatMoney } from "@/lib/format";
 import { CONSTRAINT_LABELS, COPY } from "@/lib/i18n";
 import { useApp } from "@/lib/store";
 
 export function ExecutiveBriefModal() {
-  const { lang, currency, config, result, briefModalOpen, setBriefModalOpen } = useApp();
+  const {
+    lang,
+    currency,
+    config,
+    result,
+    briefModalOpen,
+    setBriefModalOpen,
+    setBacktestModalOpen,
+  } = useApp();
   const t = COPY[lang];
+  const isAr = lang === "ar";
+  const [audienceTab, setAudienceTab] = useState<"owner" | "manager">("owner");
 
   useEffect(() => {
     if (!briefModalOpen) return;
@@ -91,12 +106,198 @@ export function ExecutiveBriefModal() {
 
         {/* Content */}
         <div className="flex-1 space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-6">
+          {/* v1.3 Feature 6: Dual-Audience Executive Switcher (Owner/Chairman vs. Plant/Production Manager) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-800 bg-slate-950/90 p-2">
+            <div className="grid w-full grid-cols-1 gap-1.5 sm:w-auto sm:grid-cols-2">
+              <button
+                type="button"
+                data-testid="brief-tab-owner"
+                onClick={() => setAudienceTab("owner")}
+                className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition md:min-h-0 ${
+                  audienceTab === "owner"
+                    ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
+                    : "bg-slate-900 text-slate-300 hover:text-white"
+                }`}
+              >
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span>{t.briefOwnerTab}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="brief-tab-manager"
+                onClick={() => setAudienceTab("manager")}
+                className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition md:min-h-0 ${
+                  audienceTab === "manager"
+                    ? "bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20"
+                    : "bg-slate-900 text-slate-300 hover:text-white"
+                }`}
+              >
+                <UserCheck className="h-4 w-4 shrink-0" />
+                <span>{t.briefManagerTab}</span>
+              </button>
+            </div>
+
+            <ScheduleExportMenu compact testIdPrefix="brief-export" />
+          </div>
+
           {!result ? (
             <div className="rounded-xl border border-dashed border-slate-700 p-8 text-center text-slate-400 text-sm">
               {t.noResultYet}
             </div>
           ) : (
             <>
+              {/* Audience-Tailored Strategic Narrative Card */}
+              {audienceTab === "owner" ? (
+                <div
+                  data-testid="brief-owner-view-card"
+                  className="rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 via-slate-900 to-cyan-500/10 p-4 sm:p-5 space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold text-white">
+                      {isAr
+                        ? "ملخص المالك ورئيس مجلس الإدارة: حماية ذاكرة المصنع وتحرير السيولة السنوية"
+                        : "Owner & Chairman Brief: Institutional Memory & Annualized Cash Liberation"}
+                    </h3>
+                    <button
+                      type="button"
+                      data-testid="btn-brief-open-backtest"
+                      onClick={() => {
+                        setBriefModalOpen(false);
+                        setBacktestModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/50 bg-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-200 hover:bg-emerald-500/30"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                      <span>{t.backtestBtn}</span>
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-emerald-300">
+                        {isAr
+                          ? "١. تحويل خبرة التشغيل إلى أصل مؤسسي دائم"
+                          : "1. Institutional Memory (Permanent Company Asset)"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? "توثيق قواعد تسلسل الألوان وتوافق القوالب وتجفيف الخامات داخل محرك رياضي دائم لا يغادر المصنع أبداً."
+                          : "Captures veteran floor know-how (color purge sequences, mold compatibilities, pre-drying rules) into a permanent digital asset."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-cyan-300">
+                        {isAr
+                          ? "٢. إنهاء الخلاف اليومي بين الإنتاج والمخازن والمالية"
+                          : "2. Ending Cross-Department Friction in One Click"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? `مزامنة الحاويات تضبط إشغال المخزن عند ${(opt?.kpis.warehouse_utilization_pct ?? 0).toFixed(0)}% وتحمي ${fmtCur(opt?.kpis.trapped_working_capital ?? 0)} من التجميد.`
+                          : `Container & WIP Sync balances long press runs against warehouse load (${(opt?.kpis.warehouse_utilization_pct ?? 0).toFixed(0)}%) and trapped container cash (${fmtCur(opt?.kpis.trapped_working_capital ?? 0)}).`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-amber-300">
+                        {isAr
+                          ? "٣. العائد النقدي السنوي والطاقة المحررة"
+                          : "3. Annualized Cash & Unlocked Selling Capacity"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? `وفر سنوي متوقع ${fmtCur(result.financials.annual_projected_savings)} مع تحرير ${result.financials.unlocked_capacity_hours.toFixed(1)} ساعة إنتاج أسبوعياً.`
+                          : `Projects ${fmtCur(result.financials.annual_projected_savings)} annualized savings while freeing ${result.financials.unlocked_capacity_hours.toFixed(1)} press hours/week for extra sales.`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-indigo-300">
+                        {isAr
+                          ? "٤. إثبات العائد قبل الدفع (اختبار 30 يوماً)"
+                          : "4. Zero-Risk 1-Month Historical Backtest Proof"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? "إعادة تشغيل سجلات الشهر الماضي تثبت استرداد قيمة النظام خلال أيام معدودة من وفورات الهالك والوقت الإضافي."
+                          : "Replaying your past 30-day press logs proves full license payback in days from purge scrap and overtime savings alone."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  data-testid="brief-manager-view-card"
+                  className="rounded-2xl border border-cyan-500/40 bg-gradient-to-br from-cyan-500/15 via-slate-900 to-indigo-500/10 p-4 sm:p-5 space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold text-white">
+                      {isAr
+                        ? "درع القرار الهندسي لمدير المصنع والإنتاج: إثبات رياضي يحميك من الضغوط اليومية"
+                        : "Plant & Production Manager Decision Shield: Mathematical Proof Against Floor Firefighting"}
+                    </h3>
+                    <span className="rounded-full border border-cyan-400/40 bg-cyan-500/20 px-2.5 py-0.5 text-[10px] font-bold text-cyan-200">
+                      {isAr ? "درع القرار الهندسي" : "DECISION SHIELD"}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-cyan-300">
+                        {isAr
+                          ? "١. تبرير رياضي فوري للوقت الإضافي وعمالة الإسناد"
+                          : "1. Mathematical Proof for Overtime & Relief Staffing"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? `تغطية الورديات الحالية ${(result.workforce?.optimized.kpis.coverage_pct ?? 100).toFixed(1)}% مع جاهزية تبديل قوالب ${(result.workforce?.optimized.kpis.changeover_readiness_pct ?? 100).toFixed(0)}% — دليل رقمي واضح عند طلب دعم عمالة.`
+                          : `Gives you exact shift coverage (${(result.workforce?.optimized.kpis.coverage_pct ?? 100).toFixed(1)}%) and mold-change readiness (${(result.workforce?.optimized.kpis.changeover_readiness_pct ?? 100).toFixed(0)}%) to justify staffing requests to ownership.`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-purple-300">
+                        {isAr
+                          ? "٢. حماية نوافذ الصيانة الوقائية للقوالب (HC6)"
+                          : "2. Protected Mold Preventive Maintenance Windows (HC6)"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? "يحجز النظام صيانة القوالب الحرجة رياضياً قبل تجاوز 95% من عمر الضربات ليمنع كسر القالب تحت ضغط المبيعات."
+                          : "Automatically locks mandatory mold PM windows before 95% shot limits so Sales can never force a run that damages a cavity."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-amber-300">
+                        {isAr
+                          ? "٣. كشف التكلفة الحقيقية للأوامر العاجلة (Rush Orders)"
+                          : "3. Instant Rush-Order Trade-Off Shield"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? "عندما تطلب المبيعات إدخال أمر عاجل يكسر تسلسل الألوان، يظهر النظام فوراً تكلفة الهالك والتأخير الناتج بالأرقام."
+                          : "When Sales demands a mid-week color break, show them the exact purge scrap kg and export delay cost in 2 seconds."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs">
+                      <div className="font-bold text-emerald-300">
+                        {isAr
+                          ? "٤. جدول ورديات وماكينات خالٍ من التعارضات (11/11 قيد)"
+                          : "4. Zero-Violation Floor Execution (11/11 Constraints)"}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-300">
+                        {isAr
+                          ? "تحقق آلي من توافق القوالب، ساعات تجفيف PET/ABS، وعدم تشغيل قالب واحد على ماكينتين في نفس اللحظة."
+                          : "Guarantees zero mold collisions, respected PET/ABS drying lead times, and 11h worker rest compliance every shift."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Top Banner KPI Grid */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-center">

@@ -267,6 +267,69 @@ export function CopilotDrawer() {
                       </div>
                     )}
 
+                    {/* v1.3 Feature 4: Commander-Grade Financial Trade-Off Callout Box */}
+                    {m.response.action !== "ready" && m.response.financial_tradeoff_summary && (
+                      <div
+                        data-testid="copilot-financial-tradeoff-box"
+                        className="rounded-xl border border-emerald-500/45 bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-slate-900/90 p-3 text-xs shadow-md"
+                      >
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                          <span className="inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-emerald-300 text-[10px]">
+                            <Scale className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>
+                              {lang === "ar"
+                                ? "تحليل الموازنة المالية التنفيذية (CFO + مدير المصنع)"
+                                : "Commander-Grade Financial Trade-Off Analysis"}
+                            </span>
+                          </span>
+                          <span
+                            dir="ltr"
+                            className={`rounded-md px-2 py-0.5 font-mono text-[10px] font-extrabold ${
+                              m.response.financial_tradeoff_summary.is_positive_net
+                                ? "bg-emerald-500/25 text-emerald-200"
+                                : "bg-amber-500/25 text-amber-200"
+                            }`}
+                          >
+                            Net:{" "}
+                            {m.response.financial_tradeoff_summary.net_financial_gain >= 0 ? "+" : ""}
+                            {fmtCur(
+                              m.response.financial_tradeoff_summary.net_financial_gain,
+                              m.response
+                            )}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-semibold leading-relaxed text-white">
+                          {lang === "ar"
+                            ? m.response.financial_tradeoff_summary.headline_ar
+                            : m.response.financial_tradeoff_summary.headline_en}
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-800/80 pt-2 text-[10px]">
+                          <div>
+                            <span className="text-slate-400">
+                              {lang === "ar" ? "التكلفة المدفوعة:" : "Cost Paid:"}
+                            </span>{" "}
+                            <span dir="ltr" className="font-mono font-bold text-amber-300">
+                              {fmtCur(
+                                m.response.financial_tradeoff_summary.cost_paid_amount,
+                                m.response
+                              )}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">
+                              {lang === "ar" ? "القيمة المحمية:" : "Value Protected:"}
+                            </span>{" "}
+                            <span dir="ltr" className="font-mono font-bold text-emerald-300">
+                              {fmtCur(
+                                m.response.financial_tradeoff_summary.value_protected_amount,
+                                m.response
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Simulation KPI Preview */}
                     {(() => {
                       const simRes = m.response.production_result ?? m.response.result;

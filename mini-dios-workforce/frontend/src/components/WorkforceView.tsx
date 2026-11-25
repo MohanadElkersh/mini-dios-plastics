@@ -37,6 +37,7 @@ import {
   YAxis,
 } from "recharts";
 import { convertCurrency, formatMoney, formatNumber } from "@/lib/format";
+import { ScheduleExportMenu } from "@/components/ScheduleExportMenu";
 import {
   DAY_NAMES_I18N,
   SHIFT_LABELS,
@@ -521,6 +522,7 @@ export function WorkforceView() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <ScheduleExportMenu compact testIdPrefix="workforce-export" />
           {wf && (
             <span className="hidden rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 font-mono text-[11px] text-slate-300 sm:inline-flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
