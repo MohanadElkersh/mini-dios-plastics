@@ -26,8 +26,11 @@ from pathlib import Path
 from typing import Any, Iterator, Literal, Optional
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
+from .neon_services import load_neon_env
 from .ontology import PlantDataset, SolveResult, SolverConfig
 from .seed import default_config, demo_dataset
+
+load_neon_env()
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "mini_dios.db"
 LEGACY_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "audit.db"
@@ -153,12 +156,24 @@ class AuditStore:
         self._init_schema()
 
     def _try_init_postgres(self, pg_url: str) -> bool:
-        """Attempt to initialize a bounded PostgreSQL connection pool via SQLAlchemy or psycopg."""
+        """Attempt to initialize a bounded PostgreSQL connection pool via SQLAlchemy (psycopg2 / psycopg)."""
         try:
             from sqlalchemy import create_engine, text
 
+            sa_url = pg_url
+            if sa_url.startswith("postgresql://"):
+                try:
+                    import psycopg  # noqa: F401
+                except ImportError:
+                    try:
+                        import psycopg2  # noqa: F401
+
+                        sa_url = "postgresql+psycopg2://" + sa_url[len("postgresql://") :]
+                    except ImportError:
+                        pass
+
             engine = create_engine(
-                pg_url,
+                sa_url,
                 pool_size=POOL_CONFIG["pool_size"],
                 max_overflow=POOL_CONFIG["max_overflow"],
                 pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
@@ -1163,3 +1178,37 @@ class AuditStore:
             "dataset": ds.model_dump(mode="json"),
             "default_config": cfg.model_dump(mode="json"),
         }
+
+    def probe_database(self) -> dict[str, Any]:
+        """Execute a live diagnostic query against the active database (Neon Postgres or SQLite fallback)."""
+        unpooled_raw = os.environ.get("DATABASE_URL_UNPOOLED", "").strip()
+        with self._session() as db:
+            ws_row = db.fetchone_dict("SELECT COUNT(*) AS cnt FROM saved_workspaces")
+            cp_row = db.fetchone_dict("SELECT COUNT(*) AS cnt FROM decision_checkpoints")
+            ws_cnt = int(ws_row["cnt"]) if ws_row and ws_row.get("cnt") is not None else 0
+            cp_cnt = int(cp_row["cnt"]) if cp_row and cp_row.get("cnt") is not None else 0
+            if db.is_postgres:
+                meta = db.fetchone_dict(
+                    "SELECT current_database() AS db_name, current_user AS db_user, version() AS db_version"
+                ) or {}
+                return {
+                    "configured": True,
+                    "ok": True,
+                    "storage_backend": self.storage_backend,
+                    "database_name": meta.get("db_name", "neondb"),
+                    "current_user": meta.get("db_user", "neondb_owner"),
+                    "server_version": str(meta.get("db_version", ""))[:80],
+                    "unpooled_url_configured": bool(unpooled_raw),
+                    "pool_config": self.pool_config,
+                    "saved_workspaces_count": ws_cnt,
+                    "decision_checkpoints_count": cp_cnt,
+                }
+            return {
+                "configured": False,
+                "ok": True,
+                "storage_backend": self.storage_backend,
+                "database_name": str(self.db_path.name),
+                "unpooled_url_configured": bool(unpooled_raw),
+                "saved_workspaces_count": ws_cnt,
+                "decision_checkpoints_count": cp_cnt,
+            }

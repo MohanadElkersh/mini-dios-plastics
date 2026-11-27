@@ -32,3 +32,4 @@ mini-dios-workforce/backend/data/
 .DS_Store
 Thumbs.db
 docs/.combined_master_reference.md
+.neon

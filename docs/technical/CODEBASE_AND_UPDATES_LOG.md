@@ -3,7 +3,7 @@
 > **Track B — Dedicated Engineering Ledger (For Engineers, DevOps & AI Agents)**
 > **Scope:** Complete, granular, file-by-file map of what the codebase currently contains (**Section A**) and a chronological, newest-first ledger of every code update ever made (**Section B**).
 > **Security Guardrail:** NEVER store `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens in this file (reference variable names only).
-> **Last Synchronized:** 2026-11-27 (`v1.6 / Release v1.4` • **93** active repository files mapped • **10** code updates logged)
+> **Last Synchronized:** 2026-11-27 (`v1.7 / Neon Cloud Platform Integration` • **101** active repository files mapped • **11** code updates logged)
 
 ---
 
@@ -241,6 +241,26 @@ DIOs/
 ---
 
 ## Section B — Complete Code Update Ledger (Newest First)
+
+### Update 11 — `2026-11-27` • `Uncommitted / Local` • `v1.7 (Neon Cloud Platform Integration — Postgres, Auth, AI Gateway, Functions & Realtime)`
+- **Title & Why:** Provision and wire all 5 Neon Cloud Platform services (`postgres`, `auth`, `ai-gateway`, `functions`, `realtime`) on Neon branch `production` (`br-bold-hat-bh4fc43k`, project `broad-pond-82857343`, org `org-nameless-sun-74042046`) via `neon init` + `neon deploy`, and integrate them end-to-end across both the Python FastAPI backend and the Next.js App Router frontend.
+- **Files Changed:**
+  - *Added (Root & Neon Config — 3 files):* `neon.ts`, `hello.ts`, `package.json`
+  - *Added (Backend — 2 files):* `mini-dios-workforce/backend/core/neon_services.py`, `mini-dios-workforce/backend/tests/test_neon_services.py`
+  - *Modified (Backend — 6 files):* `mini-dios-workforce/backend/requirements.txt`, `mini-dios-workforce/backend/main.py`, `mini-dios-workforce/backend/core/audit.py`, `mini-dios-workforce/backend/core/auth.py`, `mini-dios-workforce/backend/core/copilot.py`, `mini-dios-workforce/backend/api/routes.py`
+  - *Added (Frontend — 3 files):* `mini-dios-workforce/frontend/src/lib/neon.ts`, `mini-dios-workforce/frontend/src/app/api/neon/frontend-status/route.ts`, `mini-dios-workforce/frontend/src/app/api/neon/realtime/route.ts`
+  - *Modified (Frontend — 3 files):* `mini-dios-workforce/frontend/package.json`, `mini-dios-workforce/frontend/next.config.ts`, `mini-dios-workforce/frontend/src/components/DecisionCheckpointsDrawer.tsx`
+  - *Modified (Docs — 3 files):* `docs/technical/CODEBASE_AND_UPDATES_LOG.md`, `docs/technical/TECHNICAL_REFERENCE.md`, `docs/CHANGELOG.md`
+- **Granular Code Changes:**
+  - `neon.ts` & `hello.ts`: Declared Neon branch policy with `preview: { realtime: true }`, `auth: true`, `aiGateway: true`, and `functions: { hello: { name: "Hello World", source: "./hello.ts" } }`.
+  - `backend/core/neon_services.py`: Created unified loader (`load_neon_env()`) reading root `.env.local` (11 variables pulled by `neon deploy`: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_BRANCH`, `NEON_BRANCH_ID`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_FUNCTION_HOST_SUFFIX`, `NEON_AI_GATEWAY_TOKEN`, `NEON_AI_GATEWAY_BASE_URL`, `NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`), plus `derive_database_name()`, `get_neon_function_url()`, `invoke_neon_function()`, `fetch_neon_auth_jwks()`, `verify_neon_auth_jwt()`, `probe_neon_ai_gateway()`, `call_neon_ai_gateway_narration()`, and `get_neon_realtime_config_status()`.
+  - `backend/core/audit.py`: Updated `_try_init_postgres()` to automatically select `postgresql+psycopg2://` when `psycopg2-binary` is installed under SQLAlchemy 2.1, and added `probe_database()` querying live Postgres metadata (`current_database()`, `current_user`, `version()`, `saved_workspaces`, and `decision_checkpoints`).
+  - `backend/core/auth.py` & `copilot.py` & `api/routes.py`: Wired Neon Auth JWT Bearer verification against `NEON_AUTH_JWKS_URL` in `get_optional_session()`, optional Neon AI Gateway narration in `run_plastics_copilot()` with automatic fallback to Gemini / deterministic offline CP-SAT when AI Gateway credits are 0, and added `GET /api/neon/status` and `GET /api/neon/function/{slug}`.
+  - `frontend/next.config.ts`, `src/lib/neon.ts`, `src/app/api/neon/frontend-status/route.ts`, `src/app/api/neon/realtime/route.ts`, & `DecisionCheckpointsDrawer.tsx`: Loaded root `.env.local` in `next.config.ts` with `cleanDistDir: false` and `serverExternalPackages: ["@neon/env", "@neon/config"]`; wired `@neon/env` (`parseEnv`, `functionBaseUrl`), `@neondatabase/serverless` (`neon()`), `@neon/realtime/server` (`createRealtime`, `rawSql`), and `@neon/realtime/client` (`createRealtimeClient`) live WebSocket subscriptions inside `DecisionCheckpointsDrawer.tsx`.
+- **Impact & Dependencies:** Added `sqlalchemy>=2.0.30`, `psycopg2-binary>=2.9.9`, `PyJWT>=2.9.0` to Python backend and `@neon/env`, `@neon/realtime`, `@neondatabase/serverless` to Next.js frontend. Zero raw secrets committed.
+- **Verification Status:** Verified via `npm run build` (exit code 0), `pytest` (all backend tests passing), and live end-to-end verification across all 5 Neon services (`postgres`, `auth`, `functions`, `realtime`, `ai-gateway`).
+
+---
 
 ### Update 10 — `2026-11-27` • `Uncommitted / Local` • `v1.6 (Release v1.4 — Pilot-Ready Persistence, CTP Rush-Order Quoter & Executive Dispatch)`
 - **Title & Why:** Implement `v1.4` across backend, frontend, and Two-Track docs: (1) log the parked Pilot-Pull Constraints Backlog into `docs/ROADMAP_AND_BACKLOG.md`, `docs/MASTER_PLAYBOOK.md`, and `docs/technical/TECHNICAL_REFERENCE.md` without bloating the Day-1 solver; (2) add dual-mode `DATABASE_URL` PostgreSQL (`pool_size=3, max_overflow=2, pool_pre_ping=True`) + SQLite fallback persistence with auto-migrated `saved_workspaces`, `pinned_scenarios`, `backtest_runs`, and `decision_checkpoints` plus 1-click rollback from Tab 1; (3) add a strictly non-destructive Capable-to-Promise (CTP) Rush-Order Quoter (`POST /api/quote/ctp` & `CTPQuoterModal.tsx`); and (4) add 1-click bilingual (`EN` / `AR`) print-optimized Executive PDF reports and WhatsApp Shift Dispatch exports (`POST /api/dispatch/whatsapp` & `WhatsAppDispatchModal.tsx`).

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createRealtimeClient, type SealedLiveQuery } from "@neon/realtime/client";
 import {
   CheckCircle2,
   Clock,
@@ -8,6 +9,7 @@ import {
   History,
   Loader2,
   Plus,
+  Radio,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -40,12 +42,70 @@ export function DecisionCheckpointsDrawer() {
   const isAr = lang === "ar";
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [savingManual, setSavingManual] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [neonFunctionReply, setNeonFunctionReply] = useState<string | null>(null);
 
   useEffect(() => {
     if (checkpointsDrawerOpen) {
       void refreshCheckpoints(true);
     }
   }, [checkpointsDrawerOpen, refreshCheckpoints]);
+
+  // Wire Neon Realtime (@neon/realtime/client) + Neon Functions & Services status when drawer is open
+  useEffect(() => {
+    if (!checkpointsDrawerOpen) return;
+    let cancelled = false;
+    let closeClient: (() => void) | null = null;
+
+    async function connectNeonRealtimeAndStatus() {
+      try {
+        const [rtResp, stResp] = await Promise.all([
+          fetch("/api/neon/realtime", { cache: "no-store" }),
+          fetch("/api/neon/frontend-status", { cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+
+        if (stResp.ok) {
+          const stData = (await stResp.json()) as {
+            services?: { functions?: { body?: string } };
+          };
+          const fnBody = stData?.services?.functions?.body;
+          if (fnBody) setNeonFunctionReply(fnBody.trim());
+        }
+
+        if (rtResp.ok) {
+          const rtData = (await rtResp.json()) as {
+            ok?: boolean;
+            realtimeUrl?: string;
+            sealedQuery?: SealedLiveQuery<Record<string, unknown>>;
+          };
+          if (rtData.ok && rtData.realtimeUrl && rtData.sealedQuery) {
+            const client = createRealtimeClient({ url: rtData.realtimeUrl });
+            const sub = client.subscribe(rtData.sealedQuery);
+            const offChange = sub.onChange((snapshot) => {
+              if (!cancelled && snapshot.status === "live") {
+                setRealtimeConnected(true);
+              }
+            });
+            setRealtimeConnected(true);
+            closeClient = () => {
+              offChange();
+              sub.unsubscribe();
+              client.close();
+            };
+          }
+        }
+      } catch {
+        // Ignore network errors in offline mode
+      }
+    }
+
+    void connectNeonRealtimeAndStatus();
+    return () => {
+      cancelled = true;
+      if (closeClient) closeClient();
+    };
+  }, [checkpointsDrawerOpen]);
 
   useEffect(() => {
     if (!checkpointsDrawerOpen) return;
@@ -169,9 +229,30 @@ export function DecisionCheckpointsDrawer() {
 
         {/* Action Sub-Header */}
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-[#0f1629] px-4 py-3 sm:px-6">
-          <span className="text-xs font-semibold text-slate-300">
-            {checkpoints.length} {isAr ? "نقطة قرار محفوظة (بحد أقصى 25)" : "Saved Checkpoints (Max 25)"}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-300">
+              {checkpoints.length} {isAr ? "نقطة قرار محفوظة (بحد أقصى 25)" : "Saved Checkpoints (Max 25)"}
+            </span>
+            {realtimeConnected && (
+              <span
+                data-testid="neon-realtime-badge"
+                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-emerald-300"
+              >
+                <Radio className="h-2.5 w-2.5 text-emerald-400" />
+                <span>Neon Realtime</span>
+              </span>
+            )}
+            {neonFunctionReply && (
+              <span
+                data-testid="neon-function-badge"
+                title={neonFunctionReply}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 font-mono text-[10px] font-semibold text-cyan-300"
+              >
+                <Zap className="h-2.5 w-2.5 text-cyan-400" />
+                <span>Neon Fn: OK</span>
+              </span>
+            )}
+          </div>
           <button
             type="button"
             data-testid="btn-save-manual-checkpoint"

@@ -46,11 +46,13 @@ from .ontology import (
 )
 from .disruptions import apply_plant_scenarios
 from .financials import compute_financial_report
+from .neon_services import call_neon_ai_gateway_narration, load_neon_env
 from .risk_radar import compute_risk_radar
 from .solver import solve_plant_schedule
 from .workforce_solver import parse_day, solve_workforce, solve_workforce_with_callouts
 
-# Load backend/.env if present
+# Load root .env.local / .env and backend/.env if present
+load_neon_env()
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 if _env_path.exists():
     load_dotenv(dotenv_path=_env_path)
@@ -2139,6 +2141,21 @@ def run_plastics_copilot(
     res = run_offline_composable_copilot(
         prompt, dataset, current_config, current_result, language
     )
+
+    # Optional Neon AI Gateway narration enhancement (when NEON_AI_GATEWAY_BASE_URL + NEON_AI_GATEWAY_TOKEN
+    # are set and account credits are available; strictly narrates deterministic CP-SAT output only)
+    use_neon_gw = os.environ.get("COPILOT_USE_NEON_AI_GATEWAY", "false").lower() in ("true", "1", "yes")
+    if use_neon_gw and not offline_mode and not force_offline:
+        gw_narration = call_neon_ai_gateway_narration(
+            system_prompt=(
+                "You are Mini-DIOS Plastics Operations Copilot. Strictly preserve every single number, "
+                "currency, percentage, and ID from the provided deterministic CP-SAT result."
+            ),
+            user_prompt=f"User question: {prompt}\nDeterministic CP-SAT output: {res.reply}",
+        )
+        if gw_narration:
+            res = res.model_copy(update={"reply": gw_narration, "source": "neon_ai_gateway"})
+
     if quota_limited:
         notice = (
             "\n\n_(ملاحظة: تم الوصول إلى الحد الساعي لاستدعاءات Gemini المباشرة لهذه الجلسة — تم تنفيذ المحاكاة تلقائياً باستخدام محرك OR-Tools CP-SAT الحتمي المحلي دون أي فقدان في الدقة.)_"

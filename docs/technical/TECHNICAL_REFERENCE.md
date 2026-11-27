@@ -242,8 +242,13 @@ Defined in `backend/api/routes.py` under prefix `/api`:
 ## 10. Environment Variables, Local Launch, Docker & Render Deployment
 
 ### Environment Variable Names (Never Store Real Values in Docs)
-- **Backend (`backend/.env` / Render API service):** `PORT`, `DATABASE_URL`, `DIOS_AUDIT_DB`, `AUTH_ENABLED`, `AUTH_SECRET_KEY`, `DEMO_ACCESS_CODES`, `ADMIN_PASSWORD`, `ALLOW_INSTANT_DEMO`, `COPILOT_MAX_LIVE_CALLS_PER_HOUR`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OFFLINE_MODE`, `ALLOWED_ORIGINS`, `CORS_ORIGINS`.
-- **Frontend (Render Web service):** `PORT`, `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_ALLOW_INSTANT_DEMO`, `BACKEND_INTERNAL_URL`.
+- **Backend (`backend/.env` / Root `.env.local` / Render API service):** `PORT`, `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_BRANCH`, `NEON_BRANCH_ID`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_FUNCTION_HOST_SUFFIX`, `NEON_AI_GATEWAY_TOKEN`, `NEON_AI_GATEWAY_BASE_URL`, `NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`, `COPILOT_USE_NEON_AI_GATEWAY`, `DIOS_AUDIT_DB`, `AUTH_ENABLED`, `AUTH_SECRET_KEY`, `DEMO_ACCESS_CODES`, `ADMIN_PASSWORD`, `ALLOW_INSTANT_DEMO`, `COPILOT_MAX_LIVE_CALLS_PER_HOUR`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OFFLINE_MODE`, `ALLOWED_ORIGINS`, `CORS_ORIGINS`.
+- **Frontend (Root `.env.local` / Render Web service):** `PORT`, `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_ALLOW_INSTANT_DEMO`, `BACKEND_INTERNAL_URL`, plus the 11 Neon variables loaded automatically from root `.env.local` via `next.config.ts` (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_BRANCH`, `NEON_BRANCH_ID`, `NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`, `NEON_FUNCTION_HOST_SUFFIX`, `NEON_AI_GATEWAY_TOKEN`, `NEON_AI_GATEWAY_BASE_URL`, `NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`).
+- **Neon Diagnostic & Live Query Endpoints:**
+  - `GET /api/neon/status` (FastAPI Backend): Verifies all 5 Neon services (`postgres`, `auth`, `functions`, `ai_gateway`, `realtime`) from Python.
+  - `GET /api/neon/function/{slug}` (FastAPI Backend): Invokes deployed Neon Function `slug` (e.g., `hello`).
+  - `GET /api/neon/frontend-status` (Next.js App Router): Verifies all 5 Neon services using `@neondatabase/serverless`, `@neon/env` (`parseEnv`, `functionBaseUrl`), and `@neon/realtime/server` (`createRealtime`, `rawSql`).
+  - `GET /api/neon/realtime` (Next.js App Router): Seals a parameterized `SealedLiveQuery` against `decision_checkpoints` for `@neon/realtime/client` WebSocket subscriptions.
 
 ---
 

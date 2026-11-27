@@ -35,6 +35,13 @@ from core.dispatch import (
     WhatsAppDispatchResponse,
     format_whatsapp_shift_dispatch,
 )
+from core.neon_services import (
+    fetch_neon_auth_jwks,
+    get_neon_function_url,
+    get_neon_realtime_config_status,
+    invoke_neon_function,
+    probe_neon_ai_gateway,
+)
 from core.disruptions import apply_plant_scenarios
 from core.excel_io import (
     build_template_workbook,
@@ -216,7 +223,38 @@ def health() -> dict:
         "ortools_version": getattr(ortools, "__version__", "unknown"),
         "auth_enabled": is_auth_enabled(),
         "storage_backend": store.storage_backend,
+        "neon_branch": os.environ.get("NEON_BRANCH") or None,
+        "neon_branch_id": os.environ.get("NEON_BRANCH_ID") or None,
+        "neon_function_hello_url": get_neon_function_url("hello"),
     }
+
+
+@router.get("/neon/status")
+def neon_status_endpoint() -> dict:
+    """End-to-end diagnostic status of all 5 wired Neon services from the Python FastAPI backend."""
+    store = get_audit_store()
+    pg_status = store.probe_database()
+    auth_status = fetch_neon_auth_jwks()
+    fn_status = invoke_neon_function("hello")
+    ai_gw_status = probe_neon_ai_gateway()
+    rt_status = get_neon_realtime_config_status()
+    return {
+        "branch": os.environ.get("NEON_BRANCH") or "production",
+        "branch_id": os.environ.get("NEON_BRANCH_ID") or None,
+        "services": {
+            "postgres": pg_status,
+            "auth": auth_status,
+            "functions": fn_status,
+            "ai_gateway": ai_gw_status,
+            "realtime": rt_status,
+        },
+    }
+
+
+@router.get("/neon/function/{slug}")
+def neon_invoke_function_endpoint(slug: str = "hello") -> dict:
+    """Invoke a deployed Neon Function by slug (e.g., `hello`) and return its live response."""
+    return invoke_neon_function(slug)
 
 
 @router.get("/auth/me", response_model=AuthStatusResponse)

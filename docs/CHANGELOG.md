@@ -4,6 +4,20 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.7 (Neon Cloud Platform Integration — Postgres, Auth, AI Gateway, Functions & Realtime) — 2026-11-27
+
+### Application & Infrastructure Changes
+- **Neon Cloud Platform Provisioning (`neon.ts`, `hello.ts`, `.env.local`):**
+  - Initialized and deployed Neon branch `production` (`br-bold-hat-bh4fc43k`) on project `broad-pond-82857343` (`org-nameless-sun-74042046`) with all 5 Neon services enabled: **Postgres**, **Neon Auth**, **AI Gateway**, **Functions** (`hello`), and **Realtime**.
+- **Full-Stack Neon Wiring (`backend/core/neon_services.py`, `backend/core/audit.py`, `backend/core/auth.py`, `backend/core/copilot.py`, `backend/api/routes.py`, `frontend/src/lib/neon.ts`, `frontend/src/app/api/neon/*`, `DecisionCheckpointsDrawer.tsx`):**
+  - **Neon Postgres (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`):** Connected Python `AuditStore` via SQLAlchemy + `psycopg2-binary` (`storage_backend="postgres"`) and Next.js server routes via `@neondatabase/serverless` (`neon()`).
+  - **Neon Auth (`NEON_AUTH_BASE_URL`, `NEON_AUTH_JWKS_URL`):** Wired JWKS key discovery and JWT Bearer token verification (`PyJWT` + `PyJWKClient`) into `backend/core/auth.py` alongside `DEMO_ACCESS_CODES`.
+  - **Neon Functions (`NEON_BRANCH_ID`, `NEON_FUNCTION_HOST_SUFFIX`):** Wired `@neon/env`'s `functionBaseUrl("hello")` in Next.js and `invoke_neon_function("hello")` in FastAPI (`GET /api/neon/function/hello`).
+  - **Neon Realtime (`NEON_REALTIME_URL`, `NEON_REALTIME_SECRET`):** Wired `@neon/realtime/server` (`createRealtime` + `rawSql`, deriving `db` from `DATABASE_URL`) in `GET /api/neon/realtime` and `@neon/realtime/client` (`createRealtimeClient`) live WebSocket subscriptions in `DecisionCheckpointsDrawer.tsx`.
+  - **Neon AI Gateway (`NEON_AI_GATEWAY_BASE_URL`, `NEON_AI_GATEWAY_TOKEN`):** Wired authenticated gateway probing (`/v1/models`) and optional Turn-2 Copilot narration (`/openai/v1/chat/completions`) with automatic fallback to Gemini / deterministic offline CP-SAT when account AI Gateway credits are 0.
+
+---
+
 ## v1.6 (Release v1.4 — Pilot-Ready Persistence, CTP Rush-Order Quoter & Executive Dispatch) — 2026-11-27
 
 ### Application & Documentation Changes

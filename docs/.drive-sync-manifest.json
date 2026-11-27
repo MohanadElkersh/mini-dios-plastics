@@ -9,7 +9,7 @@
   "tech_subfolder_name": "Technical Specs (For Engineers & IT)",
   "tech_subfolder_id": "1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
   "tech_subfolder_url": "https://drive.google.com/drive/folders/1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
-  "last_sync_at": "2026-11-27T04:26:00.945072+00:00",
+  "last_sync_at": "2026-11-27T05:06:40.367Z",
   "documents": {
     "master_complete_reference": {
       "title": "Mini-DIOS Plastics — Master Complete Reference",
@@ -48,24 +48,24 @@
       "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
       "file_id": "18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw",
       "webViewLink": "https://docs.google.com/document/d/18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw/edit",
-      "last_synced_sha256": "cc267416204197d63ba45d59fe064cce40415f37b16a944feef261fdde9ec111",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "24442f4f2ad9f5ece0b4d4463f393e76b040bbaceda1bc17cd9abb99b781e209",
+      "last_synced_at": "2026-11-27T05:06:40.367Z"
     },
     "living_changelog": {
       "title": "Mini-DIOS Plastics — Living Changelog",
       "local_path": "docs/CHANGELOG.md",
       "file_id": "1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0",
       "webViewLink": "https://docs.google.com/document/d/1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0/edit",
-      "last_synced_sha256": "413187a561c54f7949cacfafba4716f14268944d508a49ec7a61106f32c2cba7",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "5667088891f5839770c793130dbd610220033ccce496bf59e733159c7dbb0b41",
+      "last_synced_at": "2026-11-27T05:06:40.367Z"
     },
     "codebase_and_updates_log": {
       "title": "Mini-DIOS Plastics — Codebase & Code-Update Ledger",
       "local_path": "docs/technical/CODEBASE_AND_UPDATES_LOG.md",
       "file_id": "1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM",
       "webViewLink": "https://docs.google.com/document/d/1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM/edit",
-      "last_synced_sha256": "448bad830d089a9c6c05ca7cfd8e238a72a3001c0b80af561c45d78eb0983b83",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "0a54aa68f3920a9fd2412faebba9d4643e7c71f02f4c218e13fb3d5f5510af05",
+      "last_synced_at": "2026-11-27T05:06:40.367Z"
     }
   },
   "client_documents": {

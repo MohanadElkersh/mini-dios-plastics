@@ -244,7 +244,25 @@ def reset_auth_runtime_state() -> None:
 
 def get_optional_session(request: Request) -> Optional[AuthSession]:
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    return verify_session_token(token)
+    sess = verify_session_token(token)
+    if sess is not None:
+        return sess
+    # Also support Neon Auth JWT Bearer tokens verified against NEON_AUTH_JWKS_URL
+    auth_header = (request.headers.get("authorization") or "").strip()
+    if auth_header.lower().startswith("bearer "):
+        bearer_token = auth_header[7:].strip()
+        if bearer_token:
+            from .neon_services import verify_neon_auth_jwt
+
+            neon_claims = verify_neon_auth_jwt(bearer_token)
+            if neon_claims is not None:
+                return AuthSession(
+                    session_id=neon_claims["session_id"],
+                    client_label=neon_claims["client_label"],
+                    authenticated=True,
+                    auth_enabled=is_auth_enabled(),
+                )
+    return None
 
 
 def require_auth_session(request: Request) -> AuthSession:
