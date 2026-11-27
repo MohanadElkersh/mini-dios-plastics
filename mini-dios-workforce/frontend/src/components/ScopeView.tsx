@@ -51,6 +51,9 @@ export function ScopeView() {
     setActiveView,
     setBacktestModalOpen,
     setOnboardingModalOpen,
+    checkpoints,
+    setCheckpointsDrawerOpen,
+    setCtpModalOpen,
   } = useApp();
 
   const t = COPY[lang];
@@ -141,6 +144,19 @@ export function ScopeView() {
               >
                 <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
                 <span>{t.guidedSetupBtn}</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="btn-open-checkpoints-drawer"
+                onClick={() => setCheckpointsDrawerOpen(true)}
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-bold text-indigo-200 transition hover:bg-indigo-500/25 md:min-h-0"
+              >
+                <History className="h-3.5 w-3.5 text-indigo-400" />
+                <span>{t.checkpointsBtn}</span>
+                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.2 font-mono text-[10px] text-indigo-100">
+                  {checkpoints.length}
+                </span>
               </button>
 
               <button
@@ -241,14 +257,24 @@ export function ScopeView() {
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-800/80 pt-3 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 border-t border-slate-800/80 pt-3 sm:grid-cols-3">
+            <button
+              type="button"
+              data-testid="btn-open-ctp-scope"
+              onClick={() => setCtpModalOpen(true)}
+              className="inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-amber-500/45 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-200 transition hover:bg-amber-500/25 md:min-h-0"
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-400" />
+              <span>{t.ctpBtn}</span>
+            </button>
+
             <button
               type="button"
               data-testid="btn-quick-edit-physics"
               onClick={() => openQuickModal("physics")}
               className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/20 md:min-h-0"
             >
-              <Zap className="h-3.5 w-3.5" />
+              <Sliders className="h-3.5 w-3.5" />
               <span>{t.editPhysicsBtn}</span>
             </button>
 

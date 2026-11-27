@@ -62,6 +62,14 @@ MASTER_DOCS: list[dict[str, str]] = [
         "folder": "root",
     },
     {
+        "key": "roadmap_and_backlog",
+        "title": "Mini-DIOS Plastics — Product Roadmap & Future Constraints Backlog",
+        "local_path": "docs/ROADMAP_AND_BACKLOG.md",
+        "kind": "master",
+        "folder": "root",
+        "optional": "true",
+    },
+    {
         "key": "technical_reference",
         "title": "Mini-DIOS Plastics — Technical Reference",
         "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
@@ -90,23 +98,32 @@ def sha256_text(text: str) -> str:
 
 
 def assemble_complete_reference(docs_dir: Path) -> str:
-    """Combine ONLY the human-friendly User Guide & Commercial Playbook into one deterministic Markdown doc."""
+    """Combine ONLY the human-friendly User Guide, Commercial Playbook & Roadmap into one deterministic Markdown doc."""
     guide = (docs_dir / "MASTER_USER_GUIDE_AND_MANUAL.md").read_text(encoding="utf-8").strip()
     playbook = (docs_dir / "MASTER_PLAYBOOK.md").read_text(encoding="utf-8").strip()
+    roadmap_path = docs_dir / "ROADMAP_AND_BACKLOG.md"
+    roadmap = roadmap_path.read_text(encoding="utf-8").strip() if roadmap_path.exists() else ""
 
     header = (
         "# Mini-DIOS Plastics — Master Complete Reference\n\n"
-        "> **What this document is:** One complete, plain-language handbook combining our **User Guide & Operations Manual** and our **Commercial & Sales Playbook (Egypt & KSA)**.\n"
+        "> **What this document is:** One complete, plain-language handbook combining our **User Guide & Operations Manual**, our **Commercial & Sales Playbook (Egypt & KSA)**, and our **Product Roadmap & Future Factory Constraints Backlog**.\n"
         "> **Who it is for:** Factory owners, operations directors, production planners, and commercial partners who want everything in one readable document.\n\n"
         "---\n\n"
         "## Part I — User Guide & Operations Manual\n\n"
     )
-    return (
+    out = (
         f"{header}{guide}\n\n"
         "---\n\n"
         "## Part II — Commercial & Sales Playbook (Egypt & KSA)\n\n"
         f"{playbook}\n"
     )
+    if roadmap:
+        out += (
+            "\n---\n\n"
+            "## Part III — Product Roadmap & Future Constraints Backlog\n\n"
+            f"{roadmap}\n"
+        )
+    return out
 
 
 def load_manifest(manifest_path: Path) -> dict[str, Any]:
@@ -262,21 +279,44 @@ class GdriveCliBackend:
         return [self.binary, *args]
 
     def _run_json(self, args: list[str]) -> Any:
+        import time
+
         cmd = self._build_cmd([*args, "--json"])
-        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
-        if proc.returncode != 0:
+        for attempt in range(4):
+            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
+            if proc.returncode == 0:
+                break
+            err_txt = (proc.stderr or "") + (proc.stdout or "")
+            if ("rateLimitExceeded" in err_txt or "Quota exceeded" in err_txt) and attempt < 3:
+                time.sleep(2.5 * (attempt + 1))
+                continue
             raise RuntimeError(f"gdrive command failed ({' '.join(cmd)}): {proc.stderr.strip() or proc.stdout.strip()}")
         out = proc.stdout.strip()
         if not out:
             return {}
-        return json.loads(out)
+        try:
+            return json.loads(out)
+        except json.JSONDecodeError:
+            # Extract file ID if gdrive returned human-readable text instead of JSON
+            for token in out.replace("(", " ").replace(")", " ").split():
+                if len(token) >= 25 and all(c.isalnum() or c in "-_" for c in token):
+                    return {"id": token}
+            return {"raw": out}
 
     def _run_text(self, args: list[str]) -> str:
+        import time
+
         cmd = self._build_cmd(args)
-        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
-        if proc.returncode != 0:
+        for attempt in range(4):
+            proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=False)
+            if proc.returncode == 0:
+                return proc.stdout.strip()
+            err_txt = (proc.stderr or "") + (proc.stdout or "")
+            if ("rateLimitExceeded" in err_txt or "Quota exceeded" in err_txt) and attempt < 3:
+                time.sleep(2.5 * (attempt + 1))
+                continue
             raise RuntimeError(f"gdrive command failed ({' '.join(cmd)}): {proc.stderr.strip() or proc.stdout.strip()}")
-        return proc.stdout.strip()
+        return ""
 
     def ensure_folder(self, name: str, parent_id: Optional[str] = None) -> DriveFileResult:
         search_args = ["readonly", "search", "--name-exact", name, "--type", "folder"]
@@ -323,8 +363,6 @@ class GdriveCliBackend:
             ["mutate", "update", file_id, str(markdown_path), "--mime-type", GOOGLE_DOC_MIME]
         )
         fid = updated.get("id") or file_id
-        if title:
-            self._run_text(["mutate", "rename", fid, title])
         return DriveFileResult(
             file_id=fid,
             web_view_link=updated.get("webViewLink") or f"https://docs.google.com/document/d/{fid}/edit",
@@ -388,6 +426,8 @@ def sync_docs_to_drive(
             target_parent_id = tech_folder_id if spec.get("folder") == "tech" else root_folder_id
             src_path = combined_path if spec["kind"] == "combined" else (project_root / spec["local_path"])
             if not src_path.exists():
+                if spec.get("optional") == "true":
+                    continue
                 raise FileNotFoundError(f"Expected master document not found: {src_path}")
 
             content = src_path.read_text(encoding="utf-8")
@@ -437,6 +477,8 @@ def sync_docs_to_drive(
                 "last_synced_sha256": content_sha,
                 "last_synced_at": now_iso,
             }
+            manifest["last_sync_at"] = now_iso
+            save_manifest(manifest_path, manifest)
             actions.append(
                 {
                     "key": key,

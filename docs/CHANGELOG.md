@@ -1,6 +1,25 @@
 # Mini-DIOS Plastics — Master Documentation Changelog
 
-All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AND_MANUAL.md` and `docs/MASTER_PLAYBOOK.md`) are logged chronologically below.
+All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`, and `docs/ROADMAP_AND_BACKLOG.md`) are logged chronologically below.
+
+---
+
+## v1.6 (Release v1.4 — Pilot-Ready Persistence, CTP Rush-Order Quoter & Executive Dispatch) — 2026-11-27
+
+### Application & Documentation Changes
+- **Task 1 — Parked Pilot-Pull Constraints Backlog (`docs/ROADMAP_AND_BACKLOG.md`, `docs/MASTER_PLAYBOOK.md`, `docs/technical/TECHNICAL_REFERENCE.md`):**
+  - Created `docs/ROADMAP_AND_BACKLOG.md` and added Section 7 to `docs/MASTER_PLAYBOOK.md` documenting our three-tier Pilot-Pull Constraints Backlog in plain business language: Tier 1 (Shared Auxiliary Equipment, Capped/Blocked Cavities, Multi-Stage Dependencies, Order Splitting & Duplicate Molds, Mid-Week Inbound Supply & Packaging Stockouts, Secondary Downstream Bottlenecks), Tier 2 (Plant kVA Transformer Ceilings, Insert-Only Swaps, Thermal Barrel Soak Windows, QC Quarantine Holds, Extrusion Physics), and Tier 3 (Explicit Pilot Scope Traps: IoT sensor polling, 3D WMS rack bin-packing, TMS fleet GPS routing).
+  - Added Section 12 (`Deferred CP-SAT Constraint Extensions — Design Notes`) to `docs/technical/TECHNICAL_REFERENCE.md` mapping every Tier 1 and Tier 2 item to its future OR-Tools CP-SAT formulation (`AddCumulative`, cavity scaling, interval precedence, step-function inventory curves), marked clearly as `STATUS: PARKED / NOT YET IMPLEMENTED`.
+- **Task 2 — Persistent Database & Decision Checkpoint History (`backend/core/audit.py`, `backend/api/routes.py`, `render.yaml`, `frontend/src/components/DecisionCheckpointsDrawer.tsx`, `ScopeView.tsx`, `store.tsx`):**
+  - Upgraded `AuditStore` in `backend/core/audit.py` to support external PostgreSQL via `DATABASE_URL` (`postgres://` → `postgresql://` normalization, remote `sslmode=require`, and Render Free-tier bounded pooling `pool_size=3, max_overflow=2, pool_pre_ping=True`) with automatic fallback to local SQLite (`data/mini_dios.db` / `DIOS_AUDIT_DB`).
+  - Added auto-migrated tables scoped by `sandbox_id` and `access_code`: `saved_workspaces`, `pinned_scenarios`, `backtest_runs`, and `decision_checkpoints`.
+  - Added `GET /api/checkpoints`, `POST /api/checkpoints`, and `POST /api/checkpoints/{checkpoint_id}/restore`, wired to `DecisionCheckpointsDrawer.tsx` accessible from Tab 1 (`Saved Plant Workspaces`).
+- **Task 3 — Capable-to-Promise (CTP) Non-Destructive Rush-Order Quoter (`backend/core/ctp.py`, `backend/api/routes.py`, `frontend/src/components/CTPQuoterModal.tsx`, `ScopeView.tsx`, `TradeoffConsole.tsx`):**
+  - Added `POST /api/quote/ctp` (`evaluate_ctp_rush_order`) performing a strictly non-destructive, deep-copied CP-SAT evaluation returning `CTPQuoteResult` (`verdict`, `assigned_press_id`, `scheduled_start_hr`, `scheduled_end_hr`, `slack_or_delay_hrs`, itemized marginal `financial_impact`, `min_breakeven_unit_price`, `bumped_orders` with export cut-off breach flags, `risk_score_before`/`after`, and bilingual Commander-Grade summaries), plus `POST /api/quote/ctp/commit`.
+  - Built `CTPQuoterModal.tsx` accessible from Tab 1 and Tab 3 with a 1-click **"Load Sample Rush Order (40k Export)"** demo trigger, **Discard Quote**, and **Accept & Add to Live Schedule**.
+- **Task 4 — 1-Click Bilingual Executive PDF & WhatsApp Shift Dispatch (`backend/core/dispatch.py`, `backend/api/routes.py`, `frontend/src/components/WhatsAppDispatchModal.tsx`, `ExecutivePrintReport.tsx`, `ScheduleExportMenu.tsx`, `ExecutiveBriefModal.tsx`, `HistoricalBacktestModal.tsx`, `globals.css`):**
+  - Added `POST /api/dispatch/whatsapp` (`format_whatsapp_shift_dispatch`) and `WhatsAppDispatchModal.tsx` (accessible from Tab 4, Tab 6, and Executive Brief) generating deterministic EN and AR shift dispatch messages with **Copy for WhatsApp** and **Share via WhatsApp (`wa.me`)**.
+  - Added `ExecutivePrintReport.tsx` and `@media print` rules in `globals.css` (zero Render RAM overhead) triggered from `ExecutiveBriefModal.tsx` and `HistoricalBacktestModal.tsx`.
 
 ---
 

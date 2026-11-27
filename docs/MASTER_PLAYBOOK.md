@@ -56,10 +56,10 @@ In every plastics plant sale, there are two key people in the room with complete
 2. **Minute 1–2.5 (The "Proof Engine" — 1-Month Historical Backtest Replay):** On **Tab 1**, click **`1-Month Historical Backtest`**, then click **`Run Sample 30-Day Plant Replay`**. Show the **Actual History vs. Mini-DIOS Replay** card: exact purge scrap saved, changeover hours freed, extra sellable tons unlocked from those freed hours, **Total Cash Left on the Floor**, and a payback period measured in days. Say: *"You don't have to take our word for it—send us 2–4 weeks of your own past press spreadsheet and we will run this exact replay before you spend a pound."*
 3. **Minute 2.5–4 (3-Hour Onboarding Proof — 5-Step Guided Plant Setup):** Click **`5-Step Guided Plant Setup`** on Tab 1. Walk briefly through the 5 plain-language steps (Process & Model, Presses & Backup Logic, Purge & Regrind Rules, Shifts & Tariffs, and Export Container & Warehouse Rules). Point out the **"Current Specs Only" Readiness Checklist**—confirming that **zero historical ERP data** is required.
 4. **Minute 4–5.5 (Tab 1 Risk Radar & Container Consolidation):** Show the **Proactive Risk Radar**—including the **Resin Silo Depletion Clock**, **Mold M-04 Maintenance Health**, and **Finished-Goods Warehouse & Trapped Container Alerts**. Explain how **`Container Sync`** in the top bar aligns multi-SKU export orders so finished goods ship together instead of trapping working capital in the warehouse.
-5. **Minute 5.5–7.5 (Commander-Grade Ops Copilot & Pin-and-Compare A/B/C):** Click **`Pin Scenario`** to lock **Plan A**. Open **`Ops Copilot`** and trigger a breakdown or Risk Radar mitigation. Highlight the **Commander-Grade Financial Trade-Off Callout Box** at the top of the card (*e.g., exact overtime/power cost paid vs. export penalties avoided = Net Financial Gain*). Click **`Apply This Scenario to Dashboard`** to show the top **Before → After Applied Summary Banner** updating every tab in lockstep.
-6. **Minute 7.5–10 (Tab 5 Savings, Dual-Audience Executive Brief & ERP Export):** On **Tab 5**, review **Total Weekly Savings**, **Annualized Projected Savings**, **Container Consolidation & Trapped Working Capital**, and the itemized **Weekly Profit & Loss** table. Open **`Executive Brief`** in the top bar:
+5. **Minute 5.5–7.5 (Capable-to-Promise Rush-Order Quoter, Ops Copilot & Pin-and-Compare A/B/C):** Click **`Quote Rush Order (CTP)`** on Tab 1 or Tab 3, then click **`Load Sample Rush Order (40k Export)`**. Show how Mini-DIOS calculates the earliest ship hour, exact marginal disruption cost, **minimum break-even unit price**, and which existing confirmed orders get bumped—**without altering the live schedule** until they click **`Accept & Add to Live Schedule`**. Open **`Decision Checkpoints`** on Tab 1 to show the saved history and 1-click rollback.
+6. **Minute 7.5–10 (Tab 5 Savings, Dual-Audience Executive Brief, Printable PDF & WhatsApp Shift Dispatch):** On **Tab 5**, review **Total Weekly Savings**, **Annualized Projected Savings**, **Container Consolidation & Trapped Working Capital**, and the itemized **Weekly Profit & Loss** table. Open **`Executive Brief`** in the top bar:
    - Toggle between **`Owner / Chairman View`** (Institutional Memory, Ending Department Friction, Working Capital Unlocked) and **`Plant / Production Manager View`** (Decision Shield for overtime, maintenance, and rush-order proof).
-   - Point to the **`Export Schedule: Excel (.xlsx) | Flat CSV (.csv) | ERP JSON (Odoo / SAP B1)`** bar and close with the **1-Month Backtest Challenge** or **60-Day Paid Pilot**.
+   - Click **`Download / Print Executive PDF`** to preview the crisp 1–2 page boardroom report in English or Arabic, and click **`WhatsApp Shift Dispatch`** to generate a clean, bulleted shift run and crew message ready to copy or share with floor supervisors in one tap. Close with the **1-Month Backtest Challenge** or **60-Day Paid Pilot**.
 
 ---
 
@@ -161,7 +161,33 @@ Local ERP consultants often block third-party software if they fear losing billa
 8. **"The full 6-module enterprise suite is above our current budget."**
    *Response:* "You can start with our **1-Module Fast-Start** (`EGP 390k/yr` / `SAR 30k/yr`) or **3-Module Operations Core** (`EGP 585k/yr` / `SAR 45k/yr`), or run a **60-Day Paid Pilot** where 100% of the pilot fee is credited toward Year 1 once the floor savings are proven."
 9. **"Our supervisors and floor planners prefer Arabic."**
-   *Response:* "Every single screen, wizard step, backtest replay, shift roster, risk alert, and Copilot Financial Trade-Off Box switches between English and natural Arabic in one click."
+   *Response:* "Every single screen, wizard step, backtest replay, rush-order quote, shift roster, printable executive PDF, WhatsApp shift dispatch message, risk alert, and Copilot Financial Trade-Off Box switches between English and natural Arabic in one click."
+
+---
+
+## 7. Future Factory Constraints Backlog (Pilot-Pull Only)
+
+To keep Day-1 onboarding fast (under 3 hours) and simple for planners, we never overload a factory with dozens of rare settings upfront. Instead, we maintain a pre-designed **Pilot-Pull Constraints Backlog** organized into three clear tiers and activate specific rules only when a customer explicitly asks for them during a pilot:
+
+### Tier 1 — High-Likelihood Pilot Requests (Add Only When a Factory Asks)
+1. **Shared Auxiliary Equipment:** Overhead bridge crane contention (limiting simultaneous heavy mold swaps in the same hall), summer chiller cooling-tonnage caps during 45°C Egypt/KSA heatwaves, and shared portable dryers or take-out robots.
+2. **Capped / Blocked Mold Cavities:** Running damaged multi-cavity molds with plugged cavities (for example, 14 active cavities out of 16 nominal cavities) and scaling cycle output and resin consumption automatically.
+3. **Multi-Stage Production Dependencies:** Two-stage PET preform injection feeding blow-molding presses, or matched cap-plus-bottle production ratios before packing and shipping.
+4. **Order Splitting & Duplicate Molds:** Splitting large export runs across parallel identical molds or staggered weekly call-off deliveries.
+5. **Mid-Week Inbound Supply & Packaging Stockouts:** Time-bucketed mid-week resin truck arrivals plus color masterbatch, printed carton, label, and export pallet stock checks.
+6. **Secondary / Downstream Bottlenecks:** Post-molding offset printing, In-Mold Labeling (IML) robots, pad printing, and ultrasonic welding queues.
+
+### Tier 2 — Sub-Sector & Heavy-Plant Phase 2
+- **Hard Plant Electrical Transformer Ceilings (kVA Peak-Demand Caps):** Preventing simultaneous heavy press startup and heater loads from exceeding industrial-zone transformer limits or tripping main breakers.
+- **Insert-Only Swaps vs. Full Mold Changes:** Fast 25-minute neck-ring or logo insert swaps inside family molds versus full 2-hour crane mold changes.
+- **Thermal Barrel Heat-Up & Cool-Down Soak Windows:** Controlled temperature transition windows when dropping barrels from high-temperature engineering resins (PET, Polycarbonate, Nylon) down to standard Polypropylene or Polyethylene.
+- **Quality Control Quarantine & First-Article Lab Hold Buffers:** Mandatory first-article inspection holds and post-molding cooling/leak-test quarantine windows for food-contact, pharmaceutical, and automotive lots.
+- **Extrusion-Specific Physics:** Continuous die-width and thickness campaigns, screen-pack filter clogging swaps, and jumbo-roll width-slitting optimization.
+
+### Tier 3 — Explicit Pilot Scope Traps (Defer Post-Pilot)
+- **Live Machine Sensor & PLC Wiring (IoT Polling):** Deferred post-pilot so factories achieve immediate Week-1 ROI without months of hardware wiring permits.
+- **3D Pallet & Warehouse Rack Bin-Packing:** Handled by Warehouse Management Systems (WMS); Mini-DIOS tracks aggregate finished-goods tonnage and export container staging.
+- **Last-Mile Delivery Fleet GPS Routing:** Handled by Transport Management Systems (TMS); Mini-DIOS schedules up to factory-gate readiness and port container cut-off hours.
 
 ---
 

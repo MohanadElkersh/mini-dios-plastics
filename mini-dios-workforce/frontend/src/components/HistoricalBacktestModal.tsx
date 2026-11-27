@@ -14,6 +14,7 @@ import {
   Loader2,
   PackageCheck,
   Play,
+  Printer,
   Recycle,
   TrendingUp,
   Upload,
@@ -38,6 +39,7 @@ export function HistoricalBacktestModal() {
     setBacktestModalOpen,
     backtestReport,
     setBacktestReport,
+    triggerExecutivePdfPrint,
   } = useApp();
 
   const t = COPY[lang];
@@ -255,10 +257,21 @@ export function HistoricalBacktestModal() {
                         : `Executive Proof Card: Actual Factory Log vs. Mini-DIOS CP-SAT Replay (${backtestReport.period_days} Days)`}
                     </h3>
                   </div>
-                  <span className="rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 font-mono text-[11px] text-slate-300">
-                    {backtestReport.source_label} • {backtestReport.orders_analyzed}{" "}
-                    {isAr ? "أمر مرجعي" : "log orders"} • {backtestReport.solve_time_ms} ms
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg border border-slate-700 bg-slate-900/90 px-2.5 py-1 font-mono text-[11px] text-slate-300">
+                      {backtestReport.source_label} • {backtestReport.orders_analyzed}{" "}
+                      {isAr ? "أمر مرجعي" : "log orders"} • {backtestReport.solve_time_ms} ms
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="btn-backtest-print-pdf"
+                      onClick={() => triggerExecutivePdfPrint("backtest")}
+                      className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-amber-500/45 bg-amber-500/15 px-3 py-1 text-[11px] font-bold text-amber-200 transition hover:bg-amber-500/25 md:min-h-0"
+                    >
+                      <Printer className="h-3.5 w-3.5 text-amber-400" />
+                      <span>{t.printPdfBtn}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* 4 Hero ROI Pillars */}

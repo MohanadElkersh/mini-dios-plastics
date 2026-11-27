@@ -1,39 +1,200 @@
-"""SQLite-backed deterministic audit log & session-isolated workspaces for Mini-DIOS Plastics."""
+"""Dual-Mode Persistence Layer (PostgreSQL + SQLite Fallback) & Decision Checkpoint Store for Mini-DIOS Plastics.
+
+Supports:
+1. `DATABASE_URL` (PostgreSQL on Neon, Supabase, or Render Postgres):
+   - Automatically normalizes `postgres://` -> `postgresql://`.
+   - Enforces a Render Free-Tier safe connection pool (`pool_size=3`, `max_overflow=2`, `pool_pre_ping=True`).
+2. Local SQLite Fallback (`data/mini_dios.db` or `DIOS_AUDIT_DB`):
+   - Activated automatically when `DATABASE_URL` is unset or points to `sqlite:///`, so the app never crashes on startup.
+
+Auto-migrated tables scoped by `sandbox_id` (`session_id`) and `access_code` (`client_label`):
+- `plastics_audit_runs`: Cryptographic SHA-256 solver audit trail.
+- `saved_workspaces` (and legacy mirror `plastics_workspaces`): Custom plant workspaces (full JSON state, name, currency, timestamps).
+- `pinned_scenarios`: Boardroom A/B/C side-by-side comparison pins.
+- `backtest_runs`: Saved 1-month Historical Backtest Replay summaries.
+- `decision_checkpoints`: Immutable audit trail recording every applied Copilot simulation, CTP rush-order commit, or workspace checkpoint save.
+"""
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Iterator, Literal, Optional
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from .ontology import PlantDataset, SolveResult, SolverConfig
 from .seed import default_config, demo_dataset
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "audit.db"
+DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "mini_dios.db"
+LEGACY_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "audit.db"
 DEFAULT_SESSION_ID = "local"
+DEFAULT_ACCESS_CODE = "Local Plant"
+
+POOL_CONFIG = {
+    "pool_size": 3,
+    "max_overflow": 2,
+    "pool_pre_ping": True,
+}
+
+
+def normalize_database_url(raw_url: Optional[str]) -> Optional[str]:
+    """Normalize `postgres://` -> `postgresql://` and ensure SSL on remote cloud Postgres hosts."""
+    if not raw_url:
+        return None
+    cleaned = raw_url.strip()
+    if not cleaned:
+        return None
+    if cleaned.startswith("postgres://"):
+        cleaned = "postgresql://" + cleaned[len("postgres://") :]
+    if cleaned.startswith("postgresql://") or cleaned.startswith("postgresql+"):
+        parsed = urlparse(cleaned)
+        host = (parsed.hostname or "").lower()
+        is_remote = host not in ("", "localhost", "127.0.0.1", "postgres", "db")
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        if is_remote and "sslmode" not in query:
+            query["sslmode"] = "require"
+            cleaned = urlunparse(parsed._replace(query=urlencode(query)))
+    return cleaned
+
+
+class _DbSessionAdapter:
+    """Uniform SQL execution wrapper abstracting SQLite (`?`) vs PostgreSQL (`%s` / SQLAlchemy)."""
+
+    def __init__(self, conn: Any, is_postgres: bool, is_sqlalchemy: bool = False):
+        self._conn = conn
+        self.is_postgres = is_postgres
+        self.is_sqlalchemy = is_sqlalchemy
+
+    def _translate_sql(self, sql: str) -> str:
+        if not self.is_postgres:
+            return sql
+        # Translate SQLite `?` placeholders to `%s` for DBAPI psycopg/psycopg2
+        return sql.replace("?", "%s")
+
+    def execute(self, sql: str, params: tuple[Any, ...] = ()) -> Any:
+        if self.is_sqlalchemy:
+            from sqlalchemy import text
+
+            # Convert positional `?` to `:p0, :p1, ...` for SQLAlchemy text() binding
+            parts = sql.split("?")
+            if len(parts) == 1:
+                return self._conn.execute(text(sql))
+            rebuilt = []
+            bind_dict: dict[str, Any] = {}
+            for idx, part in enumerate(parts[:-1]):
+                key = f"p{idx}"
+                rebuilt.append(f"{part}:{key}")
+                bind_dict[key] = params[idx]
+            rebuilt.append(parts[-1])
+            return self._conn.execute(text("".join(rebuilt)), bind_dict)
+        translated = self._translate_sql(sql)
+        cur = self._conn.cursor()
+        cur.execute(translated, params)
+        return cur
+
+    def fetchall_dicts(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+        res = self.execute(sql, params)
+        if self.is_sqlalchemy:
+            return [dict(row._mapping) for row in res.fetchall()]
+        rows = res.fetchall()
+        if not rows:
+            return []
+        if isinstance(rows[0], sqlite3.Row) or isinstance(rows[0], dict):
+            return [dict(r) for r in rows]
+        cols = [col[0] for col in res.description]
+        return [dict(zip(cols, r)) for r in rows]
+
+    def fetchone_dict(self, sql: str, params: tuple[Any, ...] = ()) -> Optional[dict[str, Any]]:
+        rows = self.fetchall_dicts(sql, params)
+        return rows[0] if rows else None
 
 
 class AuditStore:
-    """Thread-safe SQLite audit & workspace store with per-session sandbox isolation."""
+    """Thread-safe dual-mode (PostgreSQL / SQLite fallback) persistence store with per-sandbox isolation."""
 
-    def __init__(self, db_path: Optional[str | Path] = None):
-        env_path = os.environ.get("DIOS_AUDIT_DB")
-        resolved = Path(db_path) if db_path is not None else (Path(env_path) if env_path else DEFAULT_DB_PATH)
+    def __init__(self, db_path: Optional[str | Path] = None, database_url: Optional[str] = None):
+        raw_env_url = database_url if database_url is not None else os.environ.get("DATABASE_URL")
+        # If an explicit db_path is passed (e.g. unit tests with tmp_path / ":memory:"), prefer SQLite on that path
+        if db_path is not None:
+            self.database_url: Optional[str] = None
+        else:
+            self.database_url = normalize_database_url(raw_env_url)
+
+        self.storage_backend: Literal["postgres", "sqlite_fallback"] = "sqlite_fallback"
+        self.pool_config = dict(POOL_CONFIG)
+        self._sa_engine: Any = None
+
+        env_sqlite = os.environ.get("DIOS_AUDIT_DB")
+        if db_path is not None:
+            resolved = Path(db_path)
+        elif env_sqlite:
+            resolved = Path(env_sqlite)
+        elif LEGACY_DB_PATH.exists() and not DEFAULT_DB_PATH.exists():
+            resolved = LEGACY_DB_PATH
+        else:
+            resolved = DEFAULT_DB_PATH
+
         self.db_path = resolved
-        if str(self.db_path) != ":memory:":
-            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if self.database_url and self.database_url.startswith("postgresql"):
+            if self._try_init_postgres(self.database_url):
+                self.storage_backend = "postgres"
+            else:
+                self.storage_backend = "sqlite_fallback"
+
+        if self.storage_backend == "sqlite_fallback":
+            if str(self.db_path) != ":memory:":
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
         self._init_schema()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _try_init_postgres(self, pg_url: str) -> bool:
+        """Attempt to initialize a bounded PostgreSQL connection pool via SQLAlchemy or psycopg."""
+        try:
+            from sqlalchemy import create_engine, text
+
+            engine = create_engine(
+                pg_url,
+                pool_size=POOL_CONFIG["pool_size"],
+                max_overflow=POOL_CONFIG["max_overflow"],
+                pool_pre_ping=POOL_CONFIG["pool_pre_ping"],
+                pool_timeout=10,
+            )
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            self._sa_engine = engine
+            return True
+        except Exception as exc:
+            print(
+                f"[AuditStore] DATABASE_URL PostgreSQL init failed ({exc}); falling back cleanly to local SQLite at {self.db_path}.",
+                flush=True,
+            )
+            self._sa_engine = None
+            return False
+
+    @contextmanager
+    def _session(self) -> Iterator[_DbSessionAdapter]:
+        if self.storage_backend == "postgres" and self._sa_engine is not None:
+            with self._sa_engine.begin() as conn:
+                yield _DbSessionAdapter(conn, is_postgres=True, is_sqlalchemy=True)
+            return
+
         conn = sqlite3.connect(str(self.db_path), timeout=10.0)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            with conn:
+                yield _DbSessionAdapter(conn, is_postgres=False, is_sqlalchemy=False)
+        finally:
+            conn.close()
 
     def _init_schema(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
+        with self._session() as db:
+            # 1. Solver Audit Runs
+            db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS plastics_audit_runs (
                     run_id TEXT PRIMARY KEY,
@@ -63,29 +224,55 @@ class AuditStore:
                 )
                 """
             )
-            # Safe migration for pre-existing audit DBs without session_id
-            run_cols = {r["name"] for r in conn.execute("PRAGMA table_info(plastics_audit_runs)").fetchall()}
-            if "session_id" not in run_cols:
-                conn.execute("ALTER TABLE plastics_audit_runs ADD COLUMN session_id TEXT NOT NULL DEFAULT 'local'")
+            if not db.is_postgres:
+                run_cols = {r["name"] for r in db.fetchall_dicts("PRAGMA table_info(plastics_audit_runs)")}
+                if "session_id" not in run_cols:
+                    db.execute("ALTER TABLE plastics_audit_runs ADD COLUMN session_id TEXT NOT NULL DEFAULT 'local'")
 
-            conn.execute(
+            db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_plastics_audit_created ON plastics_audit_runs (created_at DESC)"
             )
-            conn.execute(
+            db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_plastics_audit_session ON plastics_audit_runs (session_id, created_at DESC)"
             )
 
-            # Workspaces table with composite PRIMARY KEY (session_id, workspace_id)
-            ws_exists = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='plastics_workspaces'"
-            ).fetchone()
-            if ws_exists:
-                ws_cols = {r["name"] for r in conn.execute("PRAGMA table_info(plastics_workspaces)").fetchall()}
-                if "session_id" not in ws_cols:
-                    # Migrate legacy single-tenant workspaces table into composite-PK multi-session table
-                    conn.execute(
+            # 2. Legacy plastics_workspaces table (for backward compatibility & migration)
+            if not db.is_postgres:
+                ws_exists = db.fetchone_dict(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='plastics_workspaces'"
+                )
+                if ws_exists:
+                    ws_cols = {r["name"] for r in db.fetchall_dicts("PRAGMA table_info(plastics_workspaces)")}
+                    if "session_id" not in ws_cols:
+                        db.execute(
+                            """
+                            CREATE TABLE plastics_workspaces_v2 (
+                                session_id TEXT NOT NULL DEFAULT 'local',
+                                workspace_id TEXT NOT NULL,
+                                name TEXT NOT NULL,
+                                created_at TEXT NOT NULL,
+                                updated_at TEXT NOT NULL,
+                                dataset_json TEXT NOT NULL,
+                                config_json TEXT NOT NULL,
+                                PRIMARY KEY (session_id, workspace_id)
+                            )
+                            """
+                        )
+                        db.execute(
+                            """
+                            INSERT INTO plastics_workspaces_v2 (
+                                session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
+                            )
+                            SELECT 'local', workspace_id, name, created_at, updated_at, dataset_json, config_json
+                            FROM plastics_workspaces
+                            """
+                        )
+                        db.execute("DROP TABLE plastics_workspaces")
+                        db.execute("ALTER TABLE plastics_workspaces_v2 RENAME TO plastics_workspaces")
+                else:
+                    db.execute(
                         """
-                        CREATE TABLE plastics_workspaces_v2 (
+                        CREATE TABLE IF NOT EXISTS plastics_workspaces (
                             session_id TEXT NOT NULL DEFAULT 'local',
                             workspace_id TEXT NOT NULL,
                             name TEXT NOT NULL,
@@ -97,21 +284,10 @@ class AuditStore:
                         )
                         """
                     )
-                    conn.execute(
-                        """
-                        INSERT INTO plastics_workspaces_v2 (
-                            session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
-                        )
-                        SELECT 'local', workspace_id, name, created_at, updated_at, dataset_json, config_json
-                        FROM plastics_workspaces
-                        """
-                    )
-                    conn.execute("DROP TABLE plastics_workspaces")
-                    conn.execute("ALTER TABLE plastics_workspaces_v2 RENAME TO plastics_workspaces")
             else:
-                conn.execute(
+                db.execute(
                     """
-                    CREATE TABLE plastics_workspaces (
+                    CREATE TABLE IF NOT EXISTS plastics_workspaces (
                         session_id TEXT NOT NULL DEFAULT 'local',
                         workspace_id TEXT NOT NULL,
                         name TEXT NOT NULL,
@@ -124,38 +300,218 @@ class AuditStore:
                     """
                 )
 
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_plastics_workspaces_updated "
-                "ON plastics_workspaces (session_id, updated_at DESC)"
+            # 3. v1.4 Canonical Table: saved_workspaces
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS saved_workspaces (
+                    sandbox_id TEXT NOT NULL DEFAULT 'local',
+                    access_code TEXT NOT NULL DEFAULT 'Local Plant',
+                    workspace_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    currency TEXT NOT NULL DEFAULT 'SAR',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    dataset_json TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    state_json TEXT NOT NULL,
+                    PRIMARY KEY (sandbox_id, workspace_id)
+                )
+                """
             )
-            self._ensure_default_workspace(conn, DEFAULT_SESSION_ID)
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_saved_workspaces_updated "
+                "ON saved_workspaces (sandbox_id, updated_at DESC)"
+            )
 
-    def _ensure_default_workspace(self, conn: sqlite3.Connection, session_id: str) -> None:
-        row = conn.execute(
-            "SELECT COUNT(*) as cnt FROM plastics_workspaces WHERE session_id = ?",
+            # Migrate any existing rows from plastics_workspaces -> saved_workspaces
+            legacy_rows = db.fetchall_dicts(
+                "SELECT session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json FROM plastics_workspaces"
+            )
+            for lr in legacy_rows:
+                existing_sw = db.fetchone_dict(
+                    "SELECT workspace_id FROM saved_workspaces WHERE sandbox_id = ? AND workspace_id = ?",
+                    (lr["session_id"], lr["workspace_id"]),
+                )
+                if not existing_sw:
+                    try:
+                        cfg_obj = json.loads(lr["config_json"])
+                        cur = cfg_obj.get("currency", "SAR")
+                    except Exception:
+                        cur = "SAR"
+                    state_blob = json.dumps(
+                        {
+                            "workspace_id": lr["workspace_id"],
+                            "name": lr["name"],
+                            "dataset": json.loads(lr["dataset_json"]),
+                            "config": json.loads(lr["config_json"]),
+                        }
+                    )
+                    db.execute(
+                        """
+                        INSERT INTO saved_workspaces (
+                            sandbox_id, access_code, workspace_id, name, currency,
+                            created_at, updated_at, dataset_json, config_json, state_json
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            lr["session_id"],
+                            DEFAULT_ACCESS_CODE,
+                            lr["workspace_id"],
+                            lr["name"],
+                            cur,
+                            lr["created_at"],
+                            lr["updated_at"],
+                            lr["dataset_json"],
+                            lr["config_json"],
+                            state_blob,
+                        ),
+                    )
+
+            # 4. v1.4 Canonical Table: pinned_scenarios
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pinned_scenarios (
+                    sandbox_id TEXT NOT NULL DEFAULT 'local',
+                    access_code TEXT NOT NULL DEFAULT 'Local Plant',
+                    slot TEXT NOT NULL,
+                    pin_id TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    dataset_json TEXT NOT NULL,
+                    config_json TEXT NOT NULL,
+                    result_json TEXT NOT NULL,
+                    PRIMARY KEY (sandbox_id, slot)
+                )
+                """
+            )
+
+            # 5. v1.4 Canonical Table: backtest_runs
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS backtest_runs (
+                    run_id TEXT PRIMARY KEY,
+                    sandbox_id TEXT NOT NULL DEFAULT 'local',
+                    access_code TEXT NOT NULL DEFAULT 'Local Plant',
+                    created_at TEXT NOT NULL,
+                    source_label TEXT NOT NULL,
+                    currency TEXT NOT NULL,
+                    orders_analyzed INTEGER NOT NULL,
+                    cash_left_1m REAL NOT NULL,
+                    annualized_cash REAL NOT NULL,
+                    payback_days INTEGER NOT NULL,
+                    report_json TEXT NOT NULL
+                )
+                """
+            )
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_backtest_runs_sandbox "
+                "ON backtest_runs (sandbox_id, created_at DESC)"
+            )
+
+            # 6. v1.4 Canonical Table: decision_checkpoints
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS decision_checkpoints (
+                    id TEXT PRIMARY KEY,
+                    sandbox_id TEXT NOT NULL DEFAULT 'local',
+                    access_code TEXT NOT NULL DEFAULT 'Local Plant',
+                    created_at TEXT NOT NULL,
+                    trigger_source TEXT NOT NULL,
+                    title_en TEXT NOT NULL,
+                    title_ar TEXT NOT NULL,
+                    risk_score INTEGER NOT NULL DEFAULT 0,
+                    weekly_savings REAL NOT NULL DEFAULT 0.0,
+                    otif_pct REAL NOT NULL DEFAULT 100.0,
+                    currency TEXT NOT NULL DEFAULT 'SAR',
+                    state_snapshot_json TEXT NOT NULL
+                )
+                """
+            )
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_decision_checkpoints_sandbox "
+                "ON decision_checkpoints (sandbox_id, created_at DESC)"
+            )
+
+            self._ensure_default_workspace(db, DEFAULT_SESSION_ID, DEFAULT_ACCESS_CODE)
+
+    def _ensure_default_workspace(
+        self,
+        db: _DbSessionAdapter,
+        session_id: str,
+        access_code: str = DEFAULT_ACCESS_CODE,
+    ) -> None:
+        row = db.fetchone_dict(
+            "SELECT COUNT(*) as cnt FROM saved_workspaces WHERE sandbox_id = ?",
             (session_id,),
-        ).fetchone()
-        if row and row["cnt"] == 0:
+        )
+        cnt = int(row["cnt"]) if row and row.get("cnt") is not None else 0
+        if cnt == 0:
             now_iso = datetime.now(timezone.utc).isoformat()
             ds_seed = demo_dataset()
             cfg_seed = default_config()
-            conn.execute(
+            ds_json = ds_seed.model_dump_json()
+            cfg_json = cfg_seed.model_dump_json()
+            state_json = json.dumps(
+                {
+                    "workspace_id": "default",
+                    "name": ds_seed.name,
+                    "dataset": json.loads(ds_json),
+                    "config": json.loads(cfg_json),
+                }
+            )
+            db.execute(
                 """
-                INSERT OR IGNORE INTO plastics_workspaces (
-                    session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO saved_workspaces (
+                    sandbox_id, access_code, workspace_id, name, currency,
+                    created_at, updated_at, dataset_json, config_json, state_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
+                    access_code,
                     "default",
                     ds_seed.name,
+                    cfg_seed.currency,
                     now_iso,
                     now_iso,
-                    ds_seed.model_dump_json(),
-                    cfg_seed.model_dump_json(),
+                    ds_json,
+                    cfg_json,
+                    state_json,
                 ),
             )
+            # Keep legacy table synced
+            existing_leg = db.fetchone_dict(
+                "SELECT workspace_id FROM plastics_workspaces WHERE session_id = ? AND workspace_id = ?",
+                (session_id, "default"),
+            )
+            if not existing_leg:
+                db.execute(
+                    """
+                    INSERT INTO plastics_workspaces (
+                        session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (session_id, "default", ds_seed.name, now_iso, now_iso, ds_json, cfg_json),
+                )
 
+    def _upsert_row(
+        self,
+        db: _DbSessionAdapter,
+        table: str,
+        pk_cols: tuple[str, ...],
+        col_names: tuple[str, ...],
+        values: tuple[Any, ...],
+    ) -> None:
+        where_clause = " AND ".join(f"{c} = ?" for c in pk_cols)
+        pk_vals = tuple(values[col_names.index(c)] for c in pk_cols)
+        db.execute(f"DELETE FROM {table} WHERE {where_clause}", pk_vals)
+        placeholders = ", ".join("?" for _ in col_names)
+        cols_str = ", ".join(col_names)
+        db.execute(f"INSERT INTO {table} ({cols_str}) VALUES ({placeholders})", values)
+
+    # ----------------------------------------------------------------------------------------
+    # Audit Runs
+    # ----------------------------------------------------------------------------------------
     def save_run(
         self,
         result: SolveResult,
@@ -164,49 +520,65 @@ class AuditStore:
     ) -> None:
         sc = result.scorecard
         cfg = result.audit.config
-        with self._connect() as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO plastics_audit_runs (
-                    run_id, session_id, created_at, dataset_name, currency, status, solve_time_ms,
-                    inputs_sha256, schedule_sha256, ramadan_shift_mode, avoid_peak_tariff_hrs,
-                    w_changeover_scrap, w_otif, w_energy_cost, w_working_capital,
-                    cash_savings, cash_savings_pct, purge_scrap_kg_saved, changeover_hours_saved,
-                    otif_pct, oee_pct, all_hard_constraints_passed, payload_json, dataset_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    result.run_id,
-                    session_id,
-                    result.created_at,
-                    result.dataset_name,
-                    result.currency,
-                    result.status,
-                    result.solve_time_ms,
-                    result.audit.inputs_sha256,
-                    result.audit.schedule_sha256,
-                    1 if cfg.ramadan_shift_mode else 0,
-                    1 if cfg.avoid_peak_tariff_hrs else 0,
-                    cfg.w_changeover_scrap,
-                    cfg.w_otif,
-                    cfg.w_energy_cost,
-                    cfg.w_working_capital,
-                    sc.cash_savings,
-                    sc.cash_savings_pct,
-                    sc.purge_scrap_kg_saved,
-                    sc.changeover_hours_saved,
-                    result.optimized.kpis.otif_pct,
-                    result.optimized.kpis.oee_pct,
-                    1 if result.audit.all_hard_constraints_passed else 0,
-                    result.model_dump_json(),
-                    dataset.model_dump_json() if dataset is not None else "{}",
-                ),
-            )
+        cols = (
+            "run_id",
+            "session_id",
+            "created_at",
+            "dataset_name",
+            "currency",
+            "status",
+            "solve_time_ms",
+            "inputs_sha256",
+            "schedule_sha256",
+            "ramadan_shift_mode",
+            "avoid_peak_tariff_hrs",
+            "w_changeover_scrap",
+            "w_otif",
+            "w_energy_cost",
+            "w_working_capital",
+            "cash_savings",
+            "cash_savings_pct",
+            "purge_scrap_kg_saved",
+            "changeover_hours_saved",
+            "otif_pct",
+            "oee_pct",
+            "all_hard_constraints_passed",
+            "payload_json",
+            "dataset_json",
+        )
+        vals = (
+            result.run_id,
+            session_id,
+            result.created_at,
+            result.dataset_name,
+            result.currency,
+            result.status,
+            result.solve_time_ms,
+            result.audit.inputs_sha256,
+            result.audit.schedule_sha256,
+            1 if cfg.ramadan_shift_mode else 0,
+            1 if cfg.avoid_peak_tariff_hrs else 0,
+            cfg.w_changeover_scrap,
+            cfg.w_otif,
+            cfg.w_energy_cost,
+            cfg.w_working_capital,
+            sc.cash_savings,
+            sc.cash_savings_pct,
+            sc.purge_scrap_kg_saved,
+            sc.changeover_hours_saved,
+            result.optimized.kpis.otif_pct,
+            result.optimized.kpis.oee_pct,
+            1 if result.audit.all_hard_constraints_passed else 0,
+            result.model_dump_json(),
+            dataset.model_dump_json() if dataset is not None else "{}",
+        )
+        with self._session() as db:
+            self._upsert_row(db, "plastics_audit_runs", ("run_id",), cols, vals)
 
     def list_runs(self, limit: int = 50, session_id: str = DEFAULT_SESSION_ID) -> list[dict]:
         safe_limit = max(1, min(limit, 500))
-        with self._connect() as conn:
-            rows = conn.execute(
+        with self._session() as db:
+            rows = db.fetchall_dicts(
                 """
                 SELECT
                     run_id, created_at, dataset_name, currency, status, solve_time_ms,
@@ -220,7 +592,7 @@ class AuditStore:
                 LIMIT ?
                 """,
                 (session_id, safe_limit),
-            ).fetchall()
+            )
 
         return [
             {
@@ -254,20 +626,23 @@ class AuditStore:
         ]
 
     def get_run(self, run_id: str, session_id: Optional[str] = None) -> Optional[SolveResult]:
-        with self._connect() as conn:
+        with self._session() as db:
             if session_id is not None:
-                row = conn.execute(
+                row = db.fetchone_dict(
                     "SELECT payload_json FROM plastics_audit_runs WHERE run_id = ? AND session_id = ?",
                     (run_id, session_id),
-                ).fetchone()
+                )
             else:
-                row = conn.execute(
+                row = db.fetchone_dict(
                     "SELECT payload_json FROM plastics_audit_runs WHERE run_id = ?", (run_id,)
-                ).fetchone()
+                )
         if row is None:
             return None
         return SolveResult.model_validate_json(row["payload_json"])
 
+    # ----------------------------------------------------------------------------------------
+    # Saved Workspaces (`saved_workspaces` + legacy mirror `plastics_workspaces`)
+    # ----------------------------------------------------------------------------------------
     def save_workspace(
         self,
         workspace_id: str,
@@ -275,49 +650,95 @@ class AuditStore:
         dataset: PlantDataset,
         config: Optional[SolverConfig] = None,
         session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
     ) -> dict:
         now_iso = datetime.now(timezone.utc).isoformat()
+        eff_cfg = config or default_config()
         dataset_json = dataset.model_dump_json()
-        config_json = (config or default_config()).model_dump_json()
-        with self._connect() as conn:
-            existing = conn.execute(
-                "SELECT created_at FROM plastics_workspaces WHERE session_id = ? AND workspace_id = ?",
+        config_json = eff_cfg.model_dump_json()
+        dataset_dict = json.loads(dataset_json)
+        config_dict = json.loads(config_json)
+        state_json = json.dumps(
+            {
+                "workspace_id": workspace_id,
+                "name": name,
+                "dataset": dataset_dict,
+                "config": config_dict,
+            }
+        )
+        with self._session() as db:
+            existing = db.fetchone_dict(
+                "SELECT created_at FROM saved_workspaces WHERE sandbox_id = ? AND workspace_id = ?",
                 (session_id, workspace_id),
-            ).fetchone()
+            )
             created_at = existing["created_at"] if existing else now_iso
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO plastics_workspaces (
-                    session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
+            self._upsert_row(
+                db,
+                "saved_workspaces",
+                ("sandbox_id", "workspace_id"),
+                (
+                    "sandbox_id",
+                    "access_code",
+                    "workspace_id",
+                    "name",
+                    "currency",
+                    "created_at",
+                    "updated_at",
+                    "dataset_json",
+                    "config_json",
+                    "state_json",
+                ),
+                (
+                    session_id,
+                    access_code,
+                    workspace_id,
+                    name,
+                    eff_cfg.currency,
+                    created_at,
+                    now_iso,
+                    dataset_json,
+                    config_json,
+                    state_json,
+                ),
+            )
+            self._upsert_row(
+                db,
+                "plastics_workspaces",
+                ("session_id", "workspace_id"),
+                ("session_id", "workspace_id", "name", "created_at", "updated_at", "dataset_json", "config_json"),
                 (session_id, workspace_id, name, created_at, now_iso, dataset_json, config_json),
             )
         return {
             "workspace_id": workspace_id,
             "name": name,
+            "currency": eff_cfg.currency,
             "created_at": created_at,
             "updated_at": now_iso,
-            "dataset": json.loads(dataset_json),
-            "config": json.loads(config_json),
+            "dataset": dataset_dict,
+            "config": config_dict,
         }
 
-    def list_workspaces(self, session_id: str = DEFAULT_SESSION_ID) -> list[dict]:
-        with self._connect() as conn:
-            self._ensure_default_workspace(conn, session_id)
-            rows = conn.execute(
+    def list_workspaces(
+        self,
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
+    ) -> list[dict]:
+        with self._session() as db:
+            self._ensure_default_workspace(db, session_id, access_code)
+            rows = db.fetchall_dicts(
                 """
-                SELECT workspace_id, name, created_at, updated_at
-                FROM plastics_workspaces
-                WHERE session_id = ?
+                SELECT workspace_id, name, currency, created_at, updated_at
+                FROM saved_workspaces
+                WHERE sandbox_id = ?
                 ORDER BY updated_at DESC
                 """,
                 (session_id,),
-            ).fetchall()
+            )
         return [
             {
                 "workspace_id": r["workspace_id"],
                 "name": r["name"],
+                "currency": r.get("currency", "SAR"),
                 "created_at": r["created_at"],
                 "updated_at": r["updated_at"],
             }
@@ -325,19 +746,22 @@ class AuditStore:
         ]
 
     def get_workspace(
-        self, workspace_id: str, session_id: str = DEFAULT_SESSION_ID
+        self,
+        workspace_id: str,
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
     ) -> Optional[dict]:
-        with self._connect() as conn:
+        with self._session() as db:
             if workspace_id == "default":
-                self._ensure_default_workspace(conn, session_id)
-            row = conn.execute(
+                self._ensure_default_workspace(db, session_id, access_code)
+            row = db.fetchone_dict(
                 """
-                SELECT workspace_id, name, created_at, updated_at, dataset_json, config_json
-                FROM plastics_workspaces
-                WHERE session_id = ? AND workspace_id = ?
+                SELECT workspace_id, name, currency, created_at, updated_at, dataset_json, config_json
+                FROM saved_workspaces
+                WHERE sandbox_id = ? AND workspace_id = ?
                 """,
                 (session_id, workspace_id),
-            ).fetchone()
+            )
         if row is None:
             return None
         dataset_obj = json.loads(row["dataset_json"])
@@ -348,6 +772,7 @@ class AuditStore:
         return {
             "workspace_id": row["workspace_id"],
             "name": row["name"],
+            "currency": row.get("currency", "SAR"),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
             "dataset": dataset_obj,
@@ -362,21 +787,361 @@ class AuditStore:
             cfg = default_config()
             self.save_workspace("default", ds.name, ds, cfg, session_id=session_id)
             return True
-        with self._connect() as conn:
-            cur = conn.execute(
+        with self._session() as db:
+            existed = db.fetchone_dict(
+                "SELECT workspace_id FROM saved_workspaces WHERE sandbox_id = ? AND workspace_id = ?",
+                (session_id, workspace_id),
+            )
+            db.execute(
+                "DELETE FROM saved_workspaces WHERE sandbox_id = ? AND workspace_id = ?",
+                (session_id, workspace_id),
+            )
+            db.execute(
                 "DELETE FROM plastics_workspaces WHERE session_id = ? AND workspace_id = ?",
                 (session_id, workspace_id),
             )
-            return cur.rowcount > 0
+            return existed is not None
 
-    def reset_session_sandbox(self, session_id: str = DEFAULT_SESSION_ID) -> dict:
-        """Delete all custom workspaces for `session_id` and reset its `default` workspace to demo data."""
+    # ----------------------------------------------------------------------------------------
+    # Decision Checkpoints (`decision_checkpoints`)
+    # ----------------------------------------------------------------------------------------
+    def save_checkpoint(
+        self,
+        dataset: PlantDataset,
+        config: SolverConfig,
+        result: Optional[SolveResult] = None,
+        trigger_source: str = "workspace_save",
+        title_en: str = "Saved Plant Workspace Snapshot",
+        title_ar: str = "حفظ نقطة مرجعية لمساحة عمل المصنع",
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
+        checkpoint_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        cp_id = checkpoint_id or f"CP-{uuid.uuid4().hex[:8].upper()}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        risk_score = 0
+        weekly_savings = 0.0
+        otif_pct = 100.0
+        currency = config.currency
+
+        if result is not None:
+            currency = result.currency
+            otif_pct = round(float(result.optimized.kpis.otif_pct), 1)
+            weekly_savings = round(float(result.financials.total_weekly_savings), 2)
+            if result.risk_radar is not None:
+                risk_score = int(result.risk_radar.overall_risk_score)
+
+        snapshot_obj = {
+            "dataset": dataset.model_dump(mode="json"),
+            "config": config.model_dump(mode="json"),
+            "run_id": result.run_id if result else None,
+        }
+        snapshot_json = json.dumps(snapshot_obj)
+
+        cols = (
+            "id",
+            "sandbox_id",
+            "access_code",
+            "created_at",
+            "trigger_source",
+            "title_en",
+            "title_ar",
+            "risk_score",
+            "weekly_savings",
+            "otif_pct",
+            "currency",
+            "state_snapshot_json",
+        )
+        vals = (
+            cp_id,
+            session_id,
+            access_code,
+            now_iso,
+            trigger_source,
+            title_en,
+            title_ar,
+            risk_score,
+            weekly_savings,
+            otif_pct,
+            currency,
+            snapshot_json,
+        )
+        with self._session() as db:
+            self._upsert_row(db, "decision_checkpoints", ("id",), cols, vals)
+
+        return {
+            "id": cp_id,
+            "checkpoint_id": cp_id,
+            "sandbox_id": session_id,
+            "access_code": access_code,
+            "created_at": now_iso,
+            "trigger_source": trigger_source,
+            "title_en": title_en,
+            "title_ar": title_ar,
+            "risk_score": risk_score,
+            "weekly_savings": weekly_savings,
+            "otif_pct": otif_pct,
+            "currency": currency,
+            "orders_count": len(dataset.orders),
+            "workers_count": len(dataset.workers),
+        }
+
+    def list_checkpoints(
+        self,
+        session_id: str = DEFAULT_SESSION_ID,
+        limit: int = 25,
+    ) -> list[dict[str, Any]]:
+        safe_limit = max(1, min(limit, 100))
+        with self._session() as db:
+            rows = db.fetchall_dicts(
+                """
+                SELECT
+                    id, sandbox_id, access_code, created_at, trigger_source,
+                    title_en, title_ar, risk_score, weekly_savings, otif_pct, currency,
+                    state_snapshot_json
+                FROM decision_checkpoints
+                WHERE sandbox_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (session_id, safe_limit),
+            )
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            orders_cnt = 0
+            workers_cnt = 0
+            try:
+                snap = json.loads(r["state_snapshot_json"])
+                ds_raw = snap.get("dataset") or {}
+                orders_cnt = len(ds_raw.get("orders") or [])
+                workers_cnt = len(ds_raw.get("workers") or [])
+            except Exception:
+                pass
+            out.append(
+                {
+                    "id": r["id"],
+                    "checkpoint_id": r["id"],
+                    "sandbox_id": r["sandbox_id"],
+                    "access_code": r["access_code"],
+                    "created_at": r["created_at"],
+                    "trigger_source": r["trigger_source"],
+                    "title_en": r["title_en"],
+                    "title_ar": r["title_ar"],
+                    "risk_score": int(r["risk_score"]),
+                    "weekly_savings": float(r["weekly_savings"]),
+                    "otif_pct": float(r["otif_pct"]),
+                    "currency": r.get("currency", "SAR"),
+                    "orders_count": orders_cnt,
+                    "workers_count": workers_cnt,
+                }
+            )
+        return out
+
+    def get_checkpoint(
+        self,
+        checkpoint_id: str,
+        session_id: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        with self._session() as db:
+            if session_id is not None:
+                row = db.fetchone_dict(
+                    "SELECT * FROM decision_checkpoints WHERE id = ? AND sandbox_id = ?",
+                    (checkpoint_id, session_id),
+                )
+            else:
+                row = db.fetchone_dict(
+                    "SELECT * FROM decision_checkpoints WHERE id = ?",
+                    (checkpoint_id,),
+                )
+        if row is None:
+            return None
+        snapshot = json.loads(row["state_snapshot_json"])
+        return {
+            "id": row["id"],
+            "checkpoint_id": row["id"],
+            "sandbox_id": row["sandbox_id"],
+            "access_code": row["access_code"],
+            "created_at": row["created_at"],
+            "trigger_source": row["trigger_source"],
+            "title_en": row["title_en"],
+            "title_ar": row["title_ar"],
+            "risk_score": int(row["risk_score"]),
+            "weekly_savings": float(row["weekly_savings"]),
+            "otif_pct": float(row["otif_pct"]),
+            "currency": row.get("currency", "SAR"),
+            "state_snapshot": snapshot,
+        }
+
+    # ----------------------------------------------------------------------------------------
+    # Pinned Scenarios (`pinned_scenarios`) & Backtest Runs (`backtest_runs`)
+    # ----------------------------------------------------------------------------------------
+    def save_pinned_scenario(
+        self,
+        slot: str,
+        pin_id: str,
+        label: str,
+        dataset: PlantDataset,
+        config: SolverConfig,
+        result: SolveResult,
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
+    ) -> dict[str, Any]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with self._session() as db:
+            self._upsert_row(
+                db,
+                "pinned_scenarios",
+                ("sandbox_id", "slot"),
+                (
+                    "sandbox_id",
+                    "access_code",
+                    "slot",
+                    "pin_id",
+                    "label",
+                    "created_at",
+                    "dataset_json",
+                    "config_json",
+                    "result_json",
+                ),
+                (
+                    session_id,
+                    access_code,
+                    slot,
+                    pin_id,
+                    label,
+                    now_iso,
+                    dataset.model_dump_json(),
+                    config.model_dump_json(),
+                    result.model_dump_json(),
+                ),
+            )
+        return {"slot": slot, "pin_id": pin_id, "label": label, "created_at": now_iso}
+
+    def list_pinned_scenarios(self, session_id: str = DEFAULT_SESSION_ID) -> list[dict[str, Any]]:
+        with self._session() as db:
+            rows = db.fetchall_dicts(
+                "SELECT * FROM pinned_scenarios WHERE sandbox_id = ? ORDER BY slot ASC",
+                (session_id,),
+            )
+        return [
+            {
+                "id": r["pin_id"],
+                "slot": r["slot"],
+                "label": r["label"],
+                "createdAt": r["created_at"],
+                "dataset": json.loads(r["dataset_json"]),
+                "solverConfig": json.loads(r["config_json"]),
+                "result": json.loads(r["result_json"]),
+            }
+            for r in rows
+        ]
+
+    def save_backtest_run(
+        self,
+        report: Any,
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
+    ) -> dict[str, Any]:
+        run_id = f"BT-{uuid.uuid4().hex[:8].upper()}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+        rep_dict = report.model_dump(mode="json") if hasattr(report, "model_dump") else dict(report)
+        d = rep_dict.get("actual_vs_optimized") or {}
+        with self._session() as db:
+            self._upsert_row(
+                db,
+                "backtest_runs",
+                ("run_id",),
+                (
+                    "run_id",
+                    "sandbox_id",
+                    "access_code",
+                    "created_at",
+                    "source_label",
+                    "currency",
+                    "orders_analyzed",
+                    "cash_left_1m",
+                    "annualized_cash",
+                    "payback_days",
+                    "report_json",
+                ),
+                (
+                    run_id,
+                    session_id,
+                    access_code,
+                    now_iso,
+                    str(rep_dict.get("source_label", "sample_30day_log")),
+                    str(rep_dict.get("currency", "SAR")),
+                    int(rep_dict.get("orders_analyzed", 0)),
+                    float(d.get("total_cash_left_on_floor_1month", 0.0)),
+                    float(d.get("annualized_cash_left_on_floor", 0.0)),
+                    int(d.get("estimated_payback_days", 0)),
+                    json.dumps(rep_dict),
+                ),
+            )
+        return {"run_id": run_id, "created_at": now_iso}
+
+    def list_backtest_runs(self, session_id: str = DEFAULT_SESSION_ID, limit: int = 10) -> list[dict[str, Any]]:
+        safe_limit = max(1, min(limit, 50))
+        with self._session() as db:
+            rows = db.fetchall_dicts(
+                """
+                SELECT run_id, sandbox_id, access_code, created_at, source_label,
+                       currency, orders_analyzed, cash_left_1m, annualized_cash, payback_days
+                FROM backtest_runs
+                WHERE sandbox_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (session_id, safe_limit),
+            )
+        return rows
+
+    def reset_session_sandbox(
+        self,
+        session_id: str = DEFAULT_SESSION_ID,
+        access_code: str = DEFAULT_ACCESS_CODE,
+    ) -> dict:
+        """Delete all custom workspaces, pins, and checkpoints for `session_id` and reset `default` workspace."""
         ds = demo_dataset()
         cfg = default_config()
         now_iso = datetime.now(timezone.utc).isoformat()
-        with self._connect() as conn:
-            conn.execute("DELETE FROM plastics_workspaces WHERE session_id = ?", (session_id,))
-            conn.execute(
+        ds_json = ds.model_dump_json()
+        cfg_json = cfg.model_dump_json()
+        state_json = json.dumps(
+            {
+                "workspace_id": "default",
+                "name": ds.name,
+                "dataset": json.loads(ds_json),
+                "config": json.loads(cfg_json),
+            }
+        )
+        with self._session() as db:
+            db.execute("DELETE FROM saved_workspaces WHERE sandbox_id = ?", (session_id,))
+            db.execute("DELETE FROM plastics_workspaces WHERE session_id = ?", (session_id,))
+            db.execute("DELETE FROM pinned_scenarios WHERE sandbox_id = ?", (session_id,))
+            db.execute("DELETE FROM decision_checkpoints WHERE sandbox_id = ?", (session_id,))
+            db.execute(
+                """
+                INSERT INTO saved_workspaces (
+                    sandbox_id, access_code, workspace_id, name, currency,
+                    created_at, updated_at, dataset_json, config_json, state_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    session_id,
+                    access_code,
+                    "default",
+                    ds.name,
+                    cfg.currency,
+                    now_iso,
+                    now_iso,
+                    ds_json,
+                    cfg_json,
+                    state_json,
+                ),
+            )
+            db.execute(
                 """
                 INSERT INTO plastics_workspaces (
                     session_id, workspace_id, name, created_at, updated_at, dataset_json, config_json
@@ -388,8 +1153,8 @@ class AuditStore:
                     ds.name,
                     now_iso,
                     now_iso,
-                    ds.model_dump_json(),
-                    cfg.model_dump_json(),
+                    ds_json,
+                    cfg_json,
                 ),
             )
         return {

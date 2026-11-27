@@ -2,12 +2,15 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
+  commitCtpRushOrderApi,
+  createCheckpointApi,
   deleteWorkspaceApi,
   exportBriefExcel,
   exportDatasetExcel,
   fetchAuditLog,
   fetchAuditRun,
   fetchAuthMe,
+  fetchCheckpointsApi,
   fetchDemoData,
   fetchWorkspaces,
   getWorkspaceApi,
@@ -15,6 +18,7 @@ import {
   loginWithPasscodeApi,
   logoutApi,
   resetSandboxApi,
+  restoreCheckpointApi,
   saveWorkspaceApi,
   solvePlantScheduleApi,
   solveWorkforceApi,
@@ -27,6 +31,7 @@ import type {
   AuthStatus,
   BacktestReplayReport,
   Currency,
+  DecisionCheckpoint,
   FactoryWorker,
   GuidedSetupResponse,
   Lang,
@@ -456,6 +461,24 @@ interface AppState {
   loginInstantDemo: () => Promise<void>;
   logout: () => Promise<void>;
   resetHostedSandbox: () => Promise<void>;
+  // v1.4 Decision Checkpoints, CTP Rush-Order Quoter, Executive PDF & WhatsApp Dispatch
+  checkpoints: DecisionCheckpoint[];
+  storageBackend: "postgres" | "sqlite_fallback";
+  checkpointsDrawerOpen: boolean;
+  setCheckpointsDrawerOpen: (open: boolean) => void;
+  checkpointToast: string | null;
+  clearCheckpointToast: () => void;
+  refreshCheckpoints: (seedIfEmpty?: boolean) => Promise<void>;
+  saveManualCheckpoint: () => Promise<void>;
+  restoreCheckpoint: (checkpointId: string) => Promise<void>;
+  ctpModalOpen: boolean;
+  setCtpModalOpen: (open: boolean) => void;
+  commitCtpOrderToSchedule: (candidateOrder: ProductionOrder) => Promise<void>;
+  whatsappModalOpen: boolean;
+  setWhatsappModalOpen: (open: boolean) => void;
+  printReportMode: "brief_owner" | "brief_manager" | "backtest" | null;
+  setPrintReportMode: (mode: "brief_owner" | "brief_manager" | "backtest" | null) => void;
+  triggerExecutivePdfPrint: (mode: "brief_owner" | "brief_manager" | "backtest") => void;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -504,6 +527,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [quickModalItem, setQuickModalItem] = useState<any>(null);
   const [studioSubTab, setStudioSubTab] = useState<StudioSubTab>("presses");
   const [pinnedScenarios, setPinnedScenarios] = useState<PinnedScenario[]>([]);
+  const [checkpoints, setCheckpoints] = useState<DecisionCheckpoint[]>([]);
+  const [storageBackend, setStorageBackend] = useState<"postgres" | "sqlite_fallback">("sqlite_fallback");
+  const [checkpointsDrawerOpen, setCheckpointsDrawerOpen] = useState(false);
+  const [checkpointToast, setCheckpointToast] = useState<string | null>(null);
+  const clearCheckpointToast = useCallback(() => setCheckpointToast(null), []);
+  const [ctpModalOpen, setCtpModalOpen] = useState(false);
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [printReportMode, setPrintReportMode] = useState<"brief_owner" | "brief_manager" | "backtest" | null>(null);
+
+  const triggerExecutivePdfPrint = useCallback(
+    (mode: "brief_owner" | "brief_manager" | "backtest") => {
+      setPrintReportMode(mode);
+    },
+    []
+  );
   const [auth, setAuth] = useState<AuthStatus>({
     auth_enabled: false,
     authenticated: false,
@@ -553,6 +591,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const runs = await fetchAuditLog(15);
       setAuditRuns(runs);
+    } catch {
+      // Non-fatal while backend warms up
+    }
+  }, []);
+
+  const refreshCheckpoints = useCallback(async (seedIfEmpty = true) => {
+    try {
+      const res = await fetchCheckpointsApi(seedIfEmpty);
+      setCheckpoints(res.checkpoints);
+      setStorageBackend(res.storage_backend);
     } catch {
       // Non-fatal while backend warms up
     }
@@ -642,6 +690,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         readyForPersistRef.current = true;
         await refreshAudit();
         void loadWorkspaces();
+        void refreshCheckpoints(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load demo plant dataset");
       } finally {
@@ -723,6 +772,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         readyForPersistRef.current = true;
         await refreshAudit();
         void loadWorkspaces();
+        void refreshCheckpoints(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to restore saved Studio plant state");
       } finally {
@@ -1025,6 +1075,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setAppliedDelta(delta);
         if (effectiveDataset) {
           scheduleWorkspaceAutoSave(effectiveDataset, normalized);
+          void createCheckpointApi({
+            trigger_source: "copilot",
+            title_en: prompt ? `Copilot Applied: ${prompt.slice(0, 72)}` : "Copilot Scenario Applied",
+            title_ar: prompt ? `تطبيق المساعد: ${prompt.slice(0, 72)}` : "تطبيق سيناريو مساعد العمليات",
+            dataset: effectiveDataset,
+            config: normalized,
+            result: nextRes,
+          })
+            .then((cpRes) => {
+              setCheckpoints(cpRes.checkpoints);
+              setStorageBackend(cpRes.storage_backend);
+            })
+            .catch(() => {});
         }
         void refreshAudit();
       } else {
@@ -1541,6 +1604,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         setActiveWorkspaceId(wsId);
         await loadWorkspaces();
+        await refreshCheckpoints(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save workspace");
       } finally {
@@ -1779,6 +1843,102 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currency, loadWorkspaces, markSolvedSignature, refreshAudit]);
 
+  const saveManualCheckpoint = useCallback(async () => {
+    const ds = datasetRef.current;
+    const cfg = configRef.current;
+    const res = resultRef.current;
+    if (!ds) return;
+    try {
+      const labelEn = `Manual Snapshot: ${ds.name} (${deriveScenarioLabel(cfg, "en")})`;
+      const labelAr = `نقطة قرار يدوية: ${ds.name} (${deriveScenarioLabel(cfg, "ar")})`;
+      const created = await createCheckpointApi({
+        trigger_source: "manual",
+        title_en: labelEn,
+        title_ar: labelAr,
+        dataset: ds,
+        config: cfg,
+        result: res,
+      });
+      setCheckpoints(created.checkpoints);
+      setStorageBackend(created.storage_backend);
+      setCheckpointToast(
+        lang === "ar"
+          ? "تم حفظ نقطة القرار في السجل الدائم."
+          : "Decision checkpoint saved to persistent audit history."
+      );
+      setTimeout(() => setCheckpointToast(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save decision checkpoint");
+    }
+  }, [lang]);
+
+  const restoreCheckpoint = useCallback(
+    async (checkpointId: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const restored = await restoreCheckpointApi(checkpointId);
+        const nextCfg = normalizeConfig({ ...restored.config, currency: restored.config.currency });
+        markSolvedSignature(restored.dataset, nextCfg);
+        setDataset(restored.dataset);
+        setConfig(nextCfg);
+        setCurrencyState(nextCfg.currency);
+        setResult(restored.result);
+        setValidation(restored.validation);
+        setAppliedDelta(null);
+        setStorageBackend(restored.storage_backend);
+        setCheckpointToast(
+          lang === "ar"
+            ? `تم استرجاع نقطة القرار (${restored.checkpoint.title_ar || restored.checkpoint.title_en}) ومزامنة اللوحة بالكامل.`
+            : `Restored checkpoint (${restored.checkpoint.title_en}) — full dashboard synchronized.`
+        );
+        setTimeout(() => setCheckpointToast(null), 4500);
+        await refreshAudit();
+        await loadWorkspaces();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to restore decision checkpoint");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [lang, loadWorkspaces, markSolvedSignature, refreshAudit]
+  );
+
+  const commitCtpOrderToSchedule = useCallback(
+    async (candidateOrder: ProductionOrder) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const committed = await commitCtpRushOrderApi({
+          candidate_order: candidateOrder,
+          dataset: datasetRef.current,
+          config: configRef.current,
+          workspace_id: activeWorkspaceId || "default",
+        });
+        const nextCfg = normalizeConfig({ ...committed.config, currency });
+        markSolvedSignature(committed.dataset, nextCfg);
+        setDataset(committed.dataset);
+        setConfig(nextCfg);
+        setResult(committed.result);
+        setValidation(committed.validation);
+        setCheckpointToast(
+          lang === "ar"
+            ? `تم اعتماد الأمر العاجل ${committed.order_id} في الجدول النشط وحفظ نقطة قرار مرجعية.`
+            : `Committed rush order ${committed.order_id} to live schedule & saved decision checkpoint.`
+        );
+        setTimeout(() => setCheckpointToast(null), 4500);
+        await refreshCheckpoints(false);
+        await refreshAudit();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to commit CTP rush order");
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeWorkspaceId, currency, lang, markSolvedSignature, refreshAudit, refreshCheckpoints]
+  );
+
   const modifiedCount = useMemo(
     () => countDatasetAndPhysicsDiffs(dataset, config, baselineSnapshot.dataset, baselineSnapshot.config),
     [dataset, config, baselineSnapshot]
@@ -1892,6 +2052,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loginInstantDemo,
         logout,
         resetHostedSandbox,
+        checkpoints,
+        storageBackend,
+        checkpointsDrawerOpen,
+        setCheckpointsDrawerOpen,
+        checkpointToast,
+        clearCheckpointToast,
+        refreshCheckpoints,
+        saveManualCheckpoint,
+        restoreCheckpoint,
+        ctpModalOpen,
+        setCtpModalOpen,
+        commitCtpOrderToSchedule,
+        whatsappModalOpen,
+        setWhatsappModalOpen,
+        printReportMode,
+        setPrintReportMode,
+        triggerExecutivePdfPrint,
       }}
     >
       {children}

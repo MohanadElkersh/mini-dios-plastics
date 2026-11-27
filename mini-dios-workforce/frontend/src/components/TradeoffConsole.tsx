@@ -56,6 +56,7 @@ export function TradeoffConsole() {
     loadAuditRunById,
     setCopilotOpen,
     toggleContainerSyncMode,
+    setCtpModalOpen,
   } = useApp();
 
   const t = COPY[lang];
@@ -370,7 +371,16 @@ export function TradeoffConsole() {
               <h2 className="text-sm font-bold text-white">{t.scenarioBuilderTitle}</h2>
               <p className="text-xs text-slate-400">{t.scenarioBuilderDesc}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                data-testid="btn-open-ctp-console"
+                onClick={() => setCtpModalOpen(true)}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-500/45 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-200 transition hover:bg-amber-500/25 md:min-h-0"
+              >
+                <Zap className="h-3.5 w-3.5 text-amber-400" />
+                <span>{t.ctpBtn}</span>
+              </button>
               {activeCount > 0 && (
                 <button
                   type="button"

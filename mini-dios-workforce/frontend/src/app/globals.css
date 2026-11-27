@@ -197,3 +197,23 @@ input[type="range"].dios-slider::-moz-range-thumb {
   border-inline-start: 1px dashed rgba(129, 140, 248, 0.4);
   border-inline-end: 1px dashed rgba(129, 140, 248, 0.4);
 }
+
+/* Board-Ready Bilingual Executive PDF Print Stylesheet (Zero Render RAM Overhead) */
+@media print {
+  :root {
+    color-scheme: light !important;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+}

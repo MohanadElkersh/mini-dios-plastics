@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Download, FileSpreadsheet, FileText, FileCode2, Loader2 } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, FileCode2, Loader2, MessageSquareShare } from "lucide-react";
 import { downloadIntegrationExportApi } from "@/lib/api";
 import { COPY } from "@/lib/i18n";
 import { useApp } from "@/lib/store";
@@ -15,7 +15,7 @@ export function ScheduleExportMenu({
   compact = false,
   testIdPrefix = "export-schedule",
 }: ScheduleExportMenuProps) {
-  const { lang, currency, result } = useApp();
+  const { lang, currency, result, setWhatsappModalOpen } = useApp();
   const t = COPY[lang];
   const [busyFormat, setBusyFormat] = useState<"xlsx" | "csv" | "json" | null>(null);
 
@@ -99,6 +99,16 @@ export function ScheduleExportMenu({
           <FileCode2 className="h-3.5 w-3.5 text-indigo-400" />
         )}
         <span>{t.exportErpJsonBtn}</span>
+      </button>
+
+      <button
+        type="button"
+        data-testid={`${testIdPrefix}-whatsapp`}
+        onClick={() => setWhatsappModalOpen(true)}
+        className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-teal-500/45 bg-teal-500/15 px-2.5 py-1 text-[11px] font-semibold text-teal-200 transition hover:bg-teal-500/25 md:min-h-0"
+      >
+        <MessageSquareShare className="h-3.5 w-3.5 text-teal-400" />
+        <span>{t.whatsappDispatchBtn}</span>
       </button>
     </div>
   );

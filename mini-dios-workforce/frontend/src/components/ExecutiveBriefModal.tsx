@@ -12,6 +12,7 @@ import {
   Flame,
   History,
   Layers,
+  Printer,
   Scale,
   ShieldCheck,
   TrendingUp,
@@ -34,6 +35,7 @@ export function ExecutiveBriefModal() {
     briefModalOpen,
     setBriefModalOpen,
     setBacktestModalOpen,
+    triggerExecutivePdfPrint,
   } = useApp();
   const t = COPY[lang];
   const isAr = lang === "ar";
@@ -137,7 +139,20 @@ export function ExecutiveBriefModal() {
               </button>
             </div>
 
-            <ScheduleExportMenu compact testIdPrefix="brief-export" />
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="btn-brief-print-pdf"
+                onClick={() =>
+                  triggerExecutivePdfPrint(audienceTab === "manager" ? "brief_manager" : "brief_owner")
+                }
+                className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-amber-500/45 bg-amber-500/15 px-3 py-1 text-[11px] font-bold text-amber-200 transition hover:bg-amber-500/25 md:min-h-0"
+              >
+                <Printer className="h-3.5 w-3.5 text-amber-400" />
+                <span>{t.printPdfBtn}</span>
+              </button>
+              <ScheduleExportMenu compact testIdPrefix="brief-export" />
+            </div>
           </div>
 
           {!result ? (

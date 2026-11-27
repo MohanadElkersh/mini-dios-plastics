@@ -2,18 +2,27 @@ import type {
   AuditLogItem,
   AuthStatus,
   BacktestReplayReport,
+  CheckpointRestoreResponse,
+  CheckpointsListResponse,
   CopilotResult,
+  CTPCommitResponse,
+  CTPQuoteRequest,
+  CTPQuoteResult,
   Currency,
+  DecisionCheckpoint,
   FinancialReport,
   GuidedSetupRequest,
   GuidedSetupResponse,
   Lang,
   PlantDataset,
   PlantWorkspace,
+  ProductionOrder,
   RiskRadarReport,
   SolveResult,
   SolverConfig,
   ValidationReport,
+  WhatsAppDispatchRequest,
+  WhatsAppDispatchResponse,
   WorkforceCallout,
   WorkforceResult,
   WorkspaceSummary,
@@ -418,4 +427,91 @@ export async function downloadIntegrationExportApi(
     throw new Error(`Export ${endpoint} failed (HTTP ${res.status})`);
   }
   return res.blob();
+}
+
+// --------------------------------------------------------------------------------------------
+// v1.4 Persistence Checkpoints, CTP Rush-Order Quoter & WhatsApp Shift Dispatch Endpoints
+// --------------------------------------------------------------------------------------------
+export async function fetchCheckpointsApi(seedIfEmpty = true): Promise<CheckpointsListResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/checkpoints?limit=25&seed_if_empty=${seedIfEmpty ? "true" : "false"}`,
+    {
+      cache: "no-store",
+      credentials: "include",
+    }
+  );
+  return handleJson<CheckpointsListResponse>(res);
+}
+
+export async function createCheckpointApi(payload: {
+  trigger_source: string;
+  title_en: string;
+  title_ar: string;
+  dataset?: PlantDataset | null;
+  config?: SolverConfig | null;
+  result?: SolveResult | null;
+}): Promise<{
+  storage_backend: "postgres" | "sqlite_fallback";
+  checkpoint: DecisionCheckpoint;
+  checkpoints: DecisionCheckpoint[];
+}> {
+  const res = await fetch(`${API_BASE}/api/checkpoints`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson(res);
+}
+
+export async function restoreCheckpointApi(
+  checkpointId: string
+): Promise<CheckpointRestoreResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/checkpoints/${encodeURIComponent(checkpointId)}/restore`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
+  return handleJson<CheckpointRestoreResponse>(res);
+}
+
+export async function quoteCtpRushOrderApi(
+  payload: CTPQuoteRequest
+): Promise<CTPQuoteResult> {
+  const res = await fetch(`${API_BASE}/api/quote/ctp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson<CTPQuoteResult>(res);
+}
+
+export async function commitCtpRushOrderApi(payload: {
+  candidate_order: ProductionOrder;
+  dataset?: PlantDataset | null;
+  config?: SolverConfig | null;
+  workspace_id?: string;
+}): Promise<CTPCommitResponse> {
+  const res = await fetch(`${API_BASE}/api/quote/ctp/commit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson<CTPCommitResponse>(res);
+}
+
+export async function generateWhatsAppDispatchApi(
+  payload: WhatsAppDispatchRequest
+): Promise<WhatsAppDispatchResponse> {
+  const res = await fetch(`${API_BASE}/api/dispatch/whatsapp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson<WhatsAppDispatchResponse>(res);
 }

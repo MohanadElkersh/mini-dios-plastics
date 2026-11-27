@@ -16,6 +16,10 @@ services:
         value: "8000"
       - key: DIOS_AUDIT_DB
         value: /data/audit.db
+      # Optional External PostgreSQL Persistence (Neon / Supabase / Render Postgres).
+      # When unset, Mini-DIOS automatically falls back to local SQLite (data/mini_dios.db or DIOS_AUDIT_DB).
+      # - key: DATABASE_URL
+      #   sync: false
       - key: AUTH_ENABLED
         value: "true"
       - key: AUTH_SECRET_KEY

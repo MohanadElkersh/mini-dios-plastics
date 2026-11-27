@@ -1,7 +1,7 @@
 # Mini-DIOS Plastics — Technical Reference & Engineering Architecture
 
 > **Track B — Dedicated Technical Documentation (For Engineers, DevOps, IT & AI Agents)**
-> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-25 (`v1.5 / Commercial & Decision Intelligence Upgrade v1.3`)
+> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-27 (`v1.4 — Pilot-Ready Persistence, CTP Rush-Order Quoter & Executive Dispatch`)
 > **Security Note:** This document lists environment variable *names* and architectural specs only. It NEVER stores real API keys, passwords, OAuth tokens, or `.env` values.
 
 ---
@@ -13,11 +13,12 @@
 4. [Workforce CP-SAT Formulation (`WHC1–WHC5`)](#4-workforce-cp-sat-formulation-whc1whc5)
 5. [Deterministic Financial, Container WIP & Risk Radar Formulas](#5-deterministic-financial-container-wip--risk-radar-formulas)
 6. [Operations Copilot 3-Tool Architecture, Commander-Grade Trade-Offs & Lockstep State Sync](#6-operations-copilot-3-tool-architecture-commander-grade-trade-offs--lockstep-state-sync)
-7. [1-Month Historical Backtest Engine, 5-Step Guided Onboarding & Integration Export APIs](#7-1-month-historical-backtest-engine-5-step-guided-onboarding--integration-export-apis)
+7. [1-Month Historical Backtest Engine, 5-Step Guided Onboarding, CTP Quoter & WhatsApp Dispatch](#7-1-month-historical-backtest-engine-5-step-guided-onboarding-ctp-quoter--whatsapp-dispatch)
 8. [REST & Excel Integration API Endpoints](#8-rest--excel-integration-api-endpoints)
-9. [Authentication, Proxy Routing, CORS & Storage](#9-authentication-proxy-routing-cors--storage)
+9. [Authentication, Proxy Routing, CORS & Dual-Mode Database Persistence](#9-authentication-proxy-routing-cors--dual-mode-database-persistence)
 10. [Environment Variables, Local Launch, Docker & Render Deployment](#10-environment-variables-local-launch-docker--render-deployment)
 11. [QA, Testing, Audit & Drive Sync Commands](#11-qa-testing-audit--drive-sync-commands)
+12. [Deferred CP-SAT Constraint Extensions (Design Notes — Parked / Not Yet Implemented)](#12-deferred-cp-sat-constraint-extensions-design-notes--parked--not-yet-implemented)
 
 ---
 
@@ -169,13 +170,11 @@ Implemented in `backend/core/copilot.py` and rendered in `frontend/src/component
 
 ---
 
-## 7. 1-Month Historical Backtest Engine, 5-Step Guided Onboarding & Integration Export APIs
+## 7. 1-Month Historical Backtest Engine, 5-Step Guided Onboarding, CTP Quoter & WhatsApp Dispatch
 
 ### 7.1 1-Month Historical Backtest / Replay Engine (`backend/core/backtest.py`)
 - **Template Generator (`build_backtest_template_csv`, `build_backtest_template_xlsx`):** Emits a 13-column historical log template (`order_id`, `customer`, `sku_name`, `resin`, `color`, `qty_units`, `press_id`, `actual_changeover_hrs`, `actual_purge_scrap_kg`, `actual_overtime_hrs`, `actual_late_hours`, `export_penalty_cost`, `unit_margin`) pre-populated with realistic sample rows.
-- **Deterministic Replay (`run_historical_backtest_replay`):** Groups up to 4 weekly batches from the uploaded CSV/XLSX (or 28-order `"sample_30day_log"`), runs OR-Tools CP-SAT with light-to-dark sequencing and container sync against the active plant's physics, and computes `HistoricalBacktestReport`:
-  - `actual_vs_optimized`: `actual_purge_scrap_kg` vs. `optimized_purge_scrap_kg`, `actual_changeover_hrs` vs. `optimized_changeover_hrs`, `actual_overtime_hrs` vs. `optimized_overtime_hrs`, `actual_export_penalty_cost` vs. `optimized_export_penalty_cost`.
-  - Capacity & ROI metrics: `extra_production_hrs_unlocked`, `extra_sellable_units_unlocked`, `extra_sellable_tons_unlocked`, `total_cash_left_on_floor_1m`, `annualized_cash_left_on_floor` (`× 12`), and `estimated_payback_days` against the annual license reference (`60,000 SAR` / `780,000 EGP`).
+- **Deterministic Replay (`run_historical_backtest_replay`):** Groups up to 4 weekly batches from the uploaded CSV/XLSX (or 28-order `"sample_30day_log"`), runs OR-Tools CP-SAT with light-to-dark sequencing and container sync against the active plant's physics, persists the summary to `backtest_runs`, and computes `BacktestReplayReport`.
 
 ### 7.2 Guided "Process-First" 5-Step Onboarding Wizard (`backend/core/onboarding.py`)
 - `build_guided_plant_workspace(req: GuidedSetupRequest)` constructs a tailored `PlantDataset` (presses across selected tonnage tiers with backup press compatibility, molds, resin inventory, multi-SKU export container orders, 2-shift or 3-shift workforce roster, and `PlantPhysicsConfig`), runs `validate_plant_data()` and `solve_plant_schedule()` (capped at `<= 2.2s` for Render Free Tier safety), and returns `GuidedSetupResponse` including a 6-item bilingual **"Current Specs Only" Readiness Checklist** (`ReadinessChecklistItem`) confirming zero historical ERP data is required.
@@ -185,39 +184,65 @@ Implemented in `backend/core/copilot.py` and rendered in `frontend/src/component
 - `export_integration_schedule_csv()`: Flat UTF-8 `.csv` press schedule with container group and wait hours.
 - `export_integration_erp_payload()`: Versioned `mini-dios-plastics-erp/v1.3` JSON payload (`work_orders`, `mold_maintenance_windows`, `container_consolidations`, `workforce_shift_roster`, `kpis_and_financials`, `risk_alerts`) ready for Odoo MRP (`mrp.production` / `mrp.workorder`) and SAP Business One (`OWOR`).
 
+### 7.4 Capable-to-Promise (CTP) Non-Destructive Rush-Order Quoter (`backend/core/ctp.py`)
+- **`evaluate_ctp_rush_order(req: CTPQuoteRequest)`:**
+  - Deep-copies `dataset` and `config` in memory (`copy.deepcopy`) so the active sandbox workspace and database are **never mutated** during quoting.
+  - Bounds `max_solve_seconds <= 2.2s` to respect Render Free-Tier memory/CPU limits (`0.1 CPU / 512 MB RAM`).
+  - Inserts the prospective rush order (inheriting tonnage/press compatibility and cycle times from `mold_id`), solves the coupled Press + Workforce + Financial + Risk Radar pipeline, and diffs against the baseline solve.
+  - Returns `CTPQuoteResult` containing:
+    - `verdict`: `"ON_TIME"` | `"LATE"` | `"INFEASIBLE"`
+    - `assigned_press_id`, `scheduled_start_hr`, `scheduled_end_hr`, `target_due_hour`, `slack_or_delay_hrs`
+    - `financial_impact`: `gross_revenue`, `direct_resin_cost`, `extra_purge_scrap_kg`, `extra_purge_cost`, `extra_changeover_hrs`, `extra_changeover_cost`, `extra_electricity_cost`, `extra_overtime_labor_cost`, `extra_wip_holding_cost`, `extra_late_penalty_cost`, `total_marginal_cost`, `net_profit_contribution`, `margin_pct`, and `min_breakeven_unit_price` (`total_marginal_cost / qty_units`).
+    - `bumped_orders`: Pre-existing confirmed orders delayed by `>= 0.3h` or pushed past deadline (`breaches_cutoff`, `is_export`).
+    - `risk_score_before`, `risk_score_after`, `tradeoff_summary_en`, `tradeoff_summary_ar`, and `candidate_order`.
+
+### 7.5 1-Click Bilingual WhatsApp Shift Dispatch & Print-Optimized Executive PDF (`backend/core/dispatch.py`, `WhatsAppDispatchModal.tsx`, `ExecutivePrintReport.tsx`)
+- **`format_whatsapp_shift_dispatch()` (`backend/core/dispatch.py`):** Deterministically formats a WhatsApp dispatch brief (`*bold*` headers, clean bullets, press-by-press run sequence, setup/purge alerts, assigned shift crew by role, open gap warnings, and URL-encoded `https://wa.me/?text=...` link) for either `scope="full_week"` or `scope="day_shift"` (`day: 0..6`, `shift: Morning | Afternoon | Evening | Night | ALL`) in `en` or `ar`.
+- **`ExecutivePrintReport.tsx` + `@media print` (`globals.css`):** Zero-server-RAM light-background (`#ffffff` / `#0f172a`) printable A4 report supporting `Owner / Chairman View`, `Plant / Production Manager Decision Shield`, and `30-Day Historical Backtest Proof` in both English (`dir="ltr"`) and Arabic (`dir="rtl"`, `IBM Plex Sans Arabic`).
+
 ---
 
 ## 8. REST & Excel Integration API Endpoints
 
 Defined in `backend/api/routes.py` under prefix `/api`:
-- `GET /api/health` — Service status & OR-Tools version.
+- `GET /api/health` — Service status, OR-Tools version, `auth_enabled`, and `storage_backend` (`postgres` vs. `sqlite_fallback`).
 - `GET /api/demo-data` — Seeded `PlantDataset` (with 4 export container groups) + default `SolverConfig` (`container_sync_enabled=True`).
 - `POST /api/validate` — Accepts JSON (`{dataset, config?}`) or `multipart/form-data` 4-tab `.xlsx` workbook.
-- `POST /api/solve` — Full Press + Workforce CP-SAT + Financials + Risk Radar + SQLite audit save.
+- `POST /api/solve` — Full Press + Workforce CP-SAT + Financials + Risk Radar + persistence audit save.
 - `POST /api/workforce/solve` — Fast labor-only re-solve against an existing Press Gantt.
 - `POST /api/copilot/ask` — Executes Copilot 3-tool pipeline + `financial_tradeoff_summary`.
+- `GET /api/checkpoints` — Lists recent decision checkpoints (newest first, capped at 25 per sandbox) with `storage_backend` and `pool_config` diagnostics.
+- `POST /api/checkpoints` — Records an immutable decision checkpoint (`copilot`, `ctp_commit`, `workspace_save`, `manual`).
+- `POST /api/checkpoints/{checkpoint_id}/restore` — Restores exact plant/config state from a checkpoint, re-solves the coupled production + workforce + Risk Radar bundle, and updates the active workspace.
+- `POST /api/quote/ctp` — Non-destructive Capable-to-Promise rush-order evaluation returning `CTPQuoteResult`.
+- `POST /api/quote/ctp/commit` — Commits an accepted CTP rush order to the active workspace, re-solves, and saves a `ctp_commit` Decision Checkpoint.
+- `POST /api/dispatch/whatsapp` — Formats a deterministic EN/AR WhatsApp shift dispatch payload and `wa.me` share URL.
 - `GET /api/backtest/template?format=csv|xlsx` — Downloads 13-column historical backtest template.
-- `POST /api/backtest/replay` — Runs 1-Month Historical Backtest Replay from uploaded CSV/XLSX or `mode="sample_30day_log"`.
+- `POST /api/backtest/replay` — Runs 1-Month Historical Backtest Replay from uploaded CSV/XLSX or `mode="sample_30day_log"` and persists to `backtest_runs`.
 - `POST /api/onboarding/generate` — Generates and solves a 5-step guided plant workspace + Readiness Checklist.
 - `GET /api/export/schedule.xlsx`, `GET /api/export/schedule.csv`, `GET /api/export/erp-payload.json` — Sandbox-scoped live schedule exports (auto-solves active workspace if needed).
-- `GET/POST /api/workspaces`, `GET/DELETE /api/workspaces/{workspace_id}` — Saved plant workspace CRUD.
+- `GET/POST /api/workspaces`, `GET/DELETE /api/workspaces/{workspace_id}` — Saved plant workspace CRUD (`saved_workspaces`).
 - `GET /api/audit-log`, `GET /api/audit-log/{run_id}` — Cryptographic audit trail retrieval.
 - `GET /api/template.xlsx`, `POST /api/export-dataset.xlsx`, `POST /api/export-brief.xlsx` — Programmatic Excel bridge.
 
 ---
 
-## 9. Authentication, Proxy Routing, CORS & Storage
+## 9. Authentication, Proxy Routing, CORS & Dual-Mode Database Persistence
 
 - **Hosted Access Gate (`LoginGate.tsx` + backend auth):** Enabled via `AUTH_ENABLED=true`. Signed session cookies use `AUTH_SECRET_KEY`. Multi-client passcodes configured via `DEMO_ACCESS_CODES` (`Executive Demo:DIOS-2026,Alexandria Plant:ALEX-2026,Riyadh Plant:KSA-2026`).
 - **Frontend → Backend Proxy (`frontend/src/app/api/[...path]/route.ts`):** Proxies `/api/*` internally to `BACKEND_INTERNAL_URL` with an explicit header allowlist and self-proxy loop guard.
-- **Storage:** Persistent SQLite at `/data/audit.db` (`dios-sqlite-data` 1GB Render disk or `dios-audit-data` Docker volume).
+- **Dual-Mode Database Persistence (`backend/core/audit.py`):**
+  - Reads `DATABASE_URL` from environment variables.
+  - When `DATABASE_URL` is set (PostgreSQL on Neon, Supabase, or Render Postgres), normalizes `postgres://` → `postgresql://`, appends `sslmode=require` on remote cloud hosts, and configures a bounded connection pool safe for Render Free tier (`pool_size=3`, `max_overflow=2`, `pool_pre_ping=True`).
+  - When `DATABASE_URL` is unset (or connection fails), falls back cleanly to local SQLite (`data/mini_dios.db` or `DIOS_AUDIT_DB`) so the application never crashes on startup.
+  - Auto-migrates 5 tables scoped by `sandbox_id` (`session_id`) and `access_code` (`client_label`): `plastics_audit_runs`, `saved_workspaces` (plus legacy `plastics_workspaces` mirror), `pinned_scenarios`, `backtest_runs`, and `decision_checkpoints`.
 
 ---
 
 ## 10. Environment Variables, Local Launch, Docker & Render Deployment
 
 ### Environment Variable Names (Never Store Real Values in Docs)
-- **Backend (`backend/.env` / Render API service):** `PORT`, `DIOS_AUDIT_DB`, `AUTH_ENABLED`, `AUTH_SECRET_KEY`, `DEMO_ACCESS_CODES`, `ADMIN_PASSWORD`, `ALLOW_INSTANT_DEMO`, `COPILOT_MAX_LIVE_CALLS_PER_HOUR`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OFFLINE_MODE`, `ALLOWED_ORIGINS`, `CORS_ORIGINS`.
+- **Backend (`backend/.env` / Render API service):** `PORT`, `DATABASE_URL`, `DIOS_AUDIT_DB`, `AUTH_ENABLED`, `AUTH_SECRET_KEY`, `DEMO_ACCESS_CODES`, `ADMIN_PASSWORD`, `ALLOW_INSTANT_DEMO`, `COPILOT_MAX_LIVE_CALLS_PER_HOUR`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OFFLINE_MODE`, `ALLOWED_ORIGINS`, `CORS_ORIGINS`.
 - **Frontend (Render Web service):** `PORT`, `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_ALLOW_INSTANT_DEMO`, `BACKEND_INTERNAL_URL`.
 
 ---
@@ -230,3 +255,31 @@ Defined in `backend/api/routes.py` under prefix `/api`:
 - **Drive sync unit tests:** `python -m unittest tests/test_drive_sync.py -v`
 - **Drive sync dry-run / live API sync:** `python scripts/sync_docs_to_drive.py --dry-run` / `python scripts/sync_docs_to_drive.py`
 - **Antigravity `gdrive` CLI in-place update:** `gdrive mutate update <FILE_ID> <local.md> --mime-type "application/vnd.google-apps.document"`
+
+---
+
+## 12. Deferred CP-SAT Constraint Extensions (Design Notes — Parked / Not Yet Implemented)
+
+> **STATUS: PARKED / NOT YET IMPLEMENTED (`Pilot-Pull Only`)**
+> The following mathematical formulations map every item in `docs/ROADMAP_AND_BACKLOG.md` (Tier 1 and Tier 2) to its target OR-Tools CP-SAT modeling pattern. These constraints are intentionally excluded from the core solver until requested by a pilot factory.
+
+### 12.1 Tier 1 — High-Likelihood Pilot Extensions (`STATUS: PARKED / NOT YET IMPLEMENTED`)
+
+| Backlog Item | Target CP-SAT Modeling Pattern |
+| :--- | :--- |
+| **1. Shared Auxiliary Equipment (Overhead Cranes, Chiller Tonnage, Dryers/Robots)** | • **Overhead Cranes:** Create setup interval variables `setup_iv[i, m] = NewOptionalIntervalVar(busy_start[i], setup_vars[i], start_vars[i], pres_vars[i, m])` for heavy molds (`tonnage >= 500T`) and enforce `model.AddCumulative(heavy_setup_ivs, [1]*N, max_simultaneous_cranes)`.<br>• **Summer Chiller Tonnage:** For each active run interval `run_iv[i]`, assign cooling demand `chiller_tons[i] = ceil((gross_kg_per_hr[i] * specific_heat_kj) / 12660)` and enforce `model.AddCumulative(run_ivs, chiller_tons, plant_chiller_capacity_tons)`.<br>• **Shared Portable Dryers / Robots:** `model.AddCumulative(auxiliary_ivs, [1]*K, available_aux_units)`. |
+| **2. Capped / Blocked Mold Cavities** | • Add `active_cavities: int = Field(le=nominal_cavities, gt=0)` to `Mold`.<br>• Scale shot count deterministically in `order_shots()`: `shots = ceil(quantity_pcs / mold.active_cavities)`, automatically lengthening `order_duration_mins(order, mold)` while keeping part weight per cavity invariant. |
+| **3. Multi-Stage Dependencies (Preform → Blow Molding & Cap + Bottle Matching)** | • **Stage Precedence:** For paired upstream preform order `i` and downstream blow-molding order `j`, enforce `model.Add(start_vars[j] >= end_vars[i] + cooling_lag_mins).OnlyEnforceIf([scheduled[i], scheduled[j]])` or lot-split transfer batching.<br>• **Matched Component Sets:** Couple cap order `c` and bottle order `b` via shared packing completion variable `pack_ready >= end_vars[c]` and `pack_ready >= end_vars[b]`, penalizing spread `|end_vars[c] - end_vars[b]|`. |
+| **4. Order Splitting & Duplicate Parallel Molds** | • Replace single-mold ID with `mold_group_id` owning `K` physical tool instances (`K >= 1`), using `model.AddCumulative(mold_group_ivs, [1]*N, K)` instead of `AddNoOverlap`, or pre-split large export orders into `m` sub-lots with minimum batch duration floor `min_batch_run_hrs`. |
+| **5. Mid-Week Inbound Supply & Packaging Stockouts** | • Replace static scalar `virgin_available_kg` with a step-function cumulative inventory curve at discrete event epochs `t in {0, arrival_1, ..., H}`: `sum_{i: start_i <= t} (virgin_10[i] + purge_10[i]) <= initial_stock_10 + sum_{a: t_a <= t} inbound_10[a]`, plus parallel cumulative caps for `masterbatch_kg`, `cartons_pcs`, `iml_labels_pcs`, and `pallets_cnt`. |
+| **6. Secondary / Downstream Bottlenecks (Printing, IML, Ultrasonic Welding)** | • Model each downstream finishing work-center `w` (e.g., Dry-Offset Printer, Pad Printer, Ultrasonic Welder) as a secondary stage with interval `fin_iv[i]` (`fin_start[i] >= end_vars[i]`), enforcing `model.AddNoOverlap(fin_ivs[w])` and evaluating `tardiness_vars[i] >= fin_end[i] - due_min[i]`. |
+
+### 12.2 Tier 2 — Sub-Sector & Heavy-Plant Phase 2 Extensions (`STATUS: PARKED / NOT YET IMPLEMENTED`)
+
+| Backlog Item | Target CP-SAT Modeling Pattern |
+| :--- | :--- |
+| **1. Hard Plant kVA Transformer Peak-Demand Ceiling** | • Assign each press run interval `piv[i, m]` active kVA draw `kva_run[m]` and each barrel heat-up/changeover interval `siv[i, m]` surge kVA draw `kva_startup[m]`, enforcing `model.AddCumulative(all_press_ivs, kva_demands, transformer_max_kva)`. |
+| **2. Insert-Only Swaps vs. Full Mold Changes** | • Add `mold_frame_id` and `insert_id` to `Mold`. In `transition_penalty(prev, next)`: if `prev.mold_frame_id == next.mold_frame_id` and `prev.insert_id != next.insert_id`, use `insert_swap_mins` (`25–35m`) instead of full `base_changeover_mins` (`95–155m`) inside `AddCircuit`. |
+| **3. Thermal Barrel Heat-Up / Cool-Down Soak Windows** | • In `transition_penalty(prev, next)`: compute `delta_temp_c = resin_prev.barrel_temp_c - resin_next.barrel_temp_c`. When `|delta_temp_c| >= 50°C` (e.g. PET `280°C` → PP `205°C`), add deterministic thermal soak duration `soak_mins = int(round(|delta_temp_c| * 0.9))` to the `AddCircuit` arc transition time. |
+| **4. QC Quarantine & First-Article Lab Hold Buffers** | • Add `qc_hold_hrs: float` to `ProductionOrder` (default `0.0`, `12.0–24.0h` for food/pharma/auto). Shift effective shipping readiness to `ship_ready_min[i] = end_vars[i] + int(round(qc_hold_hrs * 60))` and evaluate tardiness/container sync against `ship_ready_min[i]`. |
+| **5. Extrusion-Specific Physics (Die Campaigns, Screen-Pack Swaps, 1D Slitting)** | • Group continuous pipe/film runs into monotonically widening/thickening die campaigns via `AddCircuit` arc costs; insert periodic mandatory screen-pack swap intervals every `max_extrusion_tons_between_screens` via cumulative tonnage counters; solve 1D jumbo-roll width slitting via column-generation cutting-stock pre-pass. |

@@ -29,6 +29,12 @@ from core.auth import (
     verify_passcode,
 )
 from core.copilot import CopilotResult, run_plastics_copilot
+from core.ctp import CTPQuoteRequest, CTPQuoteResult, evaluate_ctp_rush_order
+from core.dispatch import (
+    WhatsAppDispatchRequest,
+    WhatsAppDispatchResponse,
+    format_whatsapp_shift_dispatch,
+)
 from core.disruptions import apply_plant_scenarios
 from core.excel_io import (
     build_template_workbook,
@@ -55,6 +61,7 @@ from core.ontology import (
     Currency,
     FinancialReport,
     PlantDataset,
+    ProductionOrder,
     RiskRadarReport,
     SolveResult,
     SolverConfig,
@@ -151,6 +158,50 @@ class WorkspacePayload(BaseModel):
     name: str
     dataset: PlantDataset
     config: Optional[SolverConfig] = None
+    record_checkpoint: bool = False
+    result: Optional[SolveResult] = None
+
+
+class CheckpointCreateRequest(BaseModel):
+    trigger_source: str = "manual"
+    title_en: str = "Saved Decision Checkpoint"
+    title_ar: str = "حفظ نقطة قرار مرجعية"
+    dataset: Optional[PlantDataset] = None
+    config: Optional[SolverConfig] = None
+    result: Optional[SolveResult] = None
+
+
+class CheckpointRestoreResponse(BaseModel):
+    restored: bool = True
+    storage_backend: str
+    checkpoint: dict
+    dataset: PlantDataset
+    config: SolverConfig
+    result: SolveResult
+    workforce: Optional[WorkforceResult] = None
+    financials: FinancialReport
+    risk_radar: Optional[RiskRadarReport] = None
+    validation: ValidationReport
+
+
+class CTPCommitRequest(BaseModel):
+    candidate_order: ProductionOrder
+    dataset: Optional[PlantDataset] = None
+    config: Optional[SolverConfig] = None
+    workspace_id: str = "default"
+
+
+class CTPCommitResponse(BaseModel):
+    committed: bool = True
+    order_id: str
+    checkpoint: dict
+    dataset: PlantDataset
+    config: SolverConfig
+    result: SolveResult
+    workforce: Optional[WorkforceResult] = None
+    financials: FinancialReport
+    risk_radar: Optional[RiskRadarReport] = None
+    validation: ValidationReport
 
 
 # --------------------------------------------------------------------------------------------
@@ -158,11 +209,13 @@ class WorkspacePayload(BaseModel):
 # --------------------------------------------------------------------------------------------
 @router.get("/health")
 def health() -> dict:
+    store = get_audit_store()
     return {
         "status": "ok",
         "service": "mini-dios-plastics",
         "ortools_version": getattr(ortools, "__version__", "unknown"),
         "auth_enabled": is_auth_enabled(),
+        "storage_backend": store.storage_backend,
     }
 
 
@@ -503,13 +556,28 @@ def save_workspace_endpoint(
     session: AuthSession = Depends(require_auth_session),
 ) -> dict:
     """Save or update a plant workspace in the active session."""
-    return get_audit_store().save_workspace(
+    store = get_audit_store()
+    saved = store.save_workspace(
         workspace_id=payload.workspace_id,
         name=payload.name,
         dataset=payload.dataset,
         config=payload.config,
         session_id=session.session_id,
+        access_code=session.client_label,
     )
+    if payload.record_checkpoint or payload.workspace_id != "default":
+        cfg = payload.config or default_config()
+        store.save_checkpoint(
+            dataset=payload.dataset,
+            config=cfg,
+            result=payload.result,
+            trigger_source="workspace_save",
+            title_en=f"Workspace Saved: {payload.name}",
+            title_ar=f"حفظ مساحة العمل: {payload.name}",
+            session_id=session.session_id,
+            access_code=session.client_label,
+        )
+    return saved
 
 
 @router.get("/workspaces/{workspace_id}")
@@ -616,13 +684,20 @@ async def backtest_replay_endpoint(
             else:
                 source_label = str(body.get("mode") or body.get("source_label") or "sample_30day_log")
 
-    return await asyncio.to_thread(
+    report = await asyncio.to_thread(
         run_historical_backtest_replay,
         dataset,
         config,
         rows,
         source_label,
     )
+    await asyncio.to_thread(
+        get_audit_store().save_backtest_run,
+        report,
+        session.session_id,
+        session.client_label,
+    )
+    return report
 
 
 # --------------------------------------------------------------------------------------------
@@ -733,4 +808,224 @@ def export_erp_payload_endpoint(
         content=json.dumps(payload, indent=2).encode("utf-8"),
         media_type="application/json; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# v1.4 Feature 1: Persistent Decision Checkpoints & 1-Click Rollback
+# --------------------------------------------------------------------------------------------
+@router.get("/checkpoints")
+def list_checkpoints_endpoint(
+    limit: int = Query(default=25, ge=1, le=100),
+    seed_if_empty: bool = Query(default=False),
+    session: AuthSession = Depends(require_auth_session),
+) -> dict:
+    """Return recent decision checkpoints (newest first, capped at 25) with storage diagnostics badge."""
+    store = get_audit_store()
+    checkpoints = store.list_checkpoints(session_id=session.session_id, limit=limit)
+    if not checkpoints and seed_if_empty:
+        ws = store.get_workspace("default", session_id=session.session_id, access_code=session.client_label)
+        ds = PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset()
+        cfg = SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config()
+        runs = store.list_runs(limit=1, session_id=session.session_id)
+        latest_res = store.get_run(runs[0]["run_id"], session_id=session.session_id) if runs else None
+        store.save_checkpoint(
+            dataset=ds,
+            config=cfg,
+            result=latest_res,
+            trigger_source="workspace_save",
+            title_en=f"Initial Plant Baseline: {ds.name}",
+            title_ar=f"خط الأساس الافتراضي للمصنع: {ds.name}",
+            session_id=session.session_id,
+            access_code=session.client_label,
+        )
+        checkpoints = store.list_checkpoints(session_id=session.session_id, limit=limit)
+    return {
+        "storage_backend": store.storage_backend,
+        "pool_config": store.pool_config,
+        "checkpoints": checkpoints,
+    }
+
+
+@router.post("/checkpoints")
+def create_checkpoint_endpoint(
+    payload: CheckpointCreateRequest,
+    session: AuthSession = Depends(require_auth_session),
+) -> dict:
+    """Record an immutable decision checkpoint (Copilot apply, manual save, or workspace milestone)."""
+    store = get_audit_store()
+    ws = store.get_workspace("default", session_id=session.session_id, access_code=session.client_label)
+    ds = payload.dataset or (PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset())
+    cfg = payload.config or (SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config())
+    created = store.save_checkpoint(
+        dataset=ds,
+        config=cfg,
+        result=payload.result,
+        trigger_source=payload.trigger_source,
+        title_en=payload.title_en,
+        title_ar=payload.title_ar,
+        session_id=session.session_id,
+        access_code=session.client_label,
+    )
+    return {
+        "storage_backend": store.storage_backend,
+        "checkpoint": created,
+        "checkpoints": store.list_checkpoints(session_id=session.session_id, limit=25),
+    }
+
+
+@router.post("/checkpoints/{checkpoint_id}/restore", response_model=CheckpointRestoreResponse)
+def restore_checkpoint_endpoint(
+    checkpoint_id: str,
+    session: AuthSession = Depends(require_auth_session),
+) -> CheckpointRestoreResponse:
+    """Restore exact plant/config state from a checkpoint and return a freshly solved unified scenario bundle."""
+    store = get_audit_store()
+    cp = store.get_checkpoint(checkpoint_id, session_id=session.session_id)
+    if cp is None:
+        raise HTTPException(status_code=404, detail=f"Decision checkpoint '{checkpoint_id}' not found.")
+
+    snap = cp.get("state_snapshot") or {}
+    try:
+        restored_ds = PlantDataset.model_validate(snap["dataset"])
+        restored_cfg = SolverConfig.model_validate(snap["config"])
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Corrupted checkpoint state snapshot: {exc}") from exc
+
+    result = solve_plant_schedule(restored_ds, restored_cfg)
+    store.save_workspace(
+        workspace_id="default",
+        name=restored_ds.name,
+        dataset=restored_ds,
+        config=restored_cfg,
+        session_id=session.session_id,
+        access_code=session.client_label,
+    )
+    store.save_run(result, dataset=restored_ds, session_id=session.session_id)
+
+    cp_meta = {k: v for k, v in cp.items() if k != "state_snapshot"}
+    return CheckpointRestoreResponse(
+        restored=True,
+        storage_backend=store.storage_backend,
+        checkpoint=cp_meta,
+        dataset=restored_ds,
+        config=restored_cfg,
+        result=result,
+        workforce=result.workforce,
+        financials=result.financials,
+        risk_radar=result.risk_radar,
+        validation=result.validation,
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# v1.4 Feature 2: Capable-to-Promise (CTP) Non-Destructive Rush-Order Quoter
+# --------------------------------------------------------------------------------------------
+@router.post("/quote/ctp", response_model=CTPQuoteResult)
+async def quote_ctp_endpoint(
+    payload: CTPQuoteRequest,
+    session: AuthSession = Depends(require_auth_session),
+) -> CTPQuoteResult:
+    """Strictly non-destructive Capable-to-Promise (CTP) evaluation. Never mutates active workspace or DB."""
+    store = get_audit_store()
+    fallback_ds = payload.dataset
+    fallback_cfg = payload.config
+    if fallback_ds is None or fallback_cfg is None:
+        ws = store.get_workspace("default", session_id=session.session_id, access_code=session.client_label)
+        if fallback_ds is None:
+            fallback_ds = PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset()
+        if fallback_cfg is None:
+            fallback_cfg = SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config()
+
+    try:
+        return await asyncio.to_thread(
+            evaluate_ctp_rush_order,
+            payload,
+            fallback_ds,
+            fallback_cfg,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/quote/ctp/commit", response_model=CTPCommitResponse)
+def commit_ctp_order_endpoint(
+    payload: CTPCommitRequest,
+    session: AuthSession = Depends(require_auth_session),
+) -> CTPCommitResponse:
+    """Commit an accepted CTP candidate rush order into the live schedule and record a Decision Checkpoint."""
+    store = get_audit_store()
+    ws = store.get_workspace(payload.workspace_id, session_id=session.session_id, access_code=session.client_label)
+    base_ds = payload.dataset or (PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset())
+    base_cfg = payload.config or (SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config())
+
+    next_ds = base_ds.model_copy(deep=True)
+    existing_ids = {o.order_id for o in next_ds.orders}
+    cand = payload.candidate_order.model_copy(deep=True)
+    if cand.order_id in existing_ids:
+        seq = 1
+        while f"CTP-RUSH-{seq:02d}" in existing_ids:
+            seq += 1
+        cand.order_id = f"CTP-RUSH-{seq:02d}"
+    next_ds.orders.append(cand)
+
+    result = solve_plant_schedule(next_ds, base_cfg)
+    store.save_workspace(
+        workspace_id=payload.workspace_id,
+        name=next_ds.name,
+        dataset=next_ds,
+        config=base_cfg,
+        session_id=session.session_id,
+        access_code=session.client_label,
+    )
+    store.save_run(result, dataset=next_ds, session_id=session.session_id)
+    cp = store.save_checkpoint(
+        dataset=next_ds,
+        config=base_cfg,
+        result=result,
+        trigger_source="ctp_commit",
+        title_en=f"CTP Rush Order Committed: {cand.order_id} ({cand.customer} • {cand.quantity_pcs:,} pcs)",
+        title_ar=f"اعتماد أمر عاجل CTP: {cand.order_id} ({cand.customer} • {cand.quantity_pcs:,} قطعة)",
+        session_id=session.session_id,
+        access_code=session.client_label,
+    )
+
+    return CTPCommitResponse(
+        committed=True,
+        order_id=cand.order_id,
+        checkpoint=cp,
+        dataset=next_ds,
+        config=base_cfg,
+        result=result,
+        workforce=result.workforce,
+        financials=result.financials,
+        risk_radar=result.risk_radar,
+        validation=result.validation,
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# v1.4 Feature 3: 1-Click Bilingual WhatsApp Shift Dispatch Formatter
+# --------------------------------------------------------------------------------------------
+@router.post("/dispatch/whatsapp", response_model=WhatsAppDispatchResponse)
+def whatsapp_dispatch_endpoint(
+    payload: WhatsAppDispatchRequest,
+    session: AuthSession = Depends(require_auth_session),
+) -> WhatsAppDispatchResponse:
+    """Format a deterministic EN or AR WhatsApp shift dispatch message for a specific day/shift or full week."""
+    res = payload.result
+    ds = payload.dataset
+    cfg = payload.config
+    if res is None:
+        res, resolved_ds = _resolve_active_session_result(session.session_id)
+        if ds is None:
+            ds = resolved_ds
+    return format_whatsapp_shift_dispatch(
+        result=res,
+        dataset=ds,
+        config=cfg,
+        scope=payload.scope,
+        day=payload.day,
+        shift=payload.shift,
+        language=payload.language,
     )

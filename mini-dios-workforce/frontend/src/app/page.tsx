@@ -3,9 +3,12 @@
 import React from "react";
 import { AlertCircle, CheckCircle2, Factory, Loader2, X } from "lucide-react";
 import { CopilotDrawer } from "@/components/CopilotDrawer";
+import { CTPQuoterModal } from "@/components/CTPQuoterModal";
 import { DataStudioView } from "@/components/DataStudioView";
+import { DecisionCheckpointsDrawer } from "@/components/DecisionCheckpointsDrawer";
 import { DecisionLoopStrip } from "@/components/DecisionLoopStrip";
 import { ExecutiveBriefModal } from "@/components/ExecutiveBriefModal";
+import { ExecutivePrintReport } from "@/components/ExecutivePrintReport";
 import { FinancialsView } from "@/components/FinancialsView";
 import { GuidedOnboardingModal } from "@/components/GuidedOnboardingModal";
 import { HistoricalBacktestModal } from "@/components/HistoricalBacktestModal";
@@ -15,6 +18,7 @@ import { QuickAddModal } from "@/components/QuickAddModal";
 import { ScopeView } from "@/components/ScopeView";
 import { TopBar } from "@/components/TopBar";
 import { TradeoffConsole } from "@/components/TradeoffConsole";
+import { WhatsAppDispatchModal } from "@/components/WhatsAppDispatchModal";
 import { WorkforceView } from "@/components/WorkforceView";
 import { COPY } from "@/lib/i18n";
 import { AppProvider, useApp } from "@/lib/store";
@@ -28,6 +32,8 @@ function DashboardShell() {
     clearError,
     appliedDelta,
     clearAppliedDelta,
+    checkpointToast,
+    clearCheckpointToast,
     auth,
     authChecked,
   } = useApp();
@@ -56,7 +62,26 @@ function DashboardShell() {
     <div className="flex min-h-dvh w-full max-w-full min-w-0 flex-col overflow-x-clip">
       <TopBar />
       <DecisionLoopStrip />
-      <main className="mx-auto w-full max-w-[1440px] min-w-0 flex-1 px-3.5 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full max-w-[1440px] min-w-0 flex-1 px-3.5 py-4 sm:px-6 sm:py-6 print:hidden">
+        {checkpointToast && (
+          <div
+            data-testid="global-checkpoint-toast"
+            className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/45 bg-emerald-500/15 px-4 py-2.5 text-xs font-semibold text-emerald-100 shadow-lg shadow-emerald-950/20"
+          >
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span>{checkpointToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={clearCheckpointToast}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-lg text-emerald-200 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-5 flex items-center justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/15 px-4 py-3 text-xs text-rose-100">
             <div className="flex items-center gap-2">
@@ -175,8 +200,12 @@ function DashboardShell() {
         <HistoricalBacktestModal />
         <GuidedOnboardingModal />
         <QuickAddModal />
+        <DecisionCheckpointsDrawer />
+        <CTPQuoterModal />
+        <WhatsAppDispatchModal />
       </main>
-      <footer className="border-t border-slate-800/70 px-4 pt-3 pb-24 text-center text-[11px] text-slate-500 lg:pb-3">
+      <ExecutivePrintReport />
+      <footer className="border-t border-slate-800/70 px-4 pt-3 pb-24 text-center text-[11px] text-slate-500 lg:pb-3 print:hidden">
         {t.deterministicFooter}
       </footer>
     </div>

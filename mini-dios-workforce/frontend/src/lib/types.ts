@@ -929,8 +929,175 @@ export interface WorkspaceSummary {
 export interface PlantWorkspace {
   workspace_id: string;
   name: string;
+  currency?: Currency;
   created_at: string;
   updated_at: string;
   dataset: PlantDataset;
   config: SolverConfig;
+}
+
+export type CheckpointTriggerSource =
+  | "copilot"
+  | "ctp_commit"
+  | "workspace_save"
+  | "manual"
+  | "initial_seed";
+
+export interface DecisionCheckpoint {
+  id: string;
+  checkpoint_id: string;
+  sandbox_id: string;
+  access_code: string;
+  created_at: string;
+  trigger_source: CheckpointTriggerSource | string;
+  title_en: string;
+  title_ar: string;
+  risk_score: number;
+  weekly_savings: number;
+  otif_pct: number;
+  currency: Currency;
+  orders_count?: number;
+  workers_count?: number;
+}
+
+export interface CheckpointsListResponse {
+  storage_backend: "postgres" | "sqlite_fallback";
+  pool_config: {
+    pool_size: number;
+    max_overflow: number;
+    pool_pre_ping: boolean;
+  };
+  checkpoints: DecisionCheckpoint[];
+}
+
+export interface CheckpointRestoreResponse {
+  restored: boolean;
+  storage_backend: "postgres" | "sqlite_fallback";
+  checkpoint: DecisionCheckpoint;
+  dataset: PlantDataset;
+  config: SolverConfig;
+  result: SolveResult;
+  workforce?: WorkforceResult | null;
+  financials: FinancialReport;
+  risk_radar?: RiskRadarReport | null;
+  validation: ValidationReport;
+}
+
+export type CTPVerdict = "ON_TIME" | "LATE" | "INFEASIBLE";
+
+export interface CTPQuoteRequest {
+  customer: string;
+  sku_name: string;
+  mold_id: string;
+  qty_units: number;
+  part_weight_g?: number | null;
+  resin?: ResinCode | null;
+  color: PlasticColor;
+  target_due_hour: number;
+  unit_price?: number | null;
+  is_export: boolean;
+  max_regrind_pct: number;
+  allow_peak_or_overtime: boolean;
+  currency?: Currency;
+  dataset?: PlantDataset | null;
+  config?: SolverConfig | null;
+  current_result?: SolveResult | null;
+}
+
+export interface CTPFinancialImpact {
+  currency: Currency;
+  gross_revenue: number;
+  offered_unit_price: number;
+  direct_resin_cost: number;
+  extra_purge_scrap_kg: number;
+  extra_purge_cost: number;
+  extra_changeover_hrs: number;
+  extra_changeover_cost: number;
+  extra_electricity_cost: number;
+  extra_overtime_labor_cost: number;
+  extra_wip_holding_cost: number;
+  extra_late_penalty_cost: number;
+  total_marginal_cost: number;
+  net_profit_contribution: number;
+  margin_pct: number;
+  min_breakeven_unit_price: number;
+}
+
+export interface CTPBumpedOrder {
+  order_id: string;
+  customer: string;
+  sku_name: string;
+  old_end_hr: number;
+  new_end_hr: number;
+  due_hr: number;
+  delay_hrs: number;
+  breaches_cutoff: boolean;
+  is_export: boolean;
+}
+
+export interface CTPQuoteResult {
+  verdict: CTPVerdict;
+  order_id: string;
+  customer: string;
+  sku_name: string;
+  mold_id: string;
+  mold_name: string;
+  resin_code: ResinCode;
+  color: PlasticColor;
+  qty_units: number;
+  part_weight_g: number;
+  gross_weight_kg: number;
+  est_run_hrs: number;
+  assigned_press_id?: string | null;
+  assigned_press_name?: string | null;
+  scheduled_start_hr?: number | null;
+  scheduled_end_hr?: number | null;
+  target_due_hour: number;
+  slack_or_delay_hrs: number;
+  financial_impact: CTPFinancialImpact;
+  bumped_orders: CTPBumpedOrder[];
+  export_cutoffs_breached: number;
+  risk_score_before: number;
+  risk_score_after: number;
+  solve_time_ms: number;
+  tradeoff_summary_en: string;
+  tradeoff_summary_ar: string;
+  candidate_order: ProductionOrder;
+}
+
+export interface CTPCommitResponse {
+  committed: boolean;
+  order_id: string;
+  checkpoint: DecisionCheckpoint;
+  dataset: PlantDataset;
+  config: SolverConfig;
+  result: SolveResult;
+  workforce?: WorkforceResult | null;
+  financials: FinancialReport;
+  risk_radar?: RiskRadarReport | null;
+  validation: ValidationReport;
+}
+
+export interface WhatsAppDispatchRequest {
+  scope: "full_week" | "day_shift";
+  day: number;
+  shift: string;
+  language: Lang;
+  dataset?: PlantDataset | null;
+  config?: SolverConfig | null;
+  result?: SolveResult | null;
+}
+
+export interface WhatsAppDispatchResponse {
+  scope: string;
+  day: number;
+  shift: string;
+  language: Lang;
+  plant_name: string;
+  window_label: string;
+  jobs_included: number;
+  crew_assigned_count: number;
+  open_gaps_count: number;
+  message_text: string;
+  whatsapp_url: string;
 }
