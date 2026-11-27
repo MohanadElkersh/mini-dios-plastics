@@ -7,11 +7,17 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Optional
+
+
+def is_uem_engine_enabled() -> bool:
+    """Return True when the 5-Layer DI + 6-Primitive UEMGraph compiler engine is active (`USE_UEM_ENGINE=true`)."""
+    return os.environ.get("USE_UEM_ENGINE", "false").strip().lower() in ("true", "1", "yes")
 
 import ortools
 from ortools.sat.python import cp_model
@@ -832,10 +838,15 @@ def solve_plant_schedule(dataset: PlantDataset, config: SolverConfig) -> SolveRe
     1. Validate raw dataset + scenarios (`validate_plant_data`).
     2. Apply composable scenarios (`apply_plant_scenarios`).
     3. Run Naive FIFO Baseline Scheduler (`run_fifo_baseline`).
-    4. Run OR-Tools CP-SAT Solver (`_solve_cpsat_model`).
+    4. Run OR-Tools CP-SAT Solver (`_solve_cpsat_model` or 6-Primitive `UEMGraph` when `USE_UEM_ENGINE=true`).
     5. Verify all 6 Hard Constraints independently on both plans.
     6. Compute side-by-side ROI Scorecard & cryptographic SHA-256 audit hashes.
     """
+    if is_uem_engine_enabled():
+        from adapters.plastics import solve_plastics_via_uem
+
+        return solve_plastics_via_uem(dataset, config)
+
     validation = validate_plant_data(dataset, config)
     if not validation.ready:
         raise DatasetValidationError(validation)

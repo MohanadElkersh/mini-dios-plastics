@@ -79,7 +79,7 @@ from core.ontology import (
 )
 from core.risk_radar import compute_risk_radar
 from core.seed import default_config, demo_dataset
-from core.solver import DatasetValidationError, solve_plant_schedule
+from core.solver import DatasetValidationError, is_uem_engine_enabled, solve_plant_schedule
 from core.workforce_solver import solve_workforce, solve_workforce_with_callouts
 
 router = APIRouter(prefix="/api", tags=["Mini-DIOS Plastics"])
@@ -217,16 +217,58 @@ class CTPCommitResponse(BaseModel):
 @router.get("/health")
 def health() -> dict:
     store = get_audit_store()
+    uem_on = is_uem_engine_enabled()
     return {
         "status": "ok",
         "service": "mini-dios-plastics",
         "ortools_version": getattr(ortools, "__version__", "unknown"),
+        "optimization_engine": "uem_di_v1" if uem_on else "legacy_cpsat_v1",
+        "use_uem_engine": uem_on,
         "auth_enabled": is_auth_enabled(),
         "storage_backend": store.storage_backend,
         "neon_branch": os.environ.get("NEON_BRANCH") or None,
         "neon_branch_id": os.environ.get("NEON_BRANCH_ID") or None,
         "neon_function_hello_url": get_neon_function_url("hello"),
     }
+
+
+@router.get("/di/blueprint")
+def get_di_blueprint_endpoint(
+    format: str = Query(
+        default="json",
+        description="Blueprint export format: 'json', 'bpmn_xml' (OMG BPMN 2.0 XML), or 'dmn_xml' (OMG DMN 1.3 XML)",
+    ),
+    include_solved_causal: bool = Query(
+        default=False,
+        description="If true, runs a deterministic solve to populate live baseline vs. optimized causal deltas",
+    ),
+):
+    """Inspect the 5-Layer Decision Intelligence & 6-Primitive UEMGraph Blueprint (JSON, BPMN 2.0 XML, or DMN 1.3 XML)."""
+    from adapters.plastics import (
+        build_plastics_blueprint,
+        build_plastics_bpmn_template,
+        build_plastics_dmn_registry,
+    )
+
+    fmt = format.strip().lower()
+    if fmt == "bpmn_xml":
+        xml_str = build_plastics_bpmn_template().to_bpmn_xml()
+        return Response(content=xml_str, media_type="application/xml")
+    if fmt == "dmn_xml":
+        xml_str = build_plastics_dmn_registry().to_dmn_xml()
+        return Response(content=xml_str, media_type="application/xml")
+    if fmt != "json":
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported format. Use 'json', 'bpmn_xml', or 'dmn_xml'.",
+        )
+
+    ds = demo_dataset()
+    cfg = default_config()
+    solved_res = solve_plant_schedule(ds, cfg) if include_solved_causal else None
+    bp = build_plastics_blueprint(dataset=ds, config=cfg, result=solved_res)
+    bp["optimization_engine"] = "uem_di_v1" if is_uem_engine_enabled() else "legacy_cpsat_v1"
+    return bp
 
 
 @router.get("/neon/status")

@@ -9,31 +9,31 @@
   "tech_subfolder_name": "Technical Specs (For Engineers & IT)",
   "tech_subfolder_id": "1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
   "tech_subfolder_url": "https://drive.google.com/drive/folders/1KBwfJTXiWjyDhTfq6bYRuSveG0WJPB9j",
-  "last_sync_at": "2026-11-27T05:06:40.367Z",
+  "last_sync_at": "2026-11-27T18:57:01.271304+00:00",
   "documents": {
     "master_complete_reference": {
       "title": "Mini-DIOS Plastics — Master Complete Reference",
       "local_path": "docs/.combined_master_reference.md",
       "file_id": "1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc",
       "webViewLink": "https://docs.google.com/document/d/1gRQNBJyTmUuWwuJvKMEAfg49ifQ46RjxvgotHlAdiQc/edit",
-      "last_synced_sha256": "f5607e1ff2455e9a8372f072d26ea506c3b664d972f0fa5056e26d546fbb96e2",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "eaa1f9b0a7bea46f52e3ae451b4bb5b8c8ce03d3008b62079cf190a2a9c0acce",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     },
     "master_user_guide": {
       "title": "Mini-DIOS Plastics — Master User Guide & Operations Manual",
       "local_path": "docs/MASTER_USER_GUIDE_AND_MANUAL.md",
       "file_id": "1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M",
       "webViewLink": "https://docs.google.com/document/d/1gVHFkG2zzrMNU2HmOLMXI8KAzLARJo_-CHiVOTxOJ9M/edit",
-      "last_synced_sha256": "a2a6ff4c49029618651c0c26170d21bca970db1428cc0fac4f0d9c75a83ce9ae",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "6fac809bdc3d7164857acecb2cf4d63e9a1e9ae12e0f727e87fea86074437576",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     },
     "master_playbook": {
       "title": "Mini-DIOS Plastics — Master Commercial & Sales Playbook",
       "local_path": "docs/MASTER_PLAYBOOK.md",
       "file_id": "1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800",
       "webViewLink": "https://docs.google.com/document/d/1l05cGn0VUykJECEQC_OZMUObJV_WE-A2zUHgk-pR800/edit",
-      "last_synced_sha256": "e1f73d4b1b3717a89a9ca82ca3a22c5fb4dd81ec3ed00ef9f3f38e07408d10a8",
-      "last_synced_at": "2026-11-27T04:26:00.945072+00:00"
+      "last_synced_sha256": "b4bda9ae7f853c6c1d06cdcb0d7bf7af9f9e0299ab1d49f88e683f75f4373414",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     },
     "roadmap_and_backlog": {
       "title": "Mini-DIOS Plastics — Product Roadmap & Future Constraints Backlog",
@@ -48,24 +48,24 @@
       "local_path": "docs/technical/TECHNICAL_REFERENCE.md",
       "file_id": "18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw",
       "webViewLink": "https://docs.google.com/document/d/18IOMC7lWwrPqBXHqe53SWe22F9Gw1Rn9el8WmORiAgw/edit",
-      "last_synced_sha256": "24442f4f2ad9f5ece0b4d4463f393e76b040bbaceda1bc17cd9abb99b781e209",
-      "last_synced_at": "2026-11-27T05:06:40.367Z"
+      "last_synced_sha256": "0201dde2c44fdb6a4b5cec2915e547e916b7fc062723c8d7af61162bd6f02eff",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     },
     "living_changelog": {
       "title": "Mini-DIOS Plastics — Living Changelog",
       "local_path": "docs/CHANGELOG.md",
       "file_id": "1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0",
       "webViewLink": "https://docs.google.com/document/d/1x7NHEl-WOuE9I9lLsT7SDGzbqBStR2y89aiZj2Adxu0/edit",
-      "last_synced_sha256": "5667088891f5839770c793130dbd610220033ccce496bf59e733159c7dbb0b41",
-      "last_synced_at": "2026-11-27T05:06:40.367Z"
+      "last_synced_sha256": "7ec593c0cd043e95105bf8b362cca3d91b19d62d9993440c2a693fa32feec5cb",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     },
     "codebase_and_updates_log": {
       "title": "Mini-DIOS Plastics — Codebase & Code-Update Ledger",
       "local_path": "docs/technical/CODEBASE_AND_UPDATES_LOG.md",
       "file_id": "1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM",
       "webViewLink": "https://docs.google.com/document/d/1X83_0nJs5m-nU1ftdcYErbo5a_zF7k8MQxBO-8cJoFM/edit",
-      "last_synced_sha256": "0a54aa68f3920a9fd2412faebba9d4643e7c71f02f4c218e13fb3d5f5510af05",
-      "last_synced_at": "2026-11-27T05:06:40.367Z"
+      "last_synced_sha256": "b86f790e33840222e4cf6d9ff2491416b05108e2f6aa2bf9d9aab0915f961829",
+      "last_synced_at": "2026-11-27T18:57:01.271304+00:00"
     }
   },
   "client_documents": {

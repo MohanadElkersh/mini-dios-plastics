@@ -3,7 +3,7 @@
 > **Track B — Dedicated Engineering Ledger (For Engineers, DevOps & AI Agents)**
 > **Scope:** Complete, granular, file-by-file map of what the codebase currently contains (**Section A**) and a chronological, newest-first ledger of every code update ever made (**Section B**).
 > **Security Guardrail:** NEVER store `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens in this file (reference variable names only).
-> **Last Synchronized:** 2026-11-27 (`v1.7 / Neon Cloud Platform Integration` • **101** active repository files mapped • **11** code updates logged)
+> **Last Synchronized:** 2026-11-27 (`v1.8 / 5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler` • **113** active repository files mapped • **12** code updates logged)
 
 ---
 
@@ -143,6 +143,18 @@ DIOs/
 | `backend/core/audit.py` | Dual-mode persistence layer (`DATABASE_URL` PostgreSQL connection pool `pool_size=3, max_overflow=2, pool_pre_ping=True` + SQLite fallback `data/mini_dios.db`) for `plastics_audit_runs`, `saved_workspaces`, `pinned_scenarios`, `backtest_runs`, and `decision_checkpoints`. | `AuditStore`, `normalize_database_url()` | `sqlite3`, `sqlalchemy` (optional), `core/ontology.py` |
 | `backend/core/auth.py` | Signed HMAC cookie sessions, multi-client passcode parsing (`DEMO_ACCESS_CODES`), sandbox namespace isolation, and per-hour Copilot quota shield. | `AuthSession`, `is_auth_enabled()`, `verify_passcode()`, `sign_session_token()`, `verify_session_token()`, `set_session_cookie()`, `clear_session_cookie()` | `hmac`, `hashlib`, `fastapi` |
 | `backend/core/seed.py` | Seeded Delta & Riyadh Polymer Packaging Plant (6 presses, 10 molds, 5 resins, 24 orders across 4 export container groups, 28 floor workers). | `default_config()`, `demo_workers()`, `demo_dataset()` | `core/ontology.py` |
+| `backend/core/uem.py` | Domain-agnostic 6-Primitive Universal Execution Model (`ResourceNode`, `ActivityNode`, `TransitionMatrix`, `CumulativeEnvelope`, `SynchronizationGroup`, `ObjectiveTermSpec`) & solution schemas. | `UEMGraph`, `ResourceNode`, `ActivityNode`, `TransitionMatrix`, `CumulativeEnvelope`, `SynchronizationGroup`, `ObjectiveTermSpec`, `UEMSolution`, `UEMVerificationCheck` | `pydantic` |
+| `backend/core/uem_compiler.py` | Deterministic OR-Tools CP-SAT compiler translating any 6-primitive `UEMGraph` into a `cp_model.CpModel` and solving with warm-start hints. | `compile_and_solve_uem()` | `ortools.sat.python.cp_model`, `core/uem.py` |
+| `backend/core/uem_verify.py` | Independent zero-tolerance post-solve verifier for all 6 UEM primitives (`UEM-P1..UEM-P6`). | `verify_uem_solution()` | `core/uem.py` |
+| `backend/core/di/__init__.py` | Re-exports all 5 domain-agnostic Decision Intelligence layers. | Layer 1–5 exports | `core/di/*` |
+| `backend/core/di/ontology_meta.py` | Layer 1 Formal Business Ontology Meta-Model (`EntityTypeSpec`, `EntityInstance`, `TypedRelationship`, `SemanticInvariantSpec`, `BusinessOntologyGraph`). | `BusinessOntologyGraph` | `pydantic` |
+| `backend/core/di/arch_validator.py` | Layer 2 Pre-Solve Business Architecture Validator (`GATE-1-STRUCTURAL`, `GATE-2-CAPABILITY`, `GATE-3-POLICY`). | `validate_business_architecture()`, `ArchitectureValidationReport` | `core/di/ontology_meta.py` |
+| `backend/core/di/bpmn_engine.py` | Layer 3 OMG BPMN 2.0 Process Template, topological connectivity validator, and standards-compliant BPMN 2.0 XML exporter. | `BPMNProcessTemplate`, `BPMNFlowNode`, `BPMNSequenceFlow` | `xml.sax.saxutils`, `pydantic` |
+| `backend/core/di/dmn_engine.py` | Layer 4 Pure-Python OMG DMN 1.3 Decision Table rule engine (S-FEEL unary tests, hit policies `U/F/P/A/C/C+/C</C>`) and DMN 1.3 XML exporter. | `DMNDecisionTable`, `DMNRegistry`, `eval_feel_unary_test()` | `xml.sax.saxutils`, `pydantic` |
+| `backend/core/di/decision_meta.py` | Layer 5 Decision Intelligence Causal Decision Diagram (`DecisionLever -> IntermediateMetric -> DecisionOutcome` pathway tracer). | `CausalDecisionModel`, `DecisionLever`, `IntermediateMetric`, `DecisionOutcome`, `CausalEdge` | `pydantic` |
+| `backend/adapters/__init__.py` | Domain adapters package exports. | Plastics adapter exports | `adapters/plastics.py` |
+| `backend/adapters/plastics.py` | Mini-DIOS Plastics reference domain adapter compiling `PlantDataset` + `SolverConfig` through Layers 1–4 into `UEMGraph` with two-way bounded labor coupling and Layer 5 Causal Decision Diagram. | `build_plastics_ontology_graph()`, `validate_plastics_architecture()`, `build_plastics_dmn_registry()`, `build_plastics_bpmn_template()`, `compile_plastics_to_uem_graph()`, `solve_plastics_via_uem()`, `build_plastics_causal_decision_model()`, `build_plastics_blueprint()` | `core/di/*`, `core/uem*.py`, `core/ontology.py`, `core/workforce_solver.py` |
+| `backend/tests/test_uem_di_parity.py` | Full pytest parity suite comparing Legacy vs. UEM+DI across 5 core modes, CTP, Backtest, Copilot, two-way labor shortage feedback, core domain purity, and a non-plastics Beverage Bottling Plant proof. | 14 parity & universality tests | `pytest`, `adapters/plastics.py`, `core/uem*.py`, `core/di/*` |
 
 #### Backend Tests & Config (`13` files)
 | File Path | Purpose | Key Functions / Contents | Key Dependencies |
@@ -241,6 +253,20 @@ DIOs/
 ---
 
 ## Section B — Complete Code Update Ledger (Newest First)
+
+### Update 12 — `2026-11-27` • `Uncommitted / Local` • `v1.8 (5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling)`
+- **Title & Why:** Implement the domain-agnostic 5-Layer Decision Intelligence stack (Business Ontology, Pre-Solve Architecture Validator, OMG BPMN 2.0 Process Templates, OMG DMN 1.3 Decision Tables, and Causal Decision Diagram Meta-Model) compiling cleanly into a 6-primitive Universal Execution Model (`UEMGraph` + `uem_compiler.py` + `uem_verify.py`), alongside a dedicated `backend/adapters/plastics.py` reference adapter with two-way bounded workforce-press coupling gated behind `USE_UEM_ENGINE` (default `"false"`).
+- **Files Changed:**
+  - *Added (Backend Core UEM & DI — 9 files):* `mini-dios-workforce/backend/core/uem.py`, `mini-dios-workforce/backend/core/uem_compiler.py`, `mini-dios-workforce/backend/core/uem_verify.py`, `mini-dios-workforce/backend/core/di/__init__.py`, `mini-dios-workforce/backend/core/di/ontology_meta.py`, `mini-dios-workforce/backend/core/di/arch_validator.py`, `mini-dios-workforce/backend/core/di/bpmn_engine.py`, `mini-dios-workforce/backend/core/di/dmn_engine.py`, `mini-dios-workforce/backend/core/di/decision_meta.py`
+  - *Added (Plastics Domain Adapter & Tests — 3 files):* `mini-dios-workforce/backend/adapters/__init__.py`, `mini-dios-workforce/backend/adapters/plastics.py`, `mini-dios-workforce/backend/tests/test_uem_di_parity.py`
+  - *Modified (Backend Solver & API — 2 files):* `mini-dios-workforce/backend/core/solver.py`, `mini-dios-workforce/backend/api/routes.py`
+  - *Modified (Two-Track Documentation — 5 files):* `docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/MASTER_PLAYBOOK.md`, `docs/technical/TECHNICAL_REFERENCE.md`, `docs/CHANGELOG.md`, `docs/technical/CODEBASE_AND_UPDATES_LOG.md`
+- **Granular Code Changes:**
+  - `backend/core/uem.py`, `uem_compiler.py`, `uem_verify.py`: Implemented the 6 domain-agnostic mathematical primitives (`ResourceNode`, `ActivityNode`, `TransitionMatrix`, `CumulativeEnvelope`, `SynchronizationGroup`, `ObjectiveTermSpec`), deterministic OR-Tools CP-SAT compiler (`compile_and_solve_uem`), and independent post-solve verifier (`verify_uem_solution` checking `UEM-P1..UEM-P6`).
+  - `backend/core/di/*`: Implemented Layer 1 `BusinessOntologyGraph`, Layer 2 `validate_business_architecture` (Structural, Capability & Policy gates), Layer 3 `BPMNProcessTemplate` (with OMG BPMN 2.0 XML export), Layer 4 `DMNDecisionTable` & `DMNRegistry` (S-FEEL unary tests, hit policies, OMG DMN 1.3 XML export), and Layer 5 `CausalDecisionModel` (`DecisionLever -> IntermediateMetric -> DecisionOutcome` pathway tracer).
+  - `backend/adapters/plastics.py`: Mapped all plastics domain rules, 4 DMN 1.3 tables (`DMN_BARREL_PURGE_TRANSITION`, `DMN_MOLD_PM_POLICY`, `DMN_FOOD_GRADE_REGRIND_SAFETY`, `DMN_SHIFT_WORKFORCE_HEADCOUNT`), BPMN 2.0 workflow, two-way bounded workforce-press coupling (soft-overflow `shift_capacity_cap` envelopes + max 1 conditional feedback re-solve capped at `<= 2.0s`), and Causal Decision Diagram into `solve_plastics_via_uem()` and `build_plastics_blueprint()`.
+  - `backend/core/solver.py` & `backend/api/routes.py`: Added `is_uem_engine_enabled()` reading `USE_UEM_ENGINE` (default `"false"`), exposed `optimization_engine` (`"legacy_cpsat_v1"` vs. `"uem_di_v1"`) on `GET /api/health`, and added `GET /api/di/blueprint` (`?format=json|bpmn_xml|dmn_xml`).
+- **Impact & Dependencies:** Pure Python + existing `ortools` and `pydantic` only; zero new heavyweight dependencies; 100% backward compatibility with legacy solver and Neon PostgreSQL persistence.
 
 ### Update 11 — `2026-11-27` • `Uncommitted / Local` • `v1.7 (Neon Cloud Platform Integration — Postgres, Auth, AI Gateway, Functions & Realtime)`
 - **Title & Why:** Provision and wire all 5 Neon Cloud Platform services (`postgres`, `auth`, `ai-gateway`, `functions`, `realtime`) on Neon branch `production` (`br-bold-hat-bh4fc43k`, project `broad-pond-82857343`, org `org-nameless-sun-74042046`) via `neon init` + `neon deploy`, and integrate them end-to-end across both the Python FastAPI backend and the Next.js App Router frontend.

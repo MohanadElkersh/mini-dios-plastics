@@ -20,6 +20,7 @@ Most plastics factories still plan their weekly production on spreadsheets or wh
 ### Why Exact Mathematical Scheduling Beats Spreadsheets and Generic AI
 - **Compared to spreadsheets:** Instead of sorting orders only by due date, Mini-DIOS tests thousands of combinations in seconds to group compatible molds, run colors cleanly from light to dark, protect export deadlines, and match floor technicians to actual changeover peaks.
 - **Compared to generic AI chatbots:** Chatbots guess words—they cannot reliably solve factory schedules and often make arithmetic mistakes. In Mini-DIOS, **100% of schedules, shift rosters, and profit numbers are calculated by exact mathematical rules**—never guesswork—and you need **zero years of historical data** to start on Day 1.
+- **Clear Cause-and-Effect Decision Rules:** Every floor policy (from light-to-dark color purging and food-grade zero-regrind rules to mold maintenance thresholds and shift staffing ratios) is organized into clear, auditable business rule tables, and every management priority slider traces directly through intermediate shop-floor metrics (purge scrap, changeover hours, container waiting time, and overtime hours) straight to weekly net operating profit.
 - **Built for total privacy:** Your factory can run Mini-DIOS privately on its own local server (even with zero internet connection), keeping customer names, selling prices, and production volumes strictly inside your building.
 
 ---

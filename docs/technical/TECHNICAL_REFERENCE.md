@@ -1,7 +1,7 @@
 # Mini-DIOS Plastics — Technical Reference & Engineering Architecture
 
 > **Track B — Dedicated Technical Documentation (For Engineers, DevOps, IT & AI Agents)**
-> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-27 (`v1.4 — Pilot-Ready Persistence, CTP Rush-Order Quoter & Executive Dispatch`)
+> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-27 (`v1.8 — 5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling`)
 > **Security Note:** This document lists environment variable *names* and architectural specs only. It NEVER stores real API keys, passwords, OAuth tokens, or `.env` values.
 
 ---
@@ -19,6 +19,7 @@
 10. [Environment Variables, Local Launch, Docker & Render Deployment](#10-environment-variables-local-launch-docker--render-deployment)
 11. [QA, Testing, Audit & Drive Sync Commands](#11-qa-testing-audit--drive-sync-commands)
 12. [Deferred CP-SAT Constraint Extensions (Design Notes — Parked / Not Yet Implemented)](#12-deferred-cp-sat-constraint-extensions-design-notes--parked--not-yet-implemented)
+13. [5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler Architecture (`USE_UEM_ENGINE`)](#13-5-layer-decision-intelligence--6-primitive-uemgraph-compiler-architecture-use_uem_engine)
 
 ---
 
@@ -288,3 +289,49 @@ Defined in `backend/api/routes.py` under prefix `/api`:
 | **3. Thermal Barrel Heat-Up / Cool-Down Soak Windows** | • In `transition_penalty(prev, next)`: compute `delta_temp_c = resin_prev.barrel_temp_c - resin_next.barrel_temp_c`. When `|delta_temp_c| >= 50°C` (e.g. PET `280°C` → PP `205°C`), add deterministic thermal soak duration `soak_mins = int(round(|delta_temp_c| * 0.9))` to the `AddCircuit` arc transition time. |
 | **4. QC Quarantine & First-Article Lab Hold Buffers** | • Add `qc_hold_hrs: float` to `ProductionOrder` (default `0.0`, `12.0–24.0h` for food/pharma/auto). Shift effective shipping readiness to `ship_ready_min[i] = end_vars[i] + int(round(qc_hold_hrs * 60))` and evaluate tardiness/container sync against `ship_ready_min[i]`. |
 | **5. Extrusion-Specific Physics (Die Campaigns, Screen-Pack Swaps, 1D Slitting)** | • Group continuous pipe/film runs into monotonically widening/thickening die campaigns via `AddCircuit` arc costs; insert periodic mandatory screen-pack swap intervals every `max_extrusion_tons_between_screens` via cumulative tonnage counters; solve 1D jumbo-roll width slitting via column-generation cutting-stock pre-pass. |
+
+---
+
+## 13. 5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler Architecture (`USE_UEM_ENGINE`)
+
+Implemented across `backend/core/uem.py`, `backend/core/uem_compiler.py`, `backend/core/uem_verify.py`, `backend/core/di/*`, and `backend/adapters/plastics.py`:
+
+```text
+1. Business Ontology (Formal entities, typed relationships & semantic invariants)  [backend/core/di/ontology_meta.py]
+         │
+         ▼
+2. Business Architecture Validation (Pre-solve structural, capability & policy gate) [backend/core/di/arch_validator.py]
+         │
+         ▼
+3. BPMN 2.0 Process Templates + 4. DMN 1.3 Decision Tables
+   [backend/core/di/bpmn_engine.py]    [backend/core/di/dmn_engine.py]
+         │
+         └──────────────► Compiles cleanly into UEMGraph (6 Primitives)            [backend/core/uem.py]
+                                      │
+                                      ▼
+                          CP-SAT Compiler + uem_verify.py                          [backend/core/uem_compiler.py + uem_verify.py]
+                                      │
+                                      ▼
+5. Decision Intelligence Meta-Model (Causal Decision Diagram: Levers → Intermediates → Outcomes) [backend/core/di/decision_meta.py]
+```
+
+### 13.1 The 6 Canonical Primitives of `UEMGraph` (`backend/core/uem.py`)
+Zero plastics-specific logic exists in `backend/core/uem*.py` or `backend/core/di/*`. Any domain adapter compiles its ontology, BPMN 2.0 workflow, and DMN 1.3 rule tables into:
+1. **`ResourceNode`** — Primary unary execution resources (`primary_unary`), secondary shared tools/resources (`secondary_exclusive`), and dual-tier consumable pools (`consumable_pool`).
+2. **`ActivityNode`** — Schedulable operations with `duration_mins`, `earliest_start_min`, `due_min`, `compatible_primary_ids`, `secondary_resource_id`, `consumable_pool_id`, `gross_consumable_units_10`, `max_secondary_consumable_units_10`, `usage_cycles`, and penalty rates.
+3. **`TransitionMatrix`** — Directed sequence-dependent transition entries (`setup_mins`, `consumable_waste_units_10`, `transition_Waste_cost_cents`) compiled into `AddCircuit` per unary primary resource, plus `setup_blackout_windows`.
+4. **`CumulativeEnvelope` (`CUMULATIVE_CAP`)** — Global consumable inventory caps (`consumable_cap`), time-windowed tariff surcharge overlap envelopes (`time_window_tariff`), and shift-windowed operator availability caps (`shift_capacity_cap`) with bounded soft-overflow penalties.
+5. **`SynchronizationGroup`** — Multi-activity barrier consolidation groups (`barrier_consolidation`, modeling `cg_ship >= end_vars[i]` and `cg_wait_i >= cg_ship - end_vars[i]`) and static/autonomous floating maintenance blocks (`fixed_maintenance` / `floating_maintenance` with cumulative cycle budgets before maintenance).
+6. **`ObjectiveTermSpec`** — Integer-scaled multi-objective weight multipliers and resource assignment / consumable cost tables.
+
+### 13.2 Two-Way Bounded Workforce-Press Coupling (`backend/adapters/plastics.py`)
+- **Forward Pass:** Injects shift-windowed operator availability envelopes (`CumulativeEnvelope(kind="shift_capacity_cap")`) into `UEMGraph` when active operator capacity on a day/shift (`available_operators * presses_per_operator`) is less than the active press fleet.
+- **Backward Feedback Pass (Max 1 Iteration Capped at `<= 2.0s`):** If Pass 1's coupled `solve_workforce()` reports `Press_Operator` shortages (`c.required > c.scheduled`) on specific `(day, shift)` slots, `solve_plastics_via_uem()` tightens the `shift_capacity_cap` on those slots to `scheduled_operators * presses_per_operator` and runs at most 1 bounded feedback re-solve (`max_solve_seconds <= 2.0s`), adopting the updated schedule if it reduces `headcount_gap` or `understaffed_slots` without dropping orders.
+
+### 13.3 Runtime Feature Flag & Blueprint Endpoints
+- **`USE_UEM_ENGINE`:** Defaults to `"false"` (preserving the legacy `_solve_cpsat_model` path in `backend/core/solver.py`). When `"true"`, `solve_plant_schedule()` delegates transparently to `solve_plastics_via_uem()`.
+- **`GET /api/health`:** Reports `"optimization_engine": "uem_di_v1" | "legacy_cpsat_v1"` and `"use_uem_engine": bool`.
+- **`GET /api/di/blueprint`:**
+  - `?format=json` (default): Full 5-layer DI + 6-primitive `UEMGraph` blueprint JSON (including `traced_causal_pathways`).
+  - `?format=bpmn_xml`: Standards-compliant OMG BPMN 2.0 XML (`http://www.omg.org/spec/BPMN/20100524/MODEL`).
+  - `?format=dmn_xml`: Standards-compliant OMG DMN 1.3 XML (`https://www.omg.org/spec/DMN/20191111/MODEL/`).

@@ -4,6 +4,24 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.8 (5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling) — 2026-11-27
+
+### Application & Architecture Changes
+- **Domain-Agnostic 6-Primitive Universal Execution Model (`backend/core/uem.py`, `backend/core/uem_compiler.py`, `backend/core/uem_verify.py`):**
+  - Built the 6-primitive `UEMGraph` (`ResourceNode`, `ActivityNode`, `TransitionMatrix`, `CumulativeEnvelope`, `SynchronizationGroup`, `ObjectiveTermSpec`), deterministic OR-Tools CP-SAT compiler (`compile_and_solve_uem`), and independent zero-tolerance post-solve verifier (`verify_uem_solution` checking `UEM-P1..UEM-P6`) with zero plastics-specific vocabulary in core modules.
+- **5-Layer Decision Intelligence Stack (`backend/core/di/*`):**
+  - **Layer 1 (`ontology_meta.py`):** Formal `BusinessOntologyGraph` (`EntityTypeSpec`, `EntityInstance`, `TypedRelationship`, `SemanticInvariantSpec`).
+  - **Layer 2 (`arch_validator.py`):** Pre-solve Business Architecture Validator across 3 formal gates (`GATE-1-STRUCTURAL`, `GATE-2-CAPABILITY`, `GATE-3-POLICY`).
+  - **Layer 3 (`bpmn_engine.py`):** OMG BPMN 2.0 workflow engine (`BPMNProcessTemplate`, events, tasks, exclusive/parallel gateways, boundary timer events, topology validator, and standards-compliant OMG BPMN 2.0 XML export).
+  - **Layer 4 (`dmn_engine.py`):** Pure-Python OMG DMN 1.3 Decision Table engine (`DMNDecisionTable`, `DMNRegistry`, S-FEEL unary tests, hit policies `UNIQUE`, `FIRST`, `PRIORITY`, `ANY`, `COLLECT`, `COLLECT_SUM/MIN/MAX`, and standards-compliant OMG DMN 1.3 XML export).
+  - **Layer 5 (`decision_meta.py`):** Causal Decision Diagram meta-model (`CausalDecisionModel` tracing `DecisionLever -> IntermediateMetric -> DecisionOutcome` pathways).
+- **Plastics Domain Adapter & Two-Way Bounded Labor Coupling (`backend/adapters/plastics.py`, `backend/core/solver.py`, `backend/api/routes.py`):**
+  - Implemented `backend/adapters/plastics.py` mapping Mini-DIOS Plastics onto the 5-layer DI stack and 6-primitive `UEMGraph`, including two-way bounded workforce-press coupling (soft-overflow `shift_capacity_cap` `CumulativeEnvelope` + max 1 conditional feedback re-solve capped at `<= 2.0s` when `Press_Operator` shortages are detected).
+  - Gated behind `USE_UEM_ENGINE` (default `"false"` so legacy `solver.py` remains untouched by default), added `optimization_engine` (`"legacy_cpsat_v1"` vs. `"uem_di_v1"`) to `GET /api/health`, and exposed `GET /api/di/blueprint` (`?format=json`, `?format=bpmn_xml`, `?format=dmn_xml`).
+  - Verified full parity across all 5 core plastics modes, CTP Quoter, 1-Month Backtest, Offline Copilot, two-way labor shortage feedback, and a non-plastics Beverage Bottling Plant proof in `backend/tests/test_uem_di_parity.py`.
+
+---
+
 ## v1.7 (Neon Cloud Platform Integration — Postgres, Auth, AI Gateway, Functions & Realtime) — 2026-11-27
 
 ### Application & Infrastructure Changes
