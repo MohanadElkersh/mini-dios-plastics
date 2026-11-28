@@ -1,7 +1,7 @@
 # Mini-DIOS Plastics — Technical Reference & Engineering Architecture
 
 > **Track B — Dedicated Technical Documentation (For Engineers, DevOps, IT & AI Agents)**
-> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-27 (`v1.8 — 5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling`)
+> **Repository:** `mini-dios-workforce/` • **Last Synchronized:** 2026-11-28 (`v1.9 — Visual Decision Intelligence Blueprint & Causal Trace Inspector`)
 > **Security Note:** This document lists environment variable *names* and architectural specs only. It NEVER stores real API keys, passwords, OAuth tokens, or `.env` values.
 
 ---
@@ -339,6 +339,16 @@ Zero plastics-specific logic exists in `backend/core/uem*.py` or `backend/core/d
   - `POST /api/admin/engine-mode` accepts `{"engine": "uem_di_v1" | "legacy_cpsat_v1" | "default"}`, updates only the calling sandbox's override, immediately re-solves the active plant, and returns the updated engine status, `switch_delta` (`prev_engine`, `new_engine`, `solve_time_ms`, `weekly_savings`, `otif_pct`), and the complete unified scenario bundle.
 - **`GET /api/health`:** Reports `"optimization_engine": "uem_di_v1" | "legacy_cpsat_v1"` and `"use_uem_engine": bool`.
 - **`GET /api/di/blueprint`:**
-  - `?format=json` (default): Full 5-layer DI + 6-primitive `UEMGraph` blueprint JSON (including `traced_causal_pathways`).
-  - `?format=bpmn_xml`: Standards-compliant OMG BPMN 2.0 XML (`http://www.omg.org/spec/BPMN/20100524/MODEL`).
-  - `?format=dmn_xml`: Standards-compliant OMG DMN 1.3 XML (`https://www.omg.org/spec/DMN/20191111/MODEL/`).
+  - `?format=json` (default): Full 5-layer DI + 6-primitive `UEMGraph` blueprint JSON (including `traced_causal_pathways`, active workspace state, and deterministic per-rule DMN firing counts `rule_hit_counts`, `fired`, `hit_count`).
+  - `?format=bpmn_xml`: Standards-compliant OMG BPMN 2.0 XML (`http://www.omg.org/spec/BPMN/20100524/MODEL`) with `Content-Disposition: attachment`.
+  - `?format=dmn_xml`: Standards-compliant OMG DMN 1.3 XML (`https://www.omg.org/spec/DMN/20191111/MODEL/`) with `Content-Disposition: attachment`.
+
+### 13.4 Visual Decision Intelligence Blueprint & Causal Trace Inspector (`frontend/src/components/DIBlueprintModal.tsx`)
+- **Non-Intrusive Entry Points & Lazy State Sync (`frontend/src/lib/store.tsx`):**
+  - Accessible without adding a 7th navigation tab from three entry points: (1) `Inspect DI Blueprint` button at the end of `DecisionLoopStrip.tsx`, (2) `Causal Trace & Policy Rules (DMN/BPMN)` button in `TradeoffConsole.tsx` (Tab 3), and (3) `Open Visual DI Blueprint Inspector` inside the Admin Engine Switcher card in `TopBar.tsx`.
+  - Fetches `GET /api/di/blueprint?format=json` lazily only when opened; automatically marks `diBlueprintStale = true` (and refreshes immediately if open) whenever `result` updates after a solve, mode toggle, engine switch, Copilot scenario apply, CTP commit, or checkpoint restore.
+- **Zero-Heavy-Dependency 4-Tab Visual Inspector (Pure React + Inline SVG / CSS Grid):**
+  1. **Sub-Tab 1 — Visual Causal Decision Diagram (`CausalDiagramView.tsx`):** Interactive 3-column directional flow graph (`DecisionLever → IntermediateMetric → DecisionOutcome`, stacking cleanly on `375px–430px` mobile) with smooth SVG Bezier connector curves, live `SAR ↔ EGP` conversion, interactive pathway highlighting, and a **Causal Attribution Card** linking directly to governing DMN tables and UEM primitives.
+  2. **Sub-Tab 2 — DMN 1.3 Decision Tables & Rule Trace (`DMNInspectorView.tsx`):** Expandable S-FEEL rule matrices for `DMN_BARREL_PURGE_TRANSITION`, `DMN_MOLD_PM_POLICY`, `DMN_FOOD_GRADE_REGRIND_SAFETY`, and `DMN_SHIFT_WORKFORCE_HEADCOUNT` with OMG Hit Policy badges, live `FIRED` (`N×`) badges, a `Show Fired Rules Only` filter, and 1-click DMN 1.3 XML export.
+  3. **Sub-Tab 3 — BPMN 2.0 Process Flow Viewer (`BPMNFlowView.tsx`):** 4-swimlane OMG BPMN 2.0 diagram (`START_EVENT`, `TIMER_EVENT`, `EXCLUSIVE_GATEWAY`, `PARALLEL_GATEWAY`, `BUSINESS_RULE_TASK`, `TASK`, `END_EVENT`) with RTL-aware directional SVG arrows, interactive node execution specs strip, and 1-click BPMN 2.0 XML export.
+  4. **Sub-Tab 4 — Architecture Validation, Ontology & UEM Graph (`ArchOntologyView.tsx`):** Pre-Solve Architecture Validation banner (`VALID` / `VALID_WITH_WARNINGS` / `BLOCKED`) across `GATE-1-STRUCTURAL`, `GATE-2-CAPABILITY`, and `GATE-3-POLICY`, 6-Primitive `UEMGraph` summary KPI cards, and collapsible Layer 1 `BusinessOntologyGraph` (`EntityTypes`, `TypedRelationships`, `SemanticInvariants`).

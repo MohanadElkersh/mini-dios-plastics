@@ -3,7 +3,7 @@
 > **Track B — Dedicated Engineering Ledger (For Engineers, DevOps & AI Agents)**
 > **Scope:** Complete, granular, file-by-file map of what the codebase currently contains (**Section A**) and a chronological, newest-first ledger of every code update ever made (**Section B**).
 > **Security Guardrail:** NEVER store `.env` values, API keys, passwords, `AUTH_SECRET_KEY`, `GEMINI_API_KEY`, or private tokens in this file (reference variable names only).
-> **Last Synchronized:** 2026-11-27 (`v1.8 / 5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler` • **113** active repository files mapped • **12** code updates logged)
+> **Last Synchronized:** 2026-11-28 (`v1.9 / Visual Decision Intelligence Blueprint & Causal Trace Inspector` • **119** active repository files mapped • **13** code updates logged)
 
 ---
 
@@ -222,6 +222,11 @@ DIOs/
 | `frontend/src/components/WhatsAppDispatchModal.tsx` | 1-Click Bilingual (`EN` / `AR`) WhatsApp Shift Dispatch modal (Full Week or Specific Day/Shift) with Copy to Clipboard and `wa.me` share actions. | `WhatsAppDispatchModal` | `lib/api.ts`, `lib/store.tsx`, `lib/i18n.ts` |
 | `frontend/src/components/ExecutivePrintReport.tsx` | Ink-friendly A4 light-background (`#ffffff`) printable executive report & preview modal supporting EN LTR and AR RTL (`IBM Plex Sans Arabic`) for Owner Brief, Manager Decision Shield, and 30-Day Backtest Proof. | `ExecutivePrintReport` | `lib/store.tsx`, `lib/format.ts`, `lib/i18n.ts` |
 | `frontend/src/components/QuickAddModal.tsx` | Tab 1 modal for fast inline creation/editing of presses, molds, resins, orders, and plant physics. | `QuickAddModal` | `lib/store.tsx` |
+| `frontend/src/components/DIBlueprintModal.tsx` | Full-height 4-tab Visual Decision Intelligence Blueprint & Causal Trace Inspector modal with persistent JSON / BPMN 2.0 XML / DMN 1.3 XML export bar and active engine badge (`uem_di_v1` vs. `legacy_cpsat_v1`). | `DIBlueprintModal` | `CausalDiagramView`, `DMNInspectorView`, `BPMNFlowView`, `ArchOntologyView`, `lib/store.tsx`, `lib/api.ts` |
+| `frontend/src/components/CausalDiagramView.tsx` | Sub-Tab 1: Interactive 3-column Causal Decision Diagram (`DecisionLever -> IntermediateMetric -> DecisionOutcome`) with inline SVG Bezier connector curves, pathway highlighting, and Causal Attribution Card. | `CausalDiagramView` | `lib/store.tsx`, `lib/format.ts`, `lib/i18n.ts` |
+| `frontend/src/components/DMNInspectorView.tsx` | Sub-Tab 2: Expandable OMG DMN 1.3 Decision Table rule matrix viewer with live `FIRED` (`N×`) hit counts, `Show Fired Rules Only` filter, and 1-click DMN 1.3 XML export. | `DMNInspectorView` | `lib/api.ts`, `lib/store.tsx`, `lib/i18n.ts` |
+| `frontend/src/components/BPMNFlowView.tsx` | Sub-Tab 3: 4-swimlane OMG BPMN 2.0 workflow visualizer with RTL-safe directional SVG connectors, node execution detail strip, and 1-click BPMN 2.0 XML export. | `BPMNFlowView` | `lib/api.ts`, `lib/store.tsx`, `lib/i18n.ts` |
+| `frontend/src/components/ArchOntologyView.tsx` | Sub-Tab 4: Pre-Solve Architecture Validation banner (`GATE-1-STRUCTURAL`, `GATE-2-CAPABILITY`, `GATE-3-POLICY`), 6-Primitive `UEMGraph` summary KPI grid, and collapsible Layer 1 `BusinessOntologyGraph` inspector. | `ArchOntologyView` | `lib/store.tsx`, `lib/i18n.ts` |
 
 #### Frontend Config & Build (`6` files)
 | File Path | Purpose | Key Contents |
@@ -253,6 +258,23 @@ DIOs/
 ---
 
 ## Section B — Complete Code Update Ledger (Newest First)
+
+### Update 13 — `2026-11-28` • `Uncommitted / Local` • `v1.9 (Visual Decision Intelligence Blueprint & Causal Trace Inspector + Standalone Upgrade Brief)`
+- **Title & Why:** Build the visual 4-tab **Decision Intelligence Blueprint & Causal Trace Inspector** (`DIBlueprintModal.tsx`, `CausalDiagramView.tsx`, `DMNInspectorView.tsx`, `BPMNFlowView.tsx`, `ArchOntologyView.tsx`) backed deterministically by `GET /api/di/blueprint` (`?format=json`, `?format=bpmn_xml`, `?format=dmn_xml`) with zero external heavy graph dependencies, wire non-intrusive entry points + lazy state sync in `store.tsx`, and author the one-time standalone briefing document `docs/UEM_DI_SOLVER_UPGRADE_BRIEF.md`.
+- **Files Changed:**
+  - *Added (Frontend Visual Inspector Components — 5 files):* `mini-dios-workforce/frontend/src/components/DIBlueprintModal.tsx`, `mini-dios-workforce/frontend/src/components/CausalDiagramView.tsx`, `mini-dios-workforce/frontend/src/components/DMNInspectorView.tsx`, `mini-dios-workforce/frontend/src/components/BPMNFlowView.tsx`, `mini-dios-workforce/frontend/src/components/ArchOntologyView.tsx`
+  - *Modified (Frontend Store, Types, API, i18n & Entry Points — 8 files):* `mini-dios-workforce/frontend/src/lib/types.ts`, `mini-dios-workforce/frontend/src/lib/api.ts`, `mini-dios-workforce/frontend/src/lib/i18n.ts`, `mini-dios-workforce/frontend/src/lib/store.tsx`, `mini-dios-workforce/frontend/src/components/DecisionLoopStrip.tsx`, `mini-dios-workforce/frontend/src/components/TradeoffConsole.tsx`, `mini-dios-workforce/frontend/src/components/TopBar.tsx`, `mini-dios-workforce/frontend/src/app/page.tsx`
+  - *Modified (Backend Blueprint Route, DMN Hit Counts & Tests — 4 files):* `mini-dios-workforce/backend/adapters/plastics.py`, `mini-dios-workforce/backend/api/routes.py`, `mini-dios-workforce/backend/tests/test_uem_di_parity.py`, `mini-dios-workforce/backend/tests/test_copilot.py`
+  - *Added / Modified (Docs — 5 files):* `docs/UEM_DI_SOLVER_UPGRADE_BRIEF.md` (Added — one-time standalone brief), `docs/MASTER_USER_GUIDE_AND_MANUAL.md`, `docs/technical/TECHNICAL_REFERENCE.md`, `docs/CHANGELOG.md`, `docs/technical/CODEBASE_AND_UPDATES_LOG.md`
+- **Granular Code Changes:**
+  - `backend/adapters/plastics.py` & `backend/api/routes.py`: Added deterministic `_compute_dmn_rule_hit_counts()` tallying exact per-rule firing counts (`rule_hit_counts`, `fired`, `hit_count`) across all 4 DMN 1.3 tables against the active workspace and latest solved run; added `Content-Disposition` attachment headers to `?format=bpmn_xml` and `?format=dmn_xml`.
+  - `frontend/src/lib/types.ts`, `api.ts`, `store.tsx`, `i18n.ts`: Added TypeScript interfaces (`DIBlueprintResponse`, `DIDecisionLever`, `DIIntermediateMetric`, `DIDecisionOutcome`, `DICausalEdge`, `DIDMNDecisionTable`, `DIBPMNFlowNode`, `DIArchitectureValidationReport`), `fetchDiBlueprintJsonApi()`, lazy blueprint loading on modal open, automatic staleness invalidation whenever `result` updates, and complete bilingual EN/AR strings.
+  - `frontend/src/components/DIBlueprintModal.tsx` & 4 sub-views: Implemented the 4-tab visual inspector with SVG Bezier causal pathway highlighting (`CausalDiagramView.tsx`), live fired-rule matrix & filter (`DMNInspectorView.tsx`), 4-swimlane OMG BPMN 2.0 diagram (`BPMNFlowView.tsx`), and 3-Gate Architecture Validation + 6-Primitive UEM KPI cards (`ArchOntologyView.tsx`).
+  - `DecisionLoopStrip.tsx`, `TradeoffConsole.tsx`, `TopBar.tsx`, `page.tsx`: Wired non-intrusive triggers in the Decision Loop strip, Tab 3 solver controls, and the Admin Engine Switcher card.
+- **Impact & Dependencies:** Zero new npm or Python dependencies; fast Next.js production build (`276 kB` route bundle); 100% deterministic backend truth.
+- **Verification Status:** Verified via `npm.cmd run build` (0 TypeScript/ESLint errors), full backend `pytest` suite (`100%` passing), and responsive EN (LTR) / AR (RTL) audit across desktop and mobile viewports.
+
+---
 
 ### Update 12 — `2026-11-27` • `Uncommitted / Local` • `v1.8 (5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling)`
 - **Title & Why:** Implement the domain-agnostic 5-Layer Decision Intelligence stack (Business Ontology, Pre-Solve Architecture Validator, OMG BPMN 2.0 Process Templates, OMG DMN 1.3 Decision Tables, and Causal Decision Diagram Meta-Model) compiling cleanly into a 6-primitive Universal Execution Model (`UEMGraph` + `uem_compiler.py` + `uem_verify.py`), alongside a dedicated `backend/adapters/plastics.py` reference adapter with two-way bounded workforce-press coupling gated behind `USE_UEM_ENGINE` (default `"false"`).

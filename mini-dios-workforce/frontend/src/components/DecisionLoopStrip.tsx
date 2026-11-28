@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Cpu,
   Database,
+  GitBranch,
   Radar,
   ShieldCheck,
   Sparkles,
@@ -15,7 +16,17 @@ import { COPY } from "@/lib/i18n";
 import { useApp } from "@/lib/store";
 
 export function DecisionLoopStrip() {
-  const { lang, currency, validation, result, loading, workforceLoading, setActiveView, setCopilotOpen } = useApp();
+  const {
+    lang,
+    currency,
+    validation,
+    result,
+    loading,
+    workforceLoading,
+    setActiveView,
+    setCopilotOpen,
+    openDiBlueprintInspector,
+  } = useApp();
   const t = COPY[lang];
   const isAr = lang === "ar";
 
@@ -145,6 +156,17 @@ export function DecisionLoopStrip() {
               )}
             </React.Fragment>
           ))}
+
+          {/* Compact Visual DI Blueprint Inspector Trigger at End of Loop Strip */}
+          <button
+            type="button"
+            data-testid="btn-loop-inspect-di-blueprint"
+            onClick={() => openDiBlueprintInspector("causal")}
+            className="inline-flex min-h-[36px] shrink-0 snap-start items-center gap-1.5 rounded-lg border border-cyan-500/45 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-bold text-cyan-200 shadow-sm shadow-cyan-950/40 transition hover:bg-cyan-500/25 hover:text-white lg:min-h-0"
+          >
+            <GitBranch className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
+            <span>{t.inspectDiBlueprintBtn}</span>
+          </button>
         </div>
       </div>
     </div>

@@ -4,6 +4,22 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
 
 ---
 
+## v1.9 (Visual Decision Intelligence Blueprint & Causal Trace Inspector + Standalone Solver Upgrade Brief) — 2026-11-28
+
+### Application & Documentation Changes
+- **4-Tab Visual Decision Intelligence Blueprint & Causal Trace Inspector (`frontend/src/components/DIBlueprintModal.tsx`, `CausalDiagramView.tsx`, `DMNInspectorView.tsx`, `BPMNFlowView.tsx`, `ArchOntologyView.tsx`):**
+  - Built a lightweight, zero-external-graph-dependency (React + inline SVG Bezier curves + CSS Grid) 4-tab visual inspector backed 100% by `GET /api/di/blueprint` (`?format=json`, `?format=bpmn_xml`, `?format=dmn_xml`):
+    1. **Sub-Tab 1 (`CausalDiagramView.tsx`):** Interactive 3-column Causal Decision Diagram (`1. Decision Levers & Externals → 2. Intermediate Operational Drivers → 3. Executive Business Outcomes`) with SVG Bezier pathways, live `SAR ↔ EGP` currency formatting, interactive pathway highlighting, and a Causal Attribution Card with 1-click jumps to governing DMN tables and UEM primitives.
+    2. **Sub-Tab 2 (`DMNInspectorView.tsx`):** Expandable OMG DMN 1.3 decision table matrices (`DMN_BARREL_PURGE_TRANSITION`, `DMN_MOLD_PM_POLICY`, `DMN_FOOD_GRADE_REGRIND_SAFETY`, `DMN_SHIFT_WORKFORCE_HEADCOUNT`) with Hit Policy badges, deterministic live `FIRED` (`N×`) rule-hit highlighting computed in `backend/adapters/plastics.py` (`_compute_dmn_rule_hit_counts`), a `Show Fired Rules Only` filter, and 1-click DMN 1.3 XML download.
+    3. **Sub-Tab 3 (`BPMNFlowView.tsx`):** 4-swimlane OMG BPMN 2.0 workflow visualizer with RTL-safe SVG directional arrows, node execution detail strip (mapped UEM primitive, DMN table binding, timer duration, sequence flow conditions), and 1-click BPMN 2.0 XML download.
+    4. **Sub-Tab 4 (`ArchOntologyView.tsx`):** Pre-Solve Architecture Validation banner (`VALID` / `VALID_WITH_WARNINGS` / `BLOCKED`) across `GATE-1-STRUCTURAL`, `GATE-2-CAPABILITY`, and `GATE-3-POLICY`, 6-Primitive `UEMGraph` KPI summary cards, and collapsible Layer 1 `BusinessOntologyGraph` (`EntityTypes` & `SemanticInvariants`).
+- **Non-Intrusive Entry Points & Lazy State Sync (`store.tsx`, `DecisionLoopStrip.tsx`, `TradeoffConsole.tsx`, `TopBar.tsx`, `page.tsx`):**
+  - Exposed the inspector from `DecisionLoopStrip.tsx` (`Inspect DI Blueprint`), Tab 3 `TradeoffConsole.tsx` (`Causal Trace & Policy Rules (DMN/BPMN)`), and the Admin Engine Switcher card in `TopBar.tsx` (`Open Visual DI Blueprint Inspector`) with lazy loading on modal open and automatic staleness refresh whenever a solve completes.
+- **One-Time Standalone Upgrade Brief (`docs/UEM_DI_SOLVER_UPGRADE_BRIEF.md`):**
+  - Authored and uploaded the standalone Google Doc **`Mini-DIOS — UEM & 5-Layer DI Solver Upgrade Brief (One-Time Reference)`** covering what changed, why we upgraded, side-by-side `uem_di_v1` vs. `legacy_cpsat_v1` architecture and verified parity benchmarks, and the decision guide on when to use each solver.
+
+---
+
 ## v1.8 (5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler & Two-Way Workforce Coupling) — 2026-11-27
 
 ### Application & Architecture Changes

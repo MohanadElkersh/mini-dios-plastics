@@ -1802,6 +1802,138 @@ def solve_plastics_via_uem(dataset: PlantDataset, config: SolverConfig) -> Solve
     )
 
 
+def _compute_dmn_rule_hit_counts(
+    eff_ds: PlantDataset,
+    config: SolverConfig,
+    dmn_registry: DMNRegistry,
+    mold_pm_durations_hrs: dict[str, float],
+    mold_pm_reasons: dict[str, str],
+    result: Optional[SolveResult] = None,
+) -> dict[str, int]:
+    """Deterministically tally how many times each DMN rule fired across the active plant schedule/compilation."""
+    from core.di import eval_feel_unary_test
+
+    hits: dict[str, int] = defaultdict(int)
+
+    def _record_hit(table_id: str, ctx: dict[str, Any]) -> None:
+        tbl = dmn_registry.get_table(table_id)
+        for rule in tbl.rules:
+            matched = True
+            for col_idx, inp_col in enumerate(tbl.inputs):
+                expr = rule.input_entries[col_idx] if col_idx < len(rule.input_entries) else "-"
+                if not eval_feel_unary_test(expr, ctx.get(inp_col.expression)):
+                    matched = False
+                    break
+            if matched:
+                hits[rule.rule_id] += 1
+                if tbl.hit_policy in ("FIRST", "UNIQUE", "ANY", "PRIORITY"):
+                    break
+
+    # 1. DMN_FOOD_GRADE_REGRIND_SAFETY across all orders
+    for o in eff_ds.orders:
+        _record_hit(
+            "DMN_FOOD_GRADE_REGRIND_SAFETY",
+            {"max_regrind_pct": o.max_regrind_pct, "is_export": o.is_export},
+        )
+
+    # 2. DMN_MOLD_PM_POLICY across molds requiring PM (or all molds for visibility)
+    for m in eff_ds.molds:
+        pm_hrs = mold_pm_durations_hrs.get(m.mold_id, 0.0)
+        pm_reason = mold_pm_reasons.get(
+            m.mold_id,
+            "shot_threshold_95pct" if m.shot_utilization_pct >= 95.0 else "none",
+        )
+        if pm_hrs > 0 or m.shot_utilization_pct >= 85.0:
+            _record_hit(
+                "DMN_MOLD_PM_POLICY",
+                {
+                    "shot_utilization_pct": m.shot_utilization_pct,
+                    "has_manual_lock": (pm_reason == "manual_lock"),
+                    "autonomous_pm_window": bool(config.autonomous_pm_window),
+                },
+            )
+
+    # 3. DMN_BARREL_PURGE_TRANSITION: if solved schedule is available, count actual consecutive press transitions;
+    # otherwise count compiled transition matrix arcs
+    if result is not None and result.optimized.jobs:
+        by_press: dict[str, list[Any]] = defaultdict(list)
+        for j in result.optimized.jobs:
+            if j.scheduled:
+                by_press[j.machine_id].append(j)
+        for mid, pjobs in by_press.items():
+            ordered = sorted(pjobs, key=lambda x: (x.start_min, x.sequence_index))
+            for idx in range(1, len(ordered)):
+                prev_j = ordered[idx - 1]
+                curr_j = ordered[idx]
+                color_dir = (
+                    "dark_to_light"
+                    if curr_j.color_rank < prev_j.color_rank
+                    else ("light_to_dark" if curr_j.color_rank > prev_j.color_rank else "same_color")
+                )
+                _record_hit(
+                    "DMN_BARREL_PURGE_TRANSITION",
+                    {
+                        "incompatible_resin": is_incompatible_resin_switch(prev_j.resin_code, curr_j.resin_code),
+                        "different_resin": prev_j.resin_code != curr_j.resin_code,
+                        "color_direction": color_dir,
+                    },
+                )
+    else:
+        presses_by_id = {p.machine_id: p for p in eff_ds.presses}
+        molds_by_id = {m.mold_id: m for m in eff_ds.molds}
+        compat_sets = [
+            {p.machine_id for p in compatible_active_presses(molds_by_id[o.mold_id], presses_by_id)}
+            for o in eff_ds.orders
+        ]
+        for i, oi in enumerate(eff_ds.orders):
+            if not compat_sets[i]:
+                continue
+            for j, oj in enumerate(eff_ds.orders):
+                if i == j or not (compat_sets[i] & compat_sets[j]):
+                    continue
+                color_dir = (
+                    "dark_to_light"
+                    if oj.color_rank < oi.color_rank
+                    else ("light_to_dark" if oj.color_rank > oi.color_rank else "same_color")
+                )
+                _record_hit(
+                    "DMN_BARREL_PURGE_TRANSITION",
+                    {
+                        "incompatible_resin": is_incompatible_resin_switch(oi.resin_code, oj.resin_code),
+                        "different_resin": oi.resin_code != oj.resin_code,
+                        "color_direction": color_dir,
+                    },
+                )
+
+    # 4. DMN_SHIFT_WORKFORCE_HEADCOUNT across active shifts
+    if result is not None and result.workforce is not None and result.workforce.optimized.demand:
+        seen_shifts: dict[tuple[int, str], dict[str, Any]] = {}
+        for cell in result.workforce.optimized.demand:
+            key = (cell.day, cell.shift)
+            if key not in seen_shifts:
+                has_hygro = any("PET" in r or "ABS" in r or "drying" in r.lower() for r in cell.reasons)
+                seen_shifts[key] = {
+                    "active_press_count": cell.active_presses,
+                    "high_load_or_hygro": (cell.active_presses >= 4) or has_hygro,
+                    "mold_events": 2 if cell.mold_change else 0,
+                }
+        for ctx in seen_shifts.values():
+            _record_hit("DMN_SHIFT_WORKFORCE_HEADCOUNT", ctx)
+    else:
+        active_p = sum(1 for p in eff_ds.presses if p.status == "active")
+        has_hygro = any(o.resin_code in ("PET", "ABS") for o in eff_ds.orders)
+        _record_hit(
+            "DMN_SHIFT_WORKFORCE_HEADCOUNT",
+            {
+                "active_press_count": active_p,
+                "high_load_or_hygro": (active_p >= 4) or has_hygro,
+                "mold_events": 2,
+            },
+        )
+
+    return dict(hits)
+
+
 def build_plastics_blueprint(
     dataset: Optional[PlantDataset] = None,
     config: Optional[SolverConfig] = None,
@@ -1827,6 +1959,14 @@ def build_plastics_blueprint(
         dmn_registry=dmn_registry,
     )
     causal_model = build_plastics_causal_decision_model(cfg, result=result)
+    rule_hits = _compute_dmn_rule_hit_counts(
+        eff_ds=eff_state.dataset,
+        config=cfg,
+        dmn_registry=dmn_registry,
+        mold_pm_durations_hrs=eff_state.mold_pm_durations_hrs,
+        mold_pm_reasons=eff_state.mold_pm_reasons,
+        result=result,
+    )
 
     return {
         "architecture": "5-Layer Decision Intelligence + 6-Primitive UEMGraph Compiler",
@@ -1851,15 +1991,24 @@ def build_plastics_blueprint(
                 "registry_id": dmn_registry.registry_id,
                 "namespace": dmn_registry.namespace,
                 "table_count": len(dmn_registry.tables),
+                "rule_hit_counts": rule_hits,
                 "tables": [
                     {
                         "table_id": t.table_id,
                         "name": t.name,
+                        "description": t.description,
                         "hit_policy": t.hit_policy,
                         "rule_count": len(t.rules),
                         "inputs": [i.model_dump() for i in t.inputs],
                         "outputs": [o.model_dump() for o in t.outputs],
-                        "rules": [r.model_dump() for r in t.rules],
+                        "rules": [
+                            {
+                                **r.model_dump(),
+                                "fired": rule_hits.get(r.rule_id, 0) > 0,
+                                "hit_count": rule_hits.get(r.rule_id, 0),
+                            }
+                            for r in t.rules
+                        ],
                     }
                     for t in dmn_registry.tables
                 ],

@@ -1137,3 +1137,225 @@ export interface WhatsAppDispatchResponse {
   message_text: string;
   whatsapp_url: string;
 }
+
+// --------------------------------------------------------------------------------------------
+// 5-Layer Decision Intelligence & 6-Primitive UEM Blueprint Inspector Contracts
+// --------------------------------------------------------------------------------------------
+export type DIBlueprintTab = "causal" | "dmn" | "bpmn" | "arch_uem";
+
+export interface DIEntityTypeSpec {
+  type_id: string;
+  label: string;
+  ontology_role: string;
+  required_attributes: string[];
+  description?: string;
+}
+
+export interface DISemanticInvariantSpec {
+  invariant_id: string;
+  name: string;
+  category: "structural" | "capability" | "policy" | string;
+  severity: Severity;
+  expression_summary: string;
+  description?: string;
+}
+
+export interface DIInvariantViolation {
+  invariant_id: string;
+  category: "structural" | "capability" | "policy" | string;
+  severity: Severity;
+  entity_id?: string | null;
+  message: string;
+}
+
+export interface DIArchitectureGateResult {
+  gate_id: string;
+  name: string;
+  passed: boolean;
+  error_count: number;
+  warning_count: number;
+  violations: DIInvariantViolation[];
+}
+
+export interface DIArchitectureValidationReport {
+  ready: boolean;
+  error_count: number;
+  warning_count: number;
+  info_count: number;
+  gates: DIArchitectureGateResult[];
+  violations: DIInvariantViolation[];
+}
+
+export interface DIBPMNFlowNode {
+  node_id: string;
+  name: string;
+  kind:
+    | "startEvent"
+    | "endEvent"
+    | "boundaryTimerEvent"
+    | "serviceTask"
+    | "businessRuleTask"
+    | "userTask"
+    | "exclusiveGateway"
+    | "parallelGateway"
+    | string;
+  dmn_table_id?: string | null;
+  timer_duration_iso?: string | null;
+  attached_to_ref?: string | null;
+  compiles_to_primitive?: string | null;
+  description?: string;
+}
+
+export interface DIBPMNSequenceFlow {
+  flow_id: string;
+  source_ref: string;
+  target_ref: string;
+  name?: string;
+  condition_expression?: string | null;
+}
+
+export interface DIBPMNTopologyValidation {
+  valid: boolean;
+  start_events: number;
+  end_events: number;
+  reachable_nodes: number;
+  total_nodes: number;
+  dmn_linked_tasks: string[];
+  issues: string[];
+}
+
+export interface DIDMNInputColumn {
+  input_id: string;
+  label: string;
+  expression: string;
+  type_ref: string;
+}
+
+export interface DIDMNOutputColumn {
+  output_id: string;
+  label: string;
+  name: string;
+  type_ref: string;
+}
+
+export interface DIDMNRule {
+  rule_id: string;
+  description?: string;
+  priority?: number;
+  input_entries: string[];
+  output_entries: Record<string, unknown>;
+  fired?: boolean;
+  hit_count?: number;
+}
+
+export interface DIDMNDecisionTable {
+  table_id: string;
+  name: string;
+  description?: string;
+  hit_policy: string;
+  rule_count: number;
+  inputs: DIDMNInputColumn[];
+  outputs: DIDMNOutputColumn[];
+  rules: DIDMNRule[];
+}
+
+export interface DIDecisionLever {
+  lever_id: string;
+  name: string;
+  category: "objective_weight" | "operational_toggle" | "capacity_envelope" | "scenario_stress" | string;
+  current_value: unknown;
+  default_value?: unknown;
+  min_value?: number | null;
+  max_value?: number | null;
+  unit?: string;
+  description?: string;
+}
+
+export interface DIIntermediateMetric {
+  metric_id: string;
+  name: string;
+  baseline_value: number;
+  optimized_value: number;
+  delta_value: number;
+  unit: string;
+  formula_summary?: string;
+}
+
+export interface DIDecisionOutcome {
+  outcome_id: string;
+  name: string;
+  category: "financial" | "service_level" | "operational_risk" | "sustainability" | string;
+  direction: "maximize" | "minimize" | string;
+  baseline_value: number;
+  optimized_value: number;
+  delta_value: number;
+  improvement_pct?: number;
+  unit: string;
+}
+
+export interface DICausalEdge {
+  edge_id: string;
+  source_id: string;
+  target_id: string;
+  polarity: "+" | "-" | "non_monotonic" | string;
+  mechanism: string;
+  governed_by_primitive?: string;
+}
+
+export interface DICausalPathway {
+  lever_id: string;
+  intermediate_id: string;
+  outcome_id: string;
+  net_polarity: string;
+  explanation: string;
+}
+
+export interface DIBlueprintResponse {
+  architecture: string;
+  domain: string;
+  optimization_engine?: EngineMode;
+  layers: {
+    layer_1_business_ontology: {
+      ontology_id: string;
+      version: string;
+      counts: {
+        entity_types: number;
+        entities: number;
+        relationships: number;
+        invariants: number;
+      };
+      entity_types: DIEntityTypeSpec[];
+      invariants: DISemanticInvariantSpec[];
+    };
+    layer_2_architecture_validation: DIArchitectureValidationReport;
+    layer_3_bpmn_process_template: {
+      process_id: string;
+      name: string;
+      topology_validation: DIBPMNTopologyValidation;
+      nodes: DIBPMNFlowNode[];
+      sequence_flows: DIBPMNSequenceFlow[];
+    };
+    layer_4_dmn_decision_tables: {
+      registry_id: string;
+      namespace: string;
+      table_count: number;
+      rule_hit_counts?: Record<string, number>;
+      tables: DIDMNDecisionTable[];
+    };
+    uem_graph_6_primitives: {
+      graph_id: string;
+      horizon_mins: number;
+      primitive_counts: Record<string, number>;
+      primitives: string[];
+    };
+    layer_5_causal_decision_meta_model: {
+      model_id: string;
+      domain_name: string;
+      levers: DIDecisionLever[];
+      intermediates: DIIntermediateMetric[];
+      outcomes: DIDecisionOutcome[];
+      causal_edges: DICausalEdge[];
+      traced_causal_pathways: DICausalPathway[];
+    };
+  };
+}

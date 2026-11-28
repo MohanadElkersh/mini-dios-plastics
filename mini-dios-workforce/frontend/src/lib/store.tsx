@@ -13,6 +13,7 @@ import {
   fetchAuthMe,
   fetchCheckpointsApi,
   fetchDemoData,
+  fetchDiBlueprintJsonApi,
   fetchWorkspaces,
   getWorkspaceApi,
   loginInstantDemoApi,
@@ -34,6 +35,8 @@ import type {
   BacktestReplayReport,
   Currency,
   DecisionCheckpoint,
+  DIBlueprintResponse,
+  DIBlueprintTab,
   EngineMode,
   EngineOverrideInput,
   FactoryWorker,
@@ -492,6 +495,17 @@ interface AppState {
   adminPanelOpen: boolean;
   setAdminPanelOpen: (open: boolean) => void;
   switchOptimizationEngine: (target: EngineOverrideInput) => Promise<void>;
+  // v1.9 Visual Decision Intelligence Blueprint & Causal Trace Inspector
+  diBlueprintModalOpen: boolean;
+  setDiBlueprintModalOpen: (open: boolean) => void;
+  diBlueprintTab: DIBlueprintTab;
+  setDiBlueprintTab: (tab: DIBlueprintTab) => void;
+  openDiBlueprintInspector: (tab?: DIBlueprintTab) => void;
+  diBlueprintData: DIBlueprintResponse | null;
+  diBlueprintLoading: boolean;
+  diBlueprintError: string | null;
+  diBlueprintStale: boolean;
+  refreshDiBlueprint: (force?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -560,6 +574,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [engineSwitching, setEngineSwitching] = useState<boolean>(false);
   const [adminPanelOpen, setAdminPanelOpen] = useState<boolean>(false);
+  const [diBlueprintModalOpen, setDiBlueprintModalOpen] = useState<boolean>(false);
+  const [diBlueprintTab, setDiBlueprintTab] = useState<DIBlueprintTab>("causal");
+  const [diBlueprintData, setDiBlueprintData] = useState<DIBlueprintResponse | null>(null);
+  const [diBlueprintLoading, setDiBlueprintLoading] = useState<boolean>(false);
+  const [diBlueprintError, setDiBlueprintError] = useState<string | null>(null);
+  const [diBlueprintStale, setDiBlueprintStale] = useState<boolean>(true);
 
   const triggerExecutivePdfPrint = useCallback(
     (mode: "brief_owner" | "brief_manager" | "backtest") => {
@@ -599,7 +619,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (result?.active_engine) {
       setActiveEngine(result.active_engine);
     }
+    if (result) {
+      setDiBlueprintStale(true);
+    }
   }, [result]);
+
+  const refreshDiBlueprint = useCallback(
+    async (force = true) => {
+      if (!force && diBlueprintData && !diBlueprintStale) return;
+      setDiBlueprintLoading(true);
+      setDiBlueprintError(null);
+      try {
+        const bp = await fetchDiBlueprintJsonApi({
+          includeSolvedCausal: false,
+          workspaceId: activeWorkspaceId || "default",
+        });
+        setDiBlueprintData(bp);
+        if (bp.optimization_engine) {
+          setActiveEngine(bp.optimization_engine);
+        }
+        setDiBlueprintStale(false);
+      } catch (err) {
+        setDiBlueprintError(
+          err instanceof Error ? err.message : "Failed to load Decision Intelligence blueprint"
+        );
+      } finally {
+        setDiBlueprintLoading(false);
+      }
+    },
+    [activeWorkspaceId, diBlueprintData, diBlueprintStale]
+  );
+
+  const openDiBlueprintInspector = useCallback((tab?: DIBlueprintTab) => {
+    if (tab) {
+      setDiBlueprintTab(tab);
+    }
+    setDiBlueprintModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (diBlueprintModalOpen && (diBlueprintStale || !diBlueprintData)) {
+      void refreshDiBlueprint(true);
+    }
+  }, [diBlueprintModalOpen, diBlueprintStale, diBlueprintData, refreshDiBlueprint]);
 
   const syncEngineStatusFromAuth = useCallback(async (status: AuthStatus) => {
     if (status.active_engine) setActiveEngine(status.active_engine);
@@ -1860,6 +1922,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCopilotOpen(false);
     setBriefModalOpen(false);
     setAdminPanelOpen(false);
+    setDiBlueprintModalOpen(false);
+    setDiBlueprintData(null);
+    setDiBlueprintStale(true);
     setActiveView("scope");
     setAuth((prev) => ({
       ...prev,
@@ -2184,6 +2249,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         adminPanelOpen,
         setAdminPanelOpen,
         switchOptimizationEngine,
+        diBlueprintModalOpen,
+        setDiBlueprintModalOpen,
+        diBlueprintTab,
+        setDiBlueprintTab,
+        openDiBlueprintInspector,
+        diBlueprintData,
+        diBlueprintLoading,
+        diBlueprintError,
+        diBlueprintStale,
+        refreshDiBlueprint,
       }}
     >
       {children}

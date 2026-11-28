@@ -9,6 +9,7 @@ import {
   Download,
   Factory,
   GanttChartSquare,
+  GitBranch,
   Globe,
   Layers,
   Loader2,
@@ -61,6 +62,7 @@ export function TopBar() {
     adminPanelOpen,
     setAdminPanelOpen,
     switchOptimizationEngine,
+    openDiBlueprintInspector,
   } = useApp();
 
   const t = COPY[lang];
@@ -886,6 +888,20 @@ export function TopBar() {
                     </span>
                   ))}
                 </div>
+
+                {/* Open Visual DI Blueprint Inspector Trigger */}
+                <button
+                  type="button"
+                  data-testid="btn-admin-open-di-inspector"
+                  onClick={() => {
+                    setAdminPanelOpen(false);
+                    openDiBlueprintInspector("causal");
+                  }}
+                  className="mt-3.5 flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/45 bg-cyan-500/15 px-3.5 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/25 hover:text-white"
+                >
+                  <GitBranch className="h-4 w-4 text-cyan-300" />
+                  <span>{t.adminOpenDiInspectorBtn}</span>
+                </button>
               </div>
 
               {/* 1-Click 5-Layer DI Standards Export Buttons */}

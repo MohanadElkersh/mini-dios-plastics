@@ -12,6 +12,7 @@ import type {
   CTPQuoteResult,
   Currency,
   DecisionCheckpoint,
+  DIBlueprintResponse,
   EngineOverrideInput,
   FinancialReport,
   GuidedSetupRequest,
@@ -545,8 +546,36 @@ export async function switchAdminEngineModeApi(payload: {
   return handleJson<AdminEngineModeSwitchResponse>(res);
 }
 
-export function getDiBlueprintUrl(format: "json" | "bpmn_xml" | "dmn_xml" = "json"): string {
-  return `${API_BASE}/api/di/blueprint?format=${format}`;
+export function getDiBlueprintUrl(
+  format: "json" | "bpmn_xml" | "dmn_xml" = "json",
+  opts?: { includeSolvedCausal?: boolean; workspaceId?: string }
+): string {
+  const params = new URLSearchParams();
+  params.set("format", format);
+  if (opts?.includeSolvedCausal) {
+    params.set("include_solved_causal", "true");
+  }
+  if (opts?.workspaceId) {
+    params.set("workspace_id", opts.workspaceId);
+  }
+  return `${API_BASE}/api/di/blueprint?${params.toString()}`;
+}
+
+export async function fetchDiBlueprintJsonApi(opts?: {
+  includeSolvedCausal?: boolean;
+  workspaceId?: string;
+}): Promise<DIBlueprintResponse> {
+  const res = await fetch(
+    getDiBlueprintUrl("json", {
+      includeSolvedCausal: opts?.includeSolvedCausal ?? false,
+      workspaceId: opts?.workspaceId,
+    }),
+    {
+      cache: "no-store",
+      credentials: "include",
+    }
+  );
+  return handleJson<DIBlueprintResponse>(res);
 }
 
 export async function downloadDiBlueprintArtifact(

@@ -7,6 +7,7 @@ import { CTPQuoterModal } from "@/components/CTPQuoterModal";
 import { DataStudioView } from "@/components/DataStudioView";
 import { DecisionCheckpointsDrawer } from "@/components/DecisionCheckpointsDrawer";
 import { DecisionLoopStrip } from "@/components/DecisionLoopStrip";
+import { DIBlueprintModal } from "@/components/DIBlueprintModal";
 import { ExecutiveBriefModal } from "@/components/ExecutiveBriefModal";
 import { ExecutivePrintReport } from "@/components/ExecutivePrintReport";
 import { FinancialsView } from "@/components/FinancialsView";
@@ -203,6 +204,7 @@ function DashboardShell() {
         <DecisionCheckpointsDrawer />
         <CTPQuoterModal />
         <WhatsAppDispatchModal />
+        <DIBlueprintModal />
       </main>
       <ExecutivePrintReport />
       <footer className="border-t border-slate-800/70 px-4 pt-3 pb-24 text-center text-[11px] text-slate-500 lg:pb-3 print:hidden">

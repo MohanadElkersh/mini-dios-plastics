@@ -9,6 +9,7 @@ import {
   Clock,
   DollarSign,
   Flame,
+  GitBranch,
   History,
   Play,
   Plus,
@@ -57,6 +58,7 @@ export function TradeoffConsole() {
     setCopilotOpen,
     toggleContainerSyncMode,
     setCtpModalOpen,
+    openDiBlueprintInspector,
   } = useApp();
 
   const t = COPY[lang];
@@ -372,6 +374,15 @@ export function TradeoffConsole() {
               <p className="text-xs text-slate-400">{t.scenarioBuilderDesc}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                data-testid="btn-console-di-trace"
+                onClick={() => openDiBlueprintInspector("causal")}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-cyan-500/45 bg-cyan-500/15 px-3 py-1.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/25 md:min-h-0"
+              >
+                <GitBranch className="h-3.5 w-3.5 text-cyan-300" />
+                <span>{t.consoleDiTraceBtn}</span>
+              </button>
               <button
                 type="button"
                 data-testid="btn-open-ctp-console"

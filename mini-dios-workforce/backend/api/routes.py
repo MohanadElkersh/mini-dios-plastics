@@ -298,6 +298,10 @@ def get_di_blueprint_endpoint(
         default=False,
         description="If true, runs a deterministic solve to populate live baseline vs. optimized causal deltas",
     ),
+    workspace_id: str = Query(
+        default="default",
+        description="Active workspace ID to load when building the live blueprint",
+    ),
 ):
     """Inspect the 5-Layer Decision Intelligence & 6-Primitive UEMGraph Blueprint (JSON, BPMN 2.0 XML, or DMN 1.3 XML)."""
     from adapters.plastics import (
@@ -309,10 +313,18 @@ def get_di_blueprint_endpoint(
     fmt = format.strip().lower()
     if fmt == "bpmn_xml":
         xml_str = build_plastics_bpmn_template().to_bpmn_xml()
-        return Response(content=xml_str, media_type="application/xml")
+        return Response(
+            content=xml_str,
+            media_type="application/xml",
+            headers={"Content-Disposition": 'attachment; filename="mini_dios_plastics_workflow.bpmn20.xml"'},
+        )
     if fmt == "dmn_xml":
         xml_str = build_plastics_dmn_registry().to_dmn_xml()
-        return Response(content=xml_str, media_type="application/xml")
+        return Response(
+            content=xml_str,
+            media_type="application/xml",
+            headers={"Content-Disposition": 'attachment; filename="mini_dios_plastics_rules.dmn13.xml"'},
+        )
     if fmt != "json":
         raise HTTPException(
             status_code=400,
@@ -321,11 +333,34 @@ def get_di_blueprint_endpoint(
 
     sess = get_optional_session(request)
     sid = sess.session_id if sess else "local"
-    ds = demo_dataset()
-    cfg = default_config()
-    with bind_sandbox_engine_context(sid):
-        solved_res = solve_plant_schedule(ds, cfg, sandbox_id=sid) if include_solved_causal else None
-    bp = build_plastics_blueprint(dataset=ds, config=cfg, result=solved_res)
+    access_label = sess.client_label if sess else None
+    store = get_audit_store()
+    ws = store.get_workspace(workspace_id, session_id=sid, access_code=access_label)
+    ds = (
+        PlantDataset.model_validate(ws["dataset"])
+        if ws and ws.get("dataset")
+        else demo_dataset()
+    )
+    cfg = (
+        SolverConfig.model_validate(ws["config"])
+        if ws and ws.get("config")
+        else default_config()
+    )
+    latest_res: Optional[SolveResult] = None
+    if include_solved_causal:
+        with bind_sandbox_engine_context(sid):
+            latest_res = solve_plant_schedule(ds, cfg, sandbox_id=sid)
+    else:
+        try:
+            recent_runs = store.list_runs(limit=1, session_id=sid)
+            if recent_runs:
+                raw_run = store.get_run(recent_runs[0]["run_id"], session_id=sid)
+                if raw_run:
+                    latest_res = SolveResult.model_validate(raw_run)
+        except Exception:
+            latest_res = None
+
+    bp = build_plastics_blueprint(dataset=ds, config=cfg, result=latest_res)
     bp["optimization_engine"] = get_effective_engine(sid)
     return bp
 
