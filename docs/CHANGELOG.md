@@ -17,8 +17,8 @@ All updates to the canonical Master Living Documents (`docs/MASTER_USER_GUIDE_AN
   - **Layer 5 (`decision_meta.py`):** Causal Decision Diagram meta-model (`CausalDecisionModel` tracing `DecisionLever -> IntermediateMetric -> DecisionOutcome` pathways).
 - **Plastics Domain Adapter & Two-Way Bounded Labor Coupling (`backend/adapters/plastics.py`, `backend/core/solver.py`, `backend/api/routes.py`):**
   - Implemented `backend/adapters/plastics.py` mapping Mini-DIOS Plastics onto the 5-layer DI stack and 6-primitive `UEMGraph`, including two-way bounded workforce-press coupling (soft-overflow `shift_capacity_cap` `CumulativeEnvelope` + max 1 conditional feedback re-solve capped at `<= 2.0s` when `Press_Operator` shortages are detected).
-  - Gated behind `USE_UEM_ENGINE` (default `"false"` so legacy `solver.py` remains untouched by default), added `optimization_engine` (`"legacy_cpsat_v1"` vs. `"uem_di_v1"`) to `GET /api/health`, and exposed `GET /api/di/blueprint` (`?format=json`, `?format=bpmn_xml`, `?format=dmn_xml`).
-  - Verified full parity across all 5 core plastics modes, CTP Quoter, 1-Month Backtest, Offline Copilot, two-way labor shortage feedback, and a non-plastics Beverage Bottling Plant proof in `backend/tests/test_uem_di_parity.py`.
+  - Gated behind `USE_UEM_ENGINE` (default `"false"` so legacy `solver.py` remains untouched by default), added sandbox-scoped live Admin Engine Switching (`GET/POST /api/admin/engine-mode`, `get_effective_engine(sandbox_id)`, and the bilingual Admin Engine Switcher modal + TopBar engine indicator pill in `TopBar.tsx` / `store.tsx`), added `optimization_engine` (`"legacy_cpsat_v1"` vs. `"uem_di_v1"`) to `GET /api/health`, and exposed `GET /api/di/blueprint` (`?format=json`, `?format=bpmn_xml`, `?format=dmn_xml`).
+  - Verified full parity across all 5 core plastics modes, CTP Quoter, 1-Month Backtest, Offline Copilot, two-way labor shortage feedback, Admin engine switching & sandbox isolation, and a non-plastics Beverage Bottling Plant proof in `backend/tests/test_uem_di_parity.py`.
 
 ---
 

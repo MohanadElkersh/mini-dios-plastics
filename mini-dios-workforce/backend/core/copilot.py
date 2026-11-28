@@ -48,7 +48,7 @@ from .disruptions import apply_plant_scenarios
 from .financials import compute_financial_report
 from .neon_services import call_neon_ai_gateway_narration, load_neon_env
 from .risk_radar import compute_risk_radar
-from .solver import solve_plant_schedule
+from .solver import get_effective_engine, solve_plant_schedule
 from .workforce_solver import parse_day, solve_workforce, solve_workforce_with_callouts
 
 # Load root .env.local / .env and backend/.env if present
@@ -130,6 +130,7 @@ class CopilotResult(BaseModel):
     timing: CopilotTiming
     source: str = "gemini"  # "gemini" | "offline_fallback"
     quota_limited: bool = False
+    active_engine: str = "legacy_cpsat_v1"
 
 
 def _extract_weights_and_toggles(cfg: SolverConfig) -> tuple[dict[str, Any], dict[str, bool]]:
@@ -311,6 +312,7 @@ def _build_copilot_result(
         timing=timing,
         source=source,
         quota_limited=quota_limited,
+        active_engine=result.active_engine if result is not None else get_effective_engine(),
     )
 
 
@@ -326,7 +328,7 @@ def _solve_interactive(dataset: PlantDataset, config: SolverConfig, use_cache: b
     cache_key = ""
     if use_cache:
         import hashlib
-        raw = f"{dataset.model_dump_json()}|{capped.model_dump_json()}"
+        raw = f"{get_effective_engine()}|{dataset.model_dump_json()}|{capped.model_dump_json()}"
         cache_key = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         cached = _INTERACTIVE_BASELINE_CACHE.get(cache_key)
         if cached is not None:

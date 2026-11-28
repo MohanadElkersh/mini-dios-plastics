@@ -7,6 +7,7 @@ import {
   deleteWorkspaceApi,
   exportBriefExcel,
   exportDatasetExcel,
+  fetchAdminEngineModeApi,
   fetchAuditLog,
   fetchAuditRun,
   fetchAuthMe,
@@ -22,6 +23,7 @@ import {
   saveWorkspaceApi,
   solvePlantScheduleApi,
   solveWorkforceApi,
+  switchAdminEngineModeApi,
   validateExcelFile,
   validatePlantJson,
 } from "./api";
@@ -32,6 +34,8 @@ import type {
   BacktestReplayReport,
   Currency,
   DecisionCheckpoint,
+  EngineMode,
+  EngineOverrideInput,
   FactoryWorker,
   GuidedSetupResponse,
   Lang,
@@ -479,6 +483,15 @@ interface AppState {
   printReportMode: "brief_owner" | "brief_manager" | "backtest" | null;
   setPrintReportMode: (mode: "brief_owner" | "brief_manager" | "backtest" | null) => void;
   triggerExecutivePdfPrint: (mode: "brief_owner" | "brief_manager" | "backtest") => void;
+  // v1.8 Admin Live Solver Engine Switcher
+  activeEngine: EngineMode;
+  envDefaultEngine: EngineMode;
+  isEngineOverride: boolean;
+  diStandards: string[];
+  engineSwitching: boolean;
+  adminPanelOpen: boolean;
+  setAdminPanelOpen: (open: boolean) => void;
+  switchOptimizationEngine: (target: EngineOverrideInput) => Promise<void>;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -535,6 +548,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ctpModalOpen, setCtpModalOpen] = useState(false);
   const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
   const [printReportMode, setPrintReportMode] = useState<"brief_owner" | "brief_manager" | "backtest" | null>(null);
+  const [activeEngine, setActiveEngine] = useState<EngineMode>("legacy_cpsat_v1");
+  const [envDefaultEngine, setEnvDefaultEngine] = useState<EngineMode>("legacy_cpsat_v1");
+  const [isEngineOverride, setIsEngineOverride] = useState<boolean>(false);
+  const [diStandards, setDiStandards] = useState<string[]>([
+    "BusinessOntology",
+    "ArchValidation",
+    "DMN",
+    "BPMN",
+    "DI_CDD",
+  ]);
+  const [engineSwitching, setEngineSwitching] = useState<boolean>(false);
+  const [adminPanelOpen, setAdminPanelOpen] = useState<boolean>(false);
 
   const triggerExecutivePdfPrint = useCallback(
     (mode: "brief_owner" | "brief_manager" | "backtest") => {
@@ -548,6 +573,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     client_label: null,
     session_id: null,
     instant_demo_enabled: false,
+    is_admin: false,
   });
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -570,7 +596,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [config]);
   useEffect(() => {
     resultRef.current = result;
+    if (result?.active_engine) {
+      setActiveEngine(result.active_engine);
+    }
   }, [result]);
+
+  const syncEngineStatusFromAuth = useCallback(async (status: AuthStatus) => {
+    if (status.active_engine) setActiveEngine(status.active_engine);
+    if (status.env_default_engine) setEnvDefaultEngine(status.env_default_engine);
+    if (status.is_engine_override !== undefined) setIsEngineOverride(status.is_engine_override);
+    const isAdminUser = Boolean(
+      status.is_admin ||
+        !status.auth_enabled ||
+        (status.client_label && status.client_label.toLowerCase() === "admin")
+    );
+    if (isAdminUser && (!status.auth_enabled || status.authenticated)) {
+      try {
+        const meta = await fetchAdminEngineModeApi();
+        setActiveEngine(meta.active_engine);
+        setEnvDefaultEngine(meta.env_default_engine);
+        setIsEngineOverride(meta.is_override);
+        if (meta.di_standards?.length) setDiStandards(meta.di_standards);
+      } catch {
+        // Non-fatal
+      }
+    }
+  }, []);
 
   const markSolvedSignature = useCallback((ds: PlantDataset | null, cfg: SolverConfig) => {
     lastFullSigRef.current = computeFullSignature(ds, cfg);
@@ -792,6 +843,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const status = await fetchAuthMe();
         setAuth(status);
         setAuthChecked(true);
+        void syncEngineStatusFromAuth(status);
         if (!status.auth_enabled || status.authenticated) {
           await bootstrapSessionData(status.session_id);
         }
@@ -803,6 +855,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           client_label: "Local Plant",
           session_id: "local",
           instant_demo_enabled: false,
+          is_admin: true,
         });
         setAuthChecked(true);
         await bootstrapSessionData("local");
@@ -810,7 +863,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
 
     void init();
-  }, [bootstrapSessionData]);
+  }, [bootstrapSessionData, syncEngineStatusFromAuth]);
 
   // Persist Studio edits to localStorage (scoped per session)
   useEffect(() => {
@@ -1777,9 +1830,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAuth(status);
       setAuthChecked(true);
       readyForPersistRef.current = false;
+      void syncEngineStatusFromAuth(status);
       await bootstrapSessionData(status.session_id);
     },
-    [bootstrapSessionData]
+    [bootstrapSessionData, syncEngineStatusFromAuth]
   );
 
   const loginInstantDemo = useCallback(async () => {
@@ -1787,8 +1841,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAuth(status);
     setAuthChecked(true);
     readyForPersistRef.current = false;
+    void syncEngineStatusFromAuth(status);
     await bootstrapSessionData(status.session_id);
-  }, [bootstrapSessionData]);
+  }, [bootstrapSessionData, syncEngineStatusFromAuth]);
 
   const logout = useCallback(async () => {
     try {
@@ -1804,12 +1859,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPinnedScenarios([]);
     setCopilotOpen(false);
     setBriefModalOpen(false);
+    setAdminPanelOpen(false);
     setActiveView("scope");
     setAuth((prev) => ({
       ...prev,
       authenticated: false,
       client_label: null,
       session_id: null,
+      is_admin: false,
     }));
   }, []);
 
@@ -1937,6 +1994,56 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [activeWorkspaceId, currency, lang, markSolvedSignature, refreshAudit, refreshCheckpoints]
+  );
+
+  const switchOptimizationEngine = useCallback(
+    async (target: EngineOverrideInput) => {
+      setEngineSwitching(true);
+      setLoading(true);
+      setError(null);
+      try {
+        const switched = await switchAdminEngineModeApi({
+          engine: target,
+          dataset: datasetRef.current,
+          config: configRef.current,
+          workspace_id: activeWorkspaceId || "default",
+        });
+        setActiveEngine(switched.active_engine);
+        setEnvDefaultEngine(switched.env_default_engine);
+        setIsEngineOverride(switched.is_override);
+        if (switched.di_standards?.length) {
+          setDiStandards(switched.di_standards);
+        }
+        const nextCfg = normalizeConfig({ ...switched.config, currency });
+        markSolvedSignature(switched.dataset, nextCfg);
+        setDataset(switched.dataset);
+        setConfig(nextCfg);
+        setResult(switched.result);
+        setValidation(switched.validation);
+        const engLabelEn =
+          switched.active_engine === "uem_di_v1"
+            ? "UEM + 5-Layer DI (uem_di_v1)"
+            : "Legacy CP-SAT (legacy_cpsat_v1)";
+        const engLabelAr =
+          switched.active_engine === "uem_di_v1"
+            ? "UEM + ذكاء القرار 5 طبقات (uem_di_v1)"
+            : "CP-SAT الكلاسيكي (legacy_cpsat_v1)";
+        const savingsFmt = Math.round(switched.switch_delta.weekly_savings).toLocaleString();
+        setCheckpointToast(
+          lang === "ar"
+            ? `تم التبديل إلى محرك ${engLabelAr} • زمن الحل ${switched.switch_delta.solve_time_ms} مللي ثانية • الوفر الأسبوعي ${savingsFmt} ${switched.result.currency}`
+            : `Active Engine: ${engLabelEn} • Solved in ${switched.switch_delta.solve_time_ms} ms • Weekly Savings: ${switched.result.currency} ${savingsFmt}`
+        );
+        setTimeout(() => setCheckpointToast(null), 5000);
+        await refreshAudit();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to switch optimization engine");
+      } finally {
+        setEngineSwitching(false);
+        setLoading(false);
+      }
+    },
+    [activeWorkspaceId, currency, lang, markSolvedSignature, refreshAudit]
   );
 
   const modifiedCount = useMemo(
@@ -2069,6 +2176,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         printReportMode,
         setPrintReportMode,
         triggerExecutivePdfPrint,
+        activeEngine,
+        envDefaultEngine,
+        isEngineOverride,
+        diStandards,
+        engineSwitching,
+        adminPanelOpen,
+        setAdminPanelOpen,
+        switchOptimizationEngine,
       }}
     >
       {children}

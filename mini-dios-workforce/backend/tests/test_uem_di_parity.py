@@ -539,3 +539,116 @@ def test_non_plastics_beverage_bottling_plant_on_uem_and_di_core():
     checks = verify_uem_solution(uem_graph, sol)
     assert len(checks) == 6
     assert all(c.passed for c in checks)
+
+
+# --------------------------------------------------------------------------------------------
+# 6. Admin-Only Live Engine Mode Switcher & Per-Sandbox Isolation Tests
+# --------------------------------------------------------------------------------------------
+def test_admin_engine_mode_auth_gate_sandbox_isolation_and_reset(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    """Verify:
+    1. Non-admin guest sessions (e.g. ALEX-2026) are rejected with 403 on GET/POST /api/admin/engine-mode.
+    2. Admin session (ADMIN_PASSWORD) can switch legacy_cpsat_v1 -> uem_di_v1 -> legacy_cpsat_v1 -> default.
+    3. Switching in Admin's sandbox does NOT affect Alexandria guest sandbox's engine mode.
+    4. Subsequent /api/optimize (/api/solve) and /api/quote/ctp calls in Admin's sandbox inherit the override.
+    """
+    from api.routes import set_audit_store
+    from core.audit import AuditStore
+    from core.auth import reset_auth_runtime_state
+
+    store = AuditStore(tmp_path / "admin_engine_test.db")
+    set_audit_store(store)
+    reset_auth_runtime_state()
+
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_SECRET_KEY", "test-admin-engine-secret-2026")
+    monkeypatch.setenv("DEMO_ACCESS_CODES", "Alexandria Plant:ALEX-2026,Riyadh Plant:KSA-2026")
+    monkeypatch.setenv("ADMIN_PASSWORD", "SUPER-ADMIN-99")
+    monkeypatch.setenv("USE_UEM_ENGINE", "false")
+
+    guest_client = TestClient(app)
+    admin_client = TestClient(app)
+
+    # Unauthenticated call -> 401
+    assert guest_client.get("/api/admin/engine-mode").status_code == 401
+    assert guest_client.post("/api/admin/engine-mode", json={"engine": "uem_di_v1"}).status_code == 401
+
+    # Guest logs in with ALEX-2026 -> is_admin is False, /api/admin/engine-mode rejected with 403
+    r_guest_login = guest_client.post("/api/auth/login", json={"passcode": "ALEX-2026"})
+    assert r_guest_login.status_code == 200
+    assert r_guest_login.json()["is_admin"] is False
+    assert guest_client.get("/api/admin/engine-mode").status_code == 403
+    assert guest_client.post("/api/admin/engine-mode", json={"engine": "uem_di_v1"}).status_code == 403
+
+    # Admin logs in with ADMIN_PASSWORD -> is_admin is True
+    r_admin_login = admin_client.post("/api/auth/login", json={"passcode": "SUPER-ADMIN-99"})
+    assert r_admin_login.status_code == 200
+    assert r_admin_login.json()["is_admin"] is True
+    assert r_admin_login.json()["active_engine"] == "legacy_cpsat_v1"
+
+    # 1. Inspect initial engine mode (server default = legacy_cpsat_v1)
+    r_mode_0 = admin_client.get("/api/admin/engine-mode")
+    assert r_mode_0.status_code == 200
+    m0 = r_mode_0.json()
+    assert m0["active_engine"] == "legacy_cpsat_v1"
+    assert m0["env_default_engine"] == "legacy_cpsat_v1"
+    assert m0["is_override"] is False
+    assert m0["di_standards"] == ["BusinessOntology", "ArchValidation", "DMN", "BPMN", "DI_CDD"]
+
+    # 2. Switch Admin sandbox to uem_di_v1 -> immediate re-solve & unified scenario bundle
+    r_sw_uem = admin_client.post("/api/admin/engine-mode", json={"engine": "uem_di_v1"})
+    assert r_sw_uem.status_code == 200
+    b_uem = r_sw_uem.json()
+    assert b_uem["active_engine"] == "uem_di_v1"
+    assert b_uem["is_override"] is True
+    assert b_uem["switch_delta"]["prev_engine"] == "legacy_cpsat_v1"
+    assert b_uem["switch_delta"]["new_engine"] == "uem_di_v1"
+    assert b_uem["switch_delta"]["solve_time_ms"] > 0
+    assert b_uem["result"]["active_engine"] == "uem_di_v1"
+    assert b_uem["result"]["audit"]["all_hard_constraints_passed"] is True
+    assert b_uem["workforce"]["all_hard_constraints_passed"] is True
+
+    # 3. Verify subsequent /api/optimize and /api/quote/ctp in Admin sandbox use uem_di_v1
+    r_opt = admin_client.post("/api/optimize", json={"config": default_config().model_dump(mode="json")})
+    assert r_opt.status_code == 200
+    assert r_opt.json()["active_engine"] == "uem_di_v1"
+    assert r_opt.json()["audit"]["solver_params"]["active_engine"] == "uem_di_v1"
+
+    r_ctp = admin_client.post(
+        "/api/quote/ctp",
+        json={
+            "customer": "Admin Rush Test",
+            "sku_name": "28mm Cap",
+            "mold_id": "M-01",
+            "qty_units": 25000,
+            "color": "White",
+            "target_due_hour": 96.0,
+            "is_export": True,
+        },
+    )
+    assert r_ctp.status_code == 200
+    assert r_ctp.json()["active_engine"] == "uem_di_v1"
+
+    # 4. Verify Guest sandbox (ALEX-2026) is still isolated on legacy_cpsat_v1
+    r_guest_opt = guest_client.post("/api/optimize", json={"config": default_config().model_dump(mode="json")})
+    assert r_guest_opt.status_code == 200
+    assert r_guest_opt.json()["active_engine"] == "legacy_cpsat_v1"
+
+    # 5. Switch Admin sandbox back to legacy_cpsat_v1 explicitly
+    r_sw_leg = admin_client.post("/api/admin/engine-mode", json={"engine": "legacy_cpsat_v1"})
+    assert r_sw_leg.status_code == 200
+    assert r_sw_leg.json()["active_engine"] == "legacy_cpsat_v1"
+    assert r_sw_leg.json()["is_override"] is True
+    assert r_sw_leg.json()["switch_delta"]["prev_engine"] == "uem_di_v1"
+    assert r_sw_leg.json()["switch_delta"]["new_engine"] == "legacy_cpsat_v1"
+    assert r_sw_leg.json()["result"]["active_engine"] == "legacy_cpsat_v1"
+
+    # 6. Reset Admin sandbox to "default" -> restores USE_UEM_ENGINE env default with is_override=False
+    monkeypatch.setenv("USE_UEM_ENGINE", "true")
+    r_sw_def = admin_client.post("/api/admin/engine-mode", json={"engine": "default"})
+    assert r_sw_def.status_code == 200
+    assert r_sw_def.json()["is_override"] is False
+    assert r_sw_def.json()["active_engine"] == "uem_di_v1"
+    assert r_sw_def.json()["env_default_engine"] == "uem_di_v1"
+
+    reset_auth_runtime_state()
+

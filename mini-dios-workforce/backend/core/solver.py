@@ -4,20 +4,106 @@ Zero LLMs. Zero random heuristics. 100% deterministic integer programming via CP
 """
 from __future__ import annotations
 
+import contextlib
+from contextvars import ContextVar
 import hashlib
 import json
 import math
 import os
+import threading
 import time
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
+
+EngineMode = Literal["uem_di_v1", "legacy_cpsat_v1"]
+EngineOverrideInput = Literal["uem_di_v1", "legacy_cpsat_v1", "default"]
+DI_STANDARDS_LIST: list[str] = ["BusinessOntology", "ArchValidation", "DMN", "BPMN", "DI_CDD"]
+
+_engine_lock = threading.Lock()
+_sandbox_engine_overrides: dict[str, EngineMode] = {}
+_active_sandbox_ctx: ContextVar[Optional[str]] = ContextVar("dios_active_sandbox_id", default=None)
 
 
-def is_uem_engine_enabled() -> bool:
-    """Return True when the 5-Layer DI + 6-Primitive UEMGraph compiler engine is active (`USE_UEM_ENGINE=true`)."""
-    return os.environ.get("USE_UEM_ENGINE", "false").strip().lower() in ("true", "1", "yes")
+def _normalize_sandbox_id(sandbox_id: Optional[str] = None) -> str:
+    raw = sandbox_id if sandbox_id is not None else _active_sandbox_ctx.get()
+    cleaned = (raw or "local").strip()
+    return cleaned or "local"
+
+
+def get_env_default_engine() -> EngineMode:
+    """Return the server-wide default optimization engine from `USE_UEM_ENGINE`."""
+    use_uem = os.environ.get("USE_UEM_ENGINE", "false").strip().lower() in ("true", "1", "yes")
+    return "uem_di_v1" if use_uem else "legacy_cpsat_v1"
+
+
+def get_sandbox_engine_override(sandbox_id: Optional[str] = None) -> Optional[EngineMode]:
+    """Return the sandbox-scoped engine override if set, or None if using the server default."""
+    sid = _normalize_sandbox_id(sandbox_id)
+    with _engine_lock:
+        return _sandbox_engine_overrides.get(sid)
+
+
+def set_sandbox_engine_override(
+    sandbox_id: Optional[str],
+    engine: Optional[EngineOverrideInput],
+) -> Optional[EngineMode]:
+    """Set or clear (`'default'` / `None`) the live engine override for `sandbox_id`."""
+    sid = _normalize_sandbox_id(sandbox_id)
+    with _engine_lock:
+        if engine is None or engine == "default":
+            _sandbox_engine_overrides.pop(sid, None)
+            return None
+        if engine not in ("uem_di_v1", "legacy_cpsat_v1"):
+            raise ValueError(f"Unsupported engine mode: {engine}")
+        _sandbox_engine_overrides[sid] = engine
+        return engine
+
+
+def clear_all_sandbox_engine_overrides() -> None:
+    """Clear all in-memory sandbox engine overrides (used by test fixtures)."""
+    with _engine_lock:
+        _sandbox_engine_overrides.clear()
+
+
+def get_effective_engine(sandbox_id: Optional[str] = None) -> EngineMode:
+    """Resolve effective optimization engine for `sandbox_id`: sandbox override -> `USE_UEM_ENGINE` env default."""
+    override = get_sandbox_engine_override(sandbox_id)
+    if override is not None:
+        return override
+    return get_env_default_engine()
+
+
+def is_uem_engine_enabled(sandbox_id: Optional[str] = None) -> bool:
+    """Return True when the 5-Layer DI + 6-Primitive UEMGraph compiler engine is active for `sandbox_id`."""
+    return get_effective_engine(sandbox_id) == "uem_di_v1"
+
+
+def get_engine_mode_metadata(sandbox_id: Optional[str] = None) -> dict:
+    """Return complete engine mode telemetry for `GET/POST /api/admin/engine-mode`."""
+    sid = _normalize_sandbox_id(sandbox_id)
+    override = get_sandbox_engine_override(sid)
+    env_def = get_env_default_engine()
+    active = override if override is not None else env_def
+    return {
+        "sandbox_id": sid,
+        "active_engine": active,
+        "env_default_engine": env_def,
+        "is_override": override is not None,
+        "engine_override": override,
+        "di_standards": list(DI_STANDARDS_LIST),
+    }
+
+
+@contextlib.contextmanager
+def bind_sandbox_engine_context(sandbox_id: Optional[str]):
+    """Bind `sandbox_id` into the active ContextVar so nested/threaded solver calls inherit it automatically."""
+    token = _active_sandbox_ctx.set(_normalize_sandbox_id(sandbox_id))
+    try:
+        yield
+    finally:
+        _active_sandbox_ctx.reset(token)
 
 import ortools
 from ortools.sat.python import cp_model
@@ -833,16 +919,21 @@ def _solve_cpsat_model(
     return opt_plan, status_str, solve_ms, obj_val, best_bound, gap_pct, solver_params
 
 
-def solve_plant_schedule(dataset: PlantDataset, config: SolverConfig) -> SolveResult:
+def solve_plant_schedule(
+    dataset: PlantDataset,
+    config: SolverConfig,
+    sandbox_id: Optional[str] = None,
+) -> SolveResult:
     """Full deterministic Mini-DIOS Plastics optimization pipeline:
     1. Validate raw dataset + scenarios (`validate_plant_data`).
     2. Apply composable scenarios (`apply_plant_scenarios`).
     3. Run Naive FIFO Baseline Scheduler (`run_fifo_baseline`).
-    4. Run OR-Tools CP-SAT Solver (`_solve_cpsat_model` or 6-Primitive `UEMGraph` when `USE_UEM_ENGINE=true`).
+    4. Run OR-Tools CP-SAT Solver (`_solve_cpsat_model` or 6-Primitive `UEMGraph` when `get_effective_engine` is `uem_di_v1`).
     5. Verify all 6 Hard Constraints independently on both plans.
     6. Compute side-by-side ROI Scorecard & cryptographic SHA-256 audit hashes.
     """
-    if is_uem_engine_enabled():
+    active_engine = get_effective_engine(sandbox_id)
+    if active_engine == "uem_di_v1":
         from adapters.plastics import solve_plastics_via_uem
 
         return solve_plastics_via_uem(dataset, config)
@@ -899,6 +990,7 @@ def solve_plant_schedule(dataset: PlantDataset, config: SolverConfig) -> SolveRe
     run_id = f"PL-{uuid.uuid4().hex[:8].upper()}"
     created_at = datetime.now(timezone.utc).isoformat()
 
+    solver_params["active_engine"] = "legacy_cpsat_v1"
     audit = AuditRecord(
         inputs_sha256=inputs_sha,
         schedule_sha256=schedule_sha,
@@ -927,6 +1019,7 @@ def solve_plant_schedule(dataset: PlantDataset, config: SolverConfig) -> SolveRe
         objective=obj_val,
         best_bound=best_bound,
         gap_pct=gap_pct,
+        active_engine="legacy_cpsat_v1",
         validation=validation,
         applied_scenarios=eff_state.applied_scenarios,
         optimized=opt_plan,

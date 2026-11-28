@@ -328,8 +328,15 @@ Zero plastics-specific logic exists in `backend/core/uem*.py` or `backend/core/d
 - **Forward Pass:** Injects shift-windowed operator availability envelopes (`CumulativeEnvelope(kind="shift_capacity_cap")`) into `UEMGraph` when active operator capacity on a day/shift (`available_operators * presses_per_operator`) is less than the active press fleet.
 - **Backward Feedback Pass (Max 1 Iteration Capped at `<= 2.0s`):** If Pass 1's coupled `solve_workforce()` reports `Press_Operator` shortages (`c.required > c.scheduled`) on specific `(day, shift)` slots, `solve_plastics_via_uem()` tightens the `shift_capacity_cap` on those slots to `scheduled_operators * presses_per_operator` and runs at most 1 bounded feedback re-solve (`max_solve_seconds <= 2.0s`), adopting the updated schedule if it reduces `headcount_gap` or `understaffed_slots` without dropping orders.
 
-### 13.3 Runtime Feature Flag & Blueprint Endpoints
-- **`USE_UEM_ENGINE`:** Defaults to `"false"` (preserving the legacy `_solve_cpsat_model` path in `backend/core/solver.py`). When `"true"`, `solve_plant_schedule()` delegates transparently to `solve_plastics_via_uem()`.
+### 13.3 Runtime Feature Flag, Sandbox-Scoped Admin Engine Switcher & Blueprint Endpoints
+- **`USE_UEM_ENGINE` & `get_effective_engine(sandbox_id)` (`backend/core/solver.py`):**
+  - `USE_UEM_ENGINE` defaults to `"false"` (`"legacy_cpsat_v1"`).
+  - `get_effective_engine(sandbox_id)` resolves the calling sandbox's runtime override (`"uem_di_v1"` or `"legacy_cpsat_v1"`) if set via the Admin panel, falling back to `USE_UEM_ENGINE`.
+  - Every optimization entry point (`/api/solve`, `/api/optimize`, `/api/quote/ctp`, `/api/quote/ctp/commit`, `/api/backtest/replay`, `/api/copilot/ask`, `/api/checkpoints/{id}/restore`, and `/api/onboarding/generate`) binds `bind_sandbox_engine_context(session.session_id)` and stamps `active_engine` in its response payload.
+- **`GET /api/admin/engine-mode` & `POST /api/admin/engine-mode` (`backend/api/routes.py`):**
+  - Restricted strictly to Admin sessions via `Depends(require_admin_session)` (`HTTP 403` for non-admin guest passcodes).
+  - `GET /api/admin/engine-mode` returns `active_engine`, `env_default_engine`, `is_override`, `engine_override`, and `di_standards` (`["BusinessOntology", "ArchValidation", "DMN", "BPMN", "DI_CDD"]`).
+  - `POST /api/admin/engine-mode` accepts `{"engine": "uem_di_v1" | "legacy_cpsat_v1" | "default"}`, updates only the calling sandbox's override, immediately re-solves the active plant, and returns the updated engine status, `switch_delta` (`prev_engine`, `new_engine`, `solve_time_ms`, `weekly_savings`, `otif_pct`), and the complete unified scenario bundle.
 - **`GET /api/health`:** Reports `"optimization_engine": "uem_di_v1" | "legacy_cpsat_v1"` and `"use_uem_engine": bool`.
 - **`GET /api/di/blueprint`:**
   - `?format=json` (default): Full 5-layer DI + 6-primitive `UEMGraph` blueprint JSON (including `traced_causal_pathways`).

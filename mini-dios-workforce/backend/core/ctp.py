@@ -129,6 +129,7 @@ class CTPQuoteResult(BaseModel):
     risk_score_before: int = 0
     risk_score_after: int = 0
     solve_time_ms: int = 0
+    active_engine: str = "legacy_cpsat_v1"
     tradeoff_summary_en: str
     tradeoff_summary_ar: str
     candidate_order: ProductionOrder
@@ -324,6 +325,7 @@ def evaluate_ctp_rush_order(
             risk_score_before=risk_before,
             risk_score_after=after_result.risk_radar.overall_risk_score if (after_result and after_result.risk_radar) else risk_before,
             solve_time_ms=after_result.solve_time_ms if after_result else 0,
+            active_engine=after_result.active_engine if after_result else before_result.active_engine,
             tradeoff_summary_en=f"CANNOT PROMISE: {reason_en} Replenish {chosen_resin} silo stock or enable non-food regrind override first.",
             tradeoff_summary_ar=f"تعذر الوعد بالتسليم: مخزون خام {chosen_resin} البكر أو سعة المكابس المتوافقة مع القالب {mold.mold_id} لا يكفي. عزز مخزون الصوامع أو ارفع نسبة الريجريند الصناعي أولاً.",
             candidate_order=candidate_order,
@@ -544,6 +546,7 @@ def evaluate_ctp_rush_order(
         risk_score_before=risk_before,
         risk_score_after=risk_after,
         solve_time_ms=after_result.solve_time_ms,
+        active_engine=after_result.active_engine,
         tradeoff_summary_en=summary_en,
         tradeoff_summary_ar=summary_ar,
         candidate_order=candidate_order,

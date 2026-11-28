@@ -6,9 +6,11 @@ import {
   Boxes,
   Cpu,
   Database,
+  Download,
   Factory,
   GanttChartSquare,
   Globe,
+  Layers,
   Loader2,
   LogOut,
   Moon,
@@ -25,6 +27,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { downloadDiBlueprintArtifact } from "@/lib/api";
 import { COPY, STATUS_LABELS } from "@/lib/i18n";
 import { useApp } from "@/lib/store";
 import type { ViewTab } from "@/lib/types";
@@ -51,11 +54,36 @@ export function TopBar() {
     auth,
     logout,
     resetHostedSandbox,
+    activeEngine,
+    isEngineOverride,
+    diStandards,
+    engineSwitching,
+    adminPanelOpen,
+    setAdminPanelOpen,
+    switchOptimizationEngine,
   } = useApp();
 
   const t = COPY[lang];
   const [mobileControlsOpen, setMobileControlsOpen] = useState(false);
+  const [downloadingArtifact, setDownloadingArtifact] = useState<string | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  const isAdmin = Boolean(
+    auth.is_admin ||
+      !auth.auth_enabled ||
+      (auth.client_label && auth.client_label.toLowerCase() === "admin")
+  );
+  const isUemActive = activeEngine === "uem_di_v1";
+
+  const handleDownloadBlueprint = async (fmt: "json" | "bpmn_xml" | "dmn_xml") => {
+    if (downloadingArtifact) return;
+    setDownloadingArtifact(fmt);
+    try {
+      await downloadDiBlueprintArtifact(fmt);
+    } finally {
+      setDownloadingArtifact(null);
+    }
+  };
 
   const activeRiskCount =
     (result?.risk_radar?.critical_count ?? 0) + (result?.risk_radar?.elevated_count ?? 0);
@@ -113,9 +141,16 @@ export function TopBar() {
                   <h1 className="truncate text-sm font-bold tracking-tight text-white sm:text-lg">
                     {t.appTitle}
                   </h1>
-                  <span className="hidden items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-300 sm:inline-flex">
-                    <ShieldCheck className="h-3 w-3" />
-                    OR-Tools CP-SAT
+                  <span
+                    data-testid="topbar-engine-pill"
+                    className={`hidden items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:inline-flex ${
+                      isUemActive
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                        : "border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
+                    }`}
+                  >
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    <span dir="ltr">{isUemActive ? t.topBarEngineUem : t.topBarEngineLegacy}</span>
                   </span>
                 </div>
                 <p className="hidden truncate text-xs text-slate-400 md:block">{t.appSubtitle}</p>
@@ -124,6 +159,29 @@ export function TopBar() {
 
             {/* Desktop Session Utility Cluster in Top Brand Row (Inline-End: Right in EN LTR, Left in AR RTL) */}
             <div className="hidden min-w-0 flex-wrap items-center justify-end gap-2 lg:col-start-2 lg:row-start-1 lg:flex">
+              {isAdmin && (
+                <button
+                  type="button"
+                  data-testid="btn-admin-menu"
+                  onClick={() => setAdminPanelOpen(true)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                    isUemActive
+                      ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
+                      : "border-cyan-500/40 bg-slate-900 text-cyan-200 hover:border-cyan-400/60 hover:text-white"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                  <span>{t.adminBtn}</span>
+                  <span
+                    dir="ltr"
+                    className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                      isUemActive ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-cyan-300"
+                    }`}
+                  >
+                    {isUemActive ? "UEM+DI" : "Legacy"}
+                  </span>
+                </button>
+              )}
               {auth.auth_enabled && auth.authenticated && (
                 <>
                   {auth.client_label && (
@@ -588,7 +646,34 @@ export function TopBar() {
                 <span>{t.executiveBriefBtn}</span>
               </button>
 
-              {/* Hosted Demo Session Controls */}
+              {/* Hosted Demo Session Controls & Mobile Admin Trigger */}
+              {isAdmin && (
+                <div className="border-t border-slate-800 pt-3">
+                  <button
+                    type="button"
+                    data-testid="mobile-btn-admin-menu"
+                    onClick={() => {
+                      setMobileControlsOpen(false);
+                      setAdminPanelOpen(true);
+                    }}
+                    className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/20"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-cyan-400" />
+                      <span>{t.adminPanelTitle}</span>
+                    </span>
+                    <span
+                      dir="ltr"
+                      className={`rounded-md px-2 py-0.5 font-mono text-[10px] font-bold ${
+                        isUemActive ? "bg-emerald-400 text-slate-950" : "bg-slate-800 text-cyan-300"
+                      }`}
+                    >
+                      {isUemActive ? "UEM+DI" : "Legacy"}
+                    </span>
+                  </button>
+                </div>
+              )}
+
               {auth.auth_enabled && auth.authenticated && (
                 <div className="space-y-2 border-t border-slate-800 pt-3">
                   {auth.client_label && (
@@ -667,6 +752,194 @@ export function TopBar() {
           </button>
         </div>
       </div>
+
+      {/* Admin Control & Solver Engine Switcher Modal (Strictly Admin-Gated) */}
+      {isAdmin && adminPanelOpen && (
+        <div
+          data-testid="admin-engine-modal"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm sm:items-center sm:p-4"
+        >
+          <div
+            className="fixed inset-0"
+            onClick={() => setAdminPanelOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border-t border-slate-700/80 bg-[#0b1120] shadow-2xl sm:rounded-2xl sm:border"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-300">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white">{t.adminPanelTitle}</h2>
+                  <p className="mt-0.5 text-[11px] text-slate-400">{t.adminPanelSubtitle}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                data-testid="btn-close-admin-modal"
+                onClick={() => setAdminPanelOpen(false)}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 space-y-4 overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+              {/* Optimization Engine (Live Demo Switch) Card */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-white">{t.adminEngineCardTitle}</span>
+                  <span
+                    className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
+                      isEngineOverride
+                        ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
+                        : "border-slate-700 bg-slate-800 text-slate-300"
+                    }`}
+                  >
+                    {isEngineOverride ? t.adminEngineLiveOverride : t.adminEngineServerDefault}
+                  </span>
+                </div>
+
+                {/* Status Pill */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <span
+                    data-testid="admin-active-engine-badge"
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+                      isUemActive
+                        ? "border-emerald-500/45 bg-emerald-500/15 text-emerald-200"
+                        : "border-amber-500/45 bg-amber-500/15 text-amber-200"
+                    }`}
+                  >
+                    <Cpu className="h-3.5 w-3.5 shrink-0" />
+                    <span>{isUemActive ? t.adminEngineUemBadge : t.adminEngineLegacyBadge}</span>
+                  </span>
+
+                  {isEngineOverride && (
+                    <button
+                      type="button"
+                      data-testid="btn-engine-reset-default"
+                      disabled={engineSwitching || loading}
+                      onClick={() => void switchOptimizationEngine("default")}
+                      className="text-[11px] font-semibold text-cyan-300 underline decoration-cyan-500/50 underline-offset-4 transition hover:text-cyan-200 disabled:opacity-50"
+                    >
+                      {t.adminEngineResetDefault}
+                    </button>
+                  )}
+                </div>
+
+                {/* Bilingual Segmented Toggle Switch */}
+                <div className="mt-3.5 grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1">
+                  <button
+                    type="button"
+                    data-testid="btn-engine-legacy"
+                    disabled={engineSwitching || loading}
+                    onClick={() => void switchOptimizationEngine("legacy_cpsat_v1")}
+                    className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition disabled:opacity-50 ${
+                      !isUemActive
+                        ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20"
+                        : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                    }`}
+                  >
+                    <span>{t.adminEngineOptLegacy}</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btn-engine-uem"
+                    disabled={engineSwitching || loading}
+                    onClick={() => void switchOptimizationEngine("uem_di_v1")}
+                    className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition disabled:opacity-50 ${
+                      isUemActive
+                        ? "bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20"
+                        : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                    }`}
+                  >
+                    <span>{t.adminEngineOptUem}</span>
+                  </button>
+                </div>
+
+                {/* Inline Re-solving Spinner */}
+                {engineSwitching && (
+                  <div
+                    data-testid="admin-engine-resolving-spinner"
+                    className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                    <span>{t.adminEngineResolving}</span>
+                  </div>
+                )}
+
+                {/* Active DI Standards Pills */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {diStandards.map((std) => (
+                    <span
+                      key={std}
+                      dir="ltr"
+                      className="rounded-md border border-slate-800 bg-slate-950/80 px-2 py-0.5 font-mono text-[10px] text-slate-400"
+                    >
+                      {std}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 1-Click 5-Layer DI Standards Export Buttons */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+                <div className="mb-2.5 text-xs font-bold text-slate-200">{t.adminDiExportsLabel}</div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    data-testid="btn-export-di-json"
+                    disabled={downloadingArtifact !== null}
+                    onClick={() => void handleDownloadBlueprint("json")}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-500/50 hover:text-white disabled:opacity-50"
+                  >
+                    {downloadingArtifact === "json" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 text-cyan-400" />
+                    )}
+                    <span>{t.adminExportJsonBlueprint}</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btn-export-di-bpmn"
+                    disabled={downloadingArtifact !== null}
+                    onClick={() => void handleDownloadBlueprint("bpmn_xml")}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-emerald-200 transition hover:border-emerald-500/50 hover:text-white disabled:opacity-50"
+                  >
+                    {downloadingArtifact === "bpmn_xml" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 text-emerald-400" />
+                    )}
+                    <span dir="ltr">{t.adminExportBpmnXml}</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btn-export-di-dmn"
+                    disabled={downloadingArtifact !== null}
+                    onClick={() => void handleDownloadBlueprint("dmn_xml")}
+                    className="inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold text-purple-200 transition hover:border-purple-500/50 hover:text-white disabled:opacity-50"
+                  >
+                    {downloadingArtifact === "dmn_xml" ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5 text-purple-400" />
+                    )}
+                    <span dir="ltr">{t.adminExportDmnXml}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

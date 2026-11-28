@@ -1230,6 +1230,9 @@ class RiskRadarReport(BaseModel):
     alerts: list[RiskAlert] = Field(default_factory=list)
 
 
+EngineMode = Literal["uem_di_v1", "legacy_cpsat_v1"]
+
+
 class SolveResult(BaseModel):
     run_id: str
     created_at: str
@@ -1241,6 +1244,7 @@ class SolveResult(BaseModel):
     objective: float
     best_bound: float
     gap_pct: float
+    active_engine: EngineMode = "legacy_cpsat_v1"
     validation: ValidationReport
     applied_scenarios: list[AppliedScenario]
     optimized: SchedulePlan

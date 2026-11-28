@@ -1,4 +1,6 @@
 import type {
+  AdminEngineModeStatus,
+  AdminEngineModeSwitchResponse,
   AuditLogItem,
   AuthStatus,
   BacktestReplayReport,
@@ -10,6 +12,7 @@ import type {
   CTPQuoteResult,
   Currency,
   DecisionCheckpoint,
+  EngineOverrideInput,
   FinancialReport,
   GuidedSetupRequest,
   GuidedSetupResponse,
@@ -514,4 +517,61 @@ export async function generateWhatsAppDispatchApi(
     body: JSON.stringify(payload),
   });
   return handleJson<WhatsAppDispatchResponse>(res);
+}
+
+// --------------------------------------------------------------------------------------------
+// Admin Solver Engine Switcher & 5-Layer DI Blueprint Export Endpoints
+// --------------------------------------------------------------------------------------------
+export async function fetchAdminEngineModeApi(): Promise<AdminEngineModeStatus> {
+  const res = await fetch(`${API_BASE}/api/admin/engine-mode`, {
+    cache: "no-store",
+    credentials: "include",
+  });
+  return handleJson<AdminEngineModeStatus>(res);
+}
+
+export async function switchAdminEngineModeApi(payload: {
+  engine: EngineOverrideInput;
+  dataset?: PlantDataset | null;
+  config?: SolverConfig | null;
+  workspace_id?: string;
+}): Promise<AdminEngineModeSwitchResponse> {
+  const res = await fetch(`${API_BASE}/api/admin/engine-mode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleJson<AdminEngineModeSwitchResponse>(res);
+}
+
+export function getDiBlueprintUrl(format: "json" | "bpmn_xml" | "dmn_xml" = "json"): string {
+  return `${API_BASE}/api/di/blueprint?format=${format}`;
+}
+
+export async function downloadDiBlueprintArtifact(
+  format: "json" | "bpmn_xml" | "dmn_xml"
+): Promise<void> {
+  const res = await fetch(getDiBlueprintUrl(format), {
+    cache: "no-store",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`Blueprint export failed (HTTP ${res.status})`);
+  }
+  const blob = await res.blob();
+  const filename =
+    format === "bpmn_xml"
+      ? "mini_dios_plastics_workflow.bpmn20.xml"
+      : format === "dmn_xml"
+      ? "mini_dios_plastics_rules.dmn13.xml"
+      : "mini_dios_plastics_di_blueprint.json";
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
 }

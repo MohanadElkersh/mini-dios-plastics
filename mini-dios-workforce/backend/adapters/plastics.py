@@ -1745,6 +1745,7 @@ def solve_plastics_via_uem(dataset: PlantDataset, config: SolverConfig) -> Solve
 
     solver_params = {
         **uem_sol.solver_params,
+        "active_engine": "uem_di_v1",
         "horizon_hrs": config.physics.horizon_hrs,
         "scarce_resins": uem_graph.metadata.get("scarce_resins", []),
         "ontology_summary": ont_graph.summary_counts(),
@@ -1788,6 +1789,7 @@ def solve_plastics_via_uem(dataset: PlantDataset, config: SolverConfig) -> Solve
         objective=uem_sol.objective_value,
         best_bound=uem_sol.best_bound,
         gap_pct=uem_sol.gap_pct,
+        active_engine="uem_di_v1",
         validation=validation,
         applied_scenarios=eff_state.applied_scenarios,
         optimized=opt_plan,

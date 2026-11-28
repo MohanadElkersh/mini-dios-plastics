@@ -41,6 +41,16 @@ class AuthSession(BaseModel):
     client_label: str
     authenticated: bool = True
     auth_enabled: bool = False
+    is_admin: bool = False
+
+
+def is_admin_label(client_label: Optional[str], auth_enabled: Optional[bool] = None) -> bool:
+    """Return True if the session has Admin privileges (local dev when AUTH_ENABLED=false, or Admin passcode)."""
+    enabled = is_auth_enabled() if auth_enabled is None else auth_enabled
+    if not enabled:
+        return True
+    lbl = (client_label or "").strip().lower()
+    return lbl in ("admin", "system admin", "superadmin")
 
 
 def is_auth_enabled() -> bool:
@@ -151,11 +161,13 @@ def verify_session_token(token: Optional[str]) -> Optional[AuthSession]:
         lbl = str(payload.get("lbl", "Executive Demo")).strip() or "Executive Demo"
         if not sid:
             return None
+        auth_on = is_auth_enabled()
         return AuthSession(
             session_id=sid,
             client_label=lbl,
             authenticated=True,
-            auth_enabled=is_auth_enabled(),
+            auth_enabled=auth_on,
+            is_admin=is_admin_label(lbl, auth_on),
         )
     except Exception:
         return None
@@ -236,10 +248,16 @@ def consume_copilot_live_quota(session_id: str) -> tuple[bool, int, int]:
 
 
 def reset_auth_runtime_state() -> None:
-    """Clear in-memory rate-limit and quota counters (for tests)."""
+    """Clear in-memory rate-limit, quota counters, and sandbox engine overrides (for tests)."""
     with _lock:
         _login_failures.clear()
         _copilot_calls.clear()
+    try:
+        from .solver import clear_all_sandbox_engine_overrides
+
+        clear_all_sandbox_engine_overrides()
+    except Exception:
+        pass
 
 
 def get_optional_session(request: Request) -> Optional[AuthSession]:
@@ -256,11 +274,14 @@ def get_optional_session(request: Request) -> Optional[AuthSession]:
 
             neon_claims = verify_neon_auth_jwt(bearer_token)
             if neon_claims is not None:
+                auth_on = is_auth_enabled()
+                lbl = neon_claims["client_label"]
                 return AuthSession(
                     session_id=neon_claims["session_id"],
-                    client_label=neon_claims["client_label"],
+                    client_label=lbl,
                     authenticated=True,
-                    auth_enabled=is_auth_enabled(),
+                    auth_enabled=auth_on,
+                    is_admin=is_admin_label(lbl, auth_on),
                 )
     return None
 
@@ -273,10 +294,22 @@ def require_auth_session(request: Request) -> AuthSession:
             client_label="Local Plant",
             authenticated=True,
             auth_enabled=False,
+            is_admin=True,
         )
     session = get_optional_session(request)
     if session is None:
         raise HTTPException(status_code=401, detail="Authentication required. Please sign in with an access code.")
+    return session
+
+
+def require_admin_session(request: Request) -> AuthSession:
+    """FastAPI dependency restricting engine-mode switching strictly to Admin sessions."""
+    session = require_auth_session(request)
+    if not session.is_admin and not is_admin_label(session.client_label, session.auth_enabled):
+        raise HTTPException(
+            status_code=403,
+            detail="Admin privileges required to inspect or switch the optimization engine.",
+        )
     return session
 
 

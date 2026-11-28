@@ -118,6 +118,7 @@ class BacktestReplayReport(BaseModel):
     fx_egp_per_sar: float
     solve_time_ms: int
     solver_status: str
+    active_engine: str = "legacy_cpsat_v1"
     actual: BacktestPeriodMetrics
     optimized: BacktestPeriodMetrics
     actual_vs_optimized: BacktestDeltaMetrics
@@ -486,6 +487,7 @@ def run_historical_backtest_replay(
         fx_egp_per_sar=fx,
         solve_time_ms=solved.solve_time_ms,
         solver_status=solved.status,
+        active_engine=solved.active_engine,
         actual=BacktestPeriodMetrics(
             purge_scrap_kg=act_scrap_kg,
             purge_scrap_cost=act_scrap_cost,

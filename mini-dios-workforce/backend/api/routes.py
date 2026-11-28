@@ -19,10 +19,12 @@ from core.auth import (
     consume_copilot_live_quota,
     get_client_ip,
     get_optional_session,
+    is_admin_label,
     is_auth_enabled,
     is_instant_demo_enabled,
     new_session_id,
     record_login_failure,
+    require_admin_session,
     require_auth_session,
     set_session_cookie,
     sign_session_token,
@@ -79,7 +81,18 @@ from core.ontology import (
 )
 from core.risk_radar import compute_risk_radar
 from core.seed import default_config, demo_dataset
-from core.solver import DatasetValidationError, is_uem_engine_enabled, solve_plant_schedule
+from core.solver import (
+    DatasetValidationError,
+    EngineMode,
+    EngineOverrideInput,
+    bind_sandbox_engine_context,
+    get_effective_engine,
+    get_engine_mode_metadata,
+    get_env_default_engine,
+    is_uem_engine_enabled,
+    set_sandbox_engine_override,
+    solve_plant_schedule,
+)
 from core.workforce_solver import solve_workforce, solve_workforce_with_callouts
 
 router = APIRouter(prefix="/api", tags=["Mini-DIOS Plastics"])
@@ -114,6 +127,10 @@ class AuthStatusResponse(BaseModel):
     client_label: Optional[str] = None
     session_id: Optional[str] = None
     instant_demo_enabled: bool = False
+    is_admin: bool = False
+    active_engine: EngineMode = "legacy_cpsat_v1"
+    env_default_engine: EngineMode = "legacy_cpsat_v1"
+    is_engine_override: bool = False
 
 
 class DemoDataResponse(BaseModel):
@@ -181,6 +198,7 @@ class CheckpointCreateRequest(BaseModel):
 class CheckpointRestoreResponse(BaseModel):
     restored: bool = True
     storage_backend: str
+    active_engine: EngineMode = "legacy_cpsat_v1"
     checkpoint: dict
     dataset: PlantDataset
     config: SolverConfig
@@ -201,7 +219,41 @@ class CTPCommitRequest(BaseModel):
 class CTPCommitResponse(BaseModel):
     committed: bool = True
     order_id: str
+    active_engine: EngineMode = "legacy_cpsat_v1"
     checkpoint: dict
+    dataset: PlantDataset
+    config: SolverConfig
+    result: SolveResult
+    workforce: Optional[WorkforceResult] = None
+    financials: FinancialReport
+    risk_radar: Optional[RiskRadarReport] = None
+    validation: ValidationReport
+
+
+class AdminEngineModeRequest(BaseModel):
+    engine: EngineOverrideInput = Field(
+        description="Target optimization engine: 'uem_di_v1', 'legacy_cpsat_v1', or 'default'"
+    )
+    dataset: Optional[PlantDataset] = None
+    config: Optional[SolverConfig] = None
+    workspace_id: str = "default"
+
+
+class AdminEngineSwitchDelta(BaseModel):
+    prev_engine: EngineMode
+    new_engine: EngineMode
+    solve_time_ms: int
+    weekly_savings: float
+    otif_pct: float
+
+
+class AdminEngineModeSwitchResponse(BaseModel):
+    active_engine: EngineMode
+    env_default_engine: EngineMode
+    is_override: bool
+    engine_override: Optional[EngineMode] = None
+    di_standards: list[str]
+    switch_delta: AdminEngineSwitchDelta
     dataset: PlantDataset
     config: SolverConfig
     result: SolveResult
@@ -215,14 +267,17 @@ class CTPCommitResponse(BaseModel):
 # Public Health & Auth Endpoints
 # --------------------------------------------------------------------------------------------
 @router.get("/health")
-def health() -> dict:
+def health(request: Request) -> dict:
     store = get_audit_store()
-    uem_on = is_uem_engine_enabled()
+    sess = get_optional_session(request)
+    sid = sess.session_id if sess else "local"
+    eff_eng = get_effective_engine(sid)
+    uem_on = eff_eng == "uem_di_v1"
     return {
         "status": "ok",
         "service": "mini-dios-plastics",
         "ortools_version": getattr(ortools, "__version__", "unknown"),
-        "optimization_engine": "uem_di_v1" if uem_on else "legacy_cpsat_v1",
+        "optimization_engine": eff_eng,
         "use_uem_engine": uem_on,
         "auth_enabled": is_auth_enabled(),
         "storage_backend": store.storage_backend,
@@ -234,6 +289,7 @@ def health() -> dict:
 
 @router.get("/di/blueprint")
 def get_di_blueprint_endpoint(
+    request: Request,
     format: str = Query(
         default="json",
         description="Blueprint export format: 'json', 'bpmn_xml' (OMG BPMN 2.0 XML), or 'dmn_xml' (OMG DMN 1.3 XML)",
@@ -263,12 +319,86 @@ def get_di_blueprint_endpoint(
             detail="Unsupported format. Use 'json', 'bpmn_xml', or 'dmn_xml'.",
         )
 
+    sess = get_optional_session(request)
+    sid = sess.session_id if sess else "local"
     ds = demo_dataset()
     cfg = default_config()
-    solved_res = solve_plant_schedule(ds, cfg) if include_solved_causal else None
+    with bind_sandbox_engine_context(sid):
+        solved_res = solve_plant_schedule(ds, cfg, sandbox_id=sid) if include_solved_causal else None
     bp = build_plastics_blueprint(dataset=ds, config=cfg, result=solved_res)
-    bp["optimization_engine"] = "uem_di_v1" if is_uem_engine_enabled() else "legacy_cpsat_v1"
+    bp["optimization_engine"] = get_effective_engine(sid)
     return bp
+
+
+@router.get("/admin/engine-mode")
+def get_admin_engine_mode_endpoint(
+    session: AuthSession = Depends(require_admin_session),
+) -> dict:
+    """Inspect the calling admin sandbox's active optimization engine, override state, and 5-layer DI standards."""
+    meta = get_engine_mode_metadata(session.session_id)
+    return {
+        "active_engine": meta["active_engine"],
+        "env_default_engine": meta["env_default_engine"],
+        "is_override": meta["is_override"],
+        "engine_override": meta["engine_override"],
+        "sandbox_id": meta["sandbox_id"],
+        "di_standards": meta["di_standards"],
+    }
+
+
+@router.post("/admin/engine-mode", response_model=AdminEngineModeSwitchResponse)
+def set_admin_engine_mode_endpoint(
+    payload: AdminEngineModeRequest,
+    session: AuthSession = Depends(require_admin_session),
+):
+    """Switch the calling admin sandbox's optimization engine live and return an immediately solved unified bundle."""
+    sid = session.session_id
+    prev_engine = get_effective_engine(sid)
+    set_sandbox_engine_override(sid, payload.engine)
+    meta = get_engine_mode_metadata(sid)
+    new_engine: EngineMode = meta["active_engine"]
+
+    store = get_audit_store()
+    ws = store.get_workspace(payload.workspace_id, session_id=sid, access_code=session.client_label)
+    ds = payload.dataset or (
+        PlantDataset.model_validate(ws["dataset"]) if ws and ws.get("dataset") else demo_dataset()
+    )
+    cfg = payload.config or (
+        SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config()
+    )
+
+    try:
+        with bind_sandbox_engine_context(sid):
+            result = solve_plant_schedule(ds, cfg, sandbox_id=sid)
+    except DatasetValidationError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": str(exc), "validation": exc.report.model_dump(mode="json")},
+        )
+
+    store.save_run(result, dataset=ds, session_id=sid)
+
+    return AdminEngineModeSwitchResponse(
+        active_engine=new_engine,
+        env_default_engine=meta["env_default_engine"],
+        is_override=meta["is_override"],
+        engine_override=meta["engine_override"],
+        di_standards=meta["di_standards"],
+        switch_delta=AdminEngineSwitchDelta(
+            prev_engine=prev_engine,
+            new_engine=new_engine,
+            solve_time_ms=result.solve_time_ms,
+            weekly_savings=result.financials.total_weekly_savings,
+            otif_pct=result.optimized.kpis.otif_pct,
+        ),
+        dataset=ds,
+        config=cfg,
+        result=result,
+        workforce=result.workforce,
+        financials=result.financials,
+        risk_radar=result.risk_radar,
+        validation=result.validation,
+    )
 
 
 @router.get("/neon/status")
@@ -304,28 +434,43 @@ def auth_me(request: Request) -> AuthStatusResponse:
     auth_on = is_auth_enabled()
     instant_on = is_instant_demo_enabled()
     if not auth_on:
+        meta = get_engine_mode_metadata("local")
         return AuthStatusResponse(
             auth_enabled=False,
             authenticated=True,
             client_label="Local Plant",
             session_id="local",
             instant_demo_enabled=instant_on,
+            is_admin=True,
+            active_engine=meta["active_engine"],
+            env_default_engine=meta["env_default_engine"],
+            is_engine_override=meta["is_override"],
         )
     sess = get_optional_session(request)
     if sess is None:
+        meta = get_engine_mode_metadata("local")
         return AuthStatusResponse(
             auth_enabled=True,
             authenticated=False,
             client_label=None,
             session_id=None,
             instant_demo_enabled=instant_on,
+            is_admin=False,
+            active_engine=meta["active_engine"],
+            env_default_engine=meta["env_default_engine"],
+            is_engine_override=meta["is_override"],
         )
+    meta = get_engine_mode_metadata(sess.session_id)
     return AuthStatusResponse(
         auth_enabled=True,
         authenticated=True,
         client_label=sess.client_label,
         session_id=sess.session_id,
         instant_demo_enabled=instant_on,
+        is_admin=sess.is_admin or is_admin_label(sess.client_label, True),
+        active_engine=meta["active_engine"],
+        env_default_engine=meta["env_default_engine"],
+        is_engine_override=meta["is_override"],
     )
 
 
@@ -335,12 +480,17 @@ def auth_login(payload: AuthLoginRequest, request: Request, response: Response) 
     instant_on = is_instant_demo_enabled()
 
     if not auth_on:
+        meta = get_engine_mode_metadata("local")
         return AuthStatusResponse(
             auth_enabled=False,
             authenticated=True,
             client_label="Local Plant",
             session_id="local",
             instant_demo_enabled=instant_on,
+            is_admin=True,
+            active_engine=meta["active_engine"],
+            env_default_engine=meta["env_default_engine"],
+            is_engine_override=meta["is_override"],
         )
 
     client_ip = get_client_ip(request)
@@ -364,6 +514,7 @@ def auth_login(payload: AuthLoginRequest, request: Request, response: Response) 
 
     # Pre-seed an isolated default workspace for this session
     get_audit_store().list_workspaces(session_id=sid)
+    meta = get_engine_mode_metadata(sid)
 
     return AuthStatusResponse(
         auth_enabled=True,
@@ -371,6 +522,10 @@ def auth_login(payload: AuthLoginRequest, request: Request, response: Response) 
         client_label=client_label,
         session_id=sid,
         instant_demo_enabled=instant_on,
+        is_admin=is_admin_label(client_label, True),
+        active_engine=meta["active_engine"],
+        env_default_engine=meta["env_default_engine"],
+        is_engine_override=meta["is_override"],
     )
 
 
@@ -463,13 +618,15 @@ async def validate_endpoint(
 
 
 @router.post("/solve", response_model=SolveResult)
+@router.post("/optimize", response_model=SolveResult)
 def solve_endpoint(
     payload: SolveRequest,
     session: AuthSession = Depends(require_auth_session),
 ):
     dataset = payload.dataset or demo_dataset()
     try:
-        result = solve_plant_schedule(dataset, payload.config)
+        with bind_sandbox_engine_context(session.session_id):
+            result = solve_plant_schedule(dataset, payload.config, sandbox_id=session.session_id)
     except DatasetValidationError as exc:
         return JSONResponse(
             status_code=422,
@@ -490,7 +647,8 @@ def workforce_solve_endpoint(
     result = payload.result
     try:
         if result is None:
-            result = solve_plant_schedule(dataset, cfg)
+            with bind_sandbox_engine_context(session.session_id):
+                result = solve_plant_schedule(dataset, cfg, sandbox_id=session.session_id)
     except DatasetValidationError as exc:
         return JSONResponse(
             status_code=422,
@@ -534,16 +692,17 @@ async def copilot_ask_endpoint(
             )
 
     print(f"[Copilot] Request received: prompt='{payload.prompt}'", flush=True)
-    copilot_res = await asyncio.to_thread(
-        run_plastics_copilot,
-        payload.prompt,
-        eff_dataset,
-        curr_cfg,
-        payload.current_result,
-        payload.language,
-        force_offline,
-        quota_limited,
-    )
+    with bind_sandbox_engine_context(session.session_id):
+        copilot_res = await asyncio.to_thread(
+            run_plastics_copilot,
+            payload.prompt,
+            eff_dataset,
+            curr_cfg,
+            payload.current_result,
+            payload.language,
+            force_offline,
+            quota_limited,
+        )
     if copilot_res.result is not None:
         saved_ds = copilot_res.dataset or copilot_res.plant_state or eff_dataset
         await asyncio.to_thread(
@@ -764,13 +923,14 @@ async def backtest_replay_endpoint(
             else:
                 source_label = str(body.get("mode") or body.get("source_label") or "sample_30day_log")
 
-    report = await asyncio.to_thread(
-        run_historical_backtest_replay,
-        dataset,
-        config,
-        rows,
-        source_label,
-    )
+    with bind_sandbox_engine_context(session.session_id):
+        report = await asyncio.to_thread(
+            run_historical_backtest_replay,
+            dataset,
+            config,
+            rows,
+            source_label,
+        )
     await asyncio.to_thread(
         get_audit_store().save_backtest_run,
         report,
@@ -798,7 +958,8 @@ def onboarding_generate_endpoint(
 ) -> GuidedSetupResponse:
     """Build and immediately solve a tailored plant workspace from the 5-step Guided Setup interview."""
     ds, cfg, checklist = build_guided_plant_workspace(payload)
-    result = solve_plant_schedule(ds, cfg)
+    with bind_sandbox_engine_context(session.session_id):
+        result = solve_plant_schedule(ds, cfg, sandbox_id=session.session_id)
     ws_id = f"guided-{result.run_id.lower()}"
     store = get_audit_store()
     store.save_workspace(ws_id, ds.name, ds, cfg, session_id=session.session_id)
@@ -972,7 +1133,8 @@ def restore_checkpoint_endpoint(
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Corrupted checkpoint state snapshot: {exc}") from exc
 
-    result = solve_plant_schedule(restored_ds, restored_cfg)
+    with bind_sandbox_engine_context(session.session_id):
+        result = solve_plant_schedule(restored_ds, restored_cfg, sandbox_id=session.session_id)
     store.save_workspace(
         workspace_id="default",
         name=restored_ds.name,
@@ -987,6 +1149,7 @@ def restore_checkpoint_endpoint(
     return CheckpointRestoreResponse(
         restored=True,
         storage_backend=store.storage_backend,
+        active_engine=result.active_engine,
         checkpoint=cp_meta,
         dataset=restored_ds,
         config=restored_cfg,
@@ -1018,12 +1181,13 @@ async def quote_ctp_endpoint(
             fallback_cfg = SolverConfig.model_validate(ws["config"]) if ws and ws.get("config") else default_config()
 
     try:
-        return await asyncio.to_thread(
-            evaluate_ctp_rush_order,
-            payload,
-            fallback_ds,
-            fallback_cfg,
-        )
+        with bind_sandbox_engine_context(session.session_id):
+            return await asyncio.to_thread(
+                evaluate_ctp_rush_order,
+                payload,
+                fallback_ds,
+                fallback_cfg,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1049,7 +1213,8 @@ def commit_ctp_order_endpoint(
         cand.order_id = f"CTP-RUSH-{seq:02d}"
     next_ds.orders.append(cand)
 
-    result = solve_plant_schedule(next_ds, base_cfg)
+    with bind_sandbox_engine_context(session.session_id):
+        result = solve_plant_schedule(next_ds, base_cfg, sandbox_id=session.session_id)
     store.save_workspace(
         workspace_id=payload.workspace_id,
         name=next_ds.name,
@@ -1073,6 +1238,7 @@ def commit_ctp_order_endpoint(
     return CTPCommitResponse(
         committed=True,
         order_id=cand.order_id,
+        active_engine=result.active_engine,
         checkpoint=cp,
         dataset=next_ds,
         config=base_cfg,

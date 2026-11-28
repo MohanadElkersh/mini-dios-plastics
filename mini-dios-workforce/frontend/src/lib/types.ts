@@ -1,6 +1,8 @@
 export type Currency = "EGP" | "SAR";
 export type Lang = "en" | "ar";
 export type ViewTab = "scope" | "studio" | "console" | "gantt" | "financials" | "workforce";
+export type EngineMode = "uem_di_v1" | "legacy_cpsat_v1";
+export type EngineOverrideInput = "uem_di_v1" | "legacy_cpsat_v1" | "default";
 export type Severity = "error" | "warning" | "info";
 export type ProcessType = "Injection" | "BlowMolding" | "Extrusion";
 export type MachineStatus = "active" | "down" | "maintenance";
@@ -637,6 +639,7 @@ export interface SolveResult {
   objective: number;
   best_bound: number;
   gap_pct: number;
+  active_engine?: EngineMode;
   validation: ValidationReport;
   applied_scenarios: AppliedScenario[];
   optimized: SchedulePlan;
@@ -736,6 +739,7 @@ export interface CopilotResult {
   timing: CopilotTiming;
   source: string;
   quota_limited?: boolean;
+  active_engine?: EngineMode;
 }
 
 export interface BacktestPeriodMetrics {
@@ -882,6 +886,38 @@ export interface AuthStatus {
   client_label: string | null;
   session_id: string | null;
   instant_demo_enabled: boolean;
+  is_admin?: boolean;
+  active_engine?: EngineMode;
+  env_default_engine?: EngineMode;
+  is_engine_override?: boolean;
+}
+
+export interface AdminEngineModeStatus {
+  active_engine: EngineMode;
+  env_default_engine: EngineMode;
+  is_override: boolean;
+  engine_override?: EngineMode | null;
+  sandbox_id?: string;
+  di_standards: string[];
+}
+
+export interface AdminEngineSwitchDelta {
+  prev_engine: EngineMode;
+  new_engine: EngineMode;
+  solve_time_ms: number;
+  weekly_savings: number;
+  otif_pct: number;
+}
+
+export interface AdminEngineModeSwitchResponse extends AdminEngineModeStatus {
+  switch_delta: AdminEngineSwitchDelta;
+  dataset: PlantDataset;
+  config: SolverConfig;
+  result: SolveResult;
+  workforce?: WorkforceResult | null;
+  financials: FinancialReport;
+  risk_radar?: RiskRadarReport | null;
+  validation: ValidationReport;
 }
 
 export type PinnedSlotId = "A" | "B" | "C";
